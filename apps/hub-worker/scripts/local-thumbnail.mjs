@@ -1,7 +1,7 @@
 import { chromium } from 'playwright-chromium';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validatePng } from './thumbnail.mjs';
+import { validatePng } from '../src/thumbnail.ts';
 
 const MAX_PNG_BYTES = 4 * 1024 * 1024;
 const SLIDE_SELECTOR = '.slidev-page[data-slidev-no="1"]';

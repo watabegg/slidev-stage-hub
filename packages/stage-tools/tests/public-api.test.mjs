@@ -300,6 +300,33 @@ test('connect writes schema v1 mode 0600 and a failed fetch leaves the config un
   });
 });
 
+test('connect persists validated v2 playback metadata in schema v1 local config', async () => {
+  await withTempDir(async (directory) => {
+    const configPath = path.join(directory, 'config', 'local-config.json');
+    const v2Deck = {
+      ...remoteDeck,
+      playback: { kind: 'revision-query', parameter: 'revision' },
+    };
+    const result = await connectStage({
+      origin: 'http://127.0.0.1:4173',
+      configPath,
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            schemaVersion: 2,
+            protocolVersion: 1,
+            decks: [v2Deck],
+            unsupportedDecks: [],
+          }),
+          { status: 200 },
+        ),
+    });
+    assert.deepEqual(result.config.decks, [v2Deck]);
+    assert.equal(result.config.schemaVersion, 1);
+    assert.deepEqual(JSON.parse(await readFile(configPath, 'utf8')).decks, [v2Deck]);
+  });
+});
+
 test('connect stores only the absolute auth file path and never writes header values', async () => {
   await withTempDir(async (directory) => {
     const origin = 'https://slides.example.com';

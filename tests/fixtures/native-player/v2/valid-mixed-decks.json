@@ -1,0 +1,31 @@
+{
+  "name": "v2 requires revision-query playback on every supported deck and ignores extensions",
+  "accepted": true,
+  "document": {
+    "schemaVersion": 2,
+    "protocolVersion": 1,
+    "futureMetadata": { "producer": "fixture" },
+    "decks": [
+      {
+        "id": "course/topic-one",
+        "revision": "build-17",
+        "entry": "/course/topic-one/1",
+        "clickTotals": [0, 2],
+        "playback": {
+          "kind": "revision-query",
+          "parameter": "revision",
+          "futurePlaybackField": true
+        },
+        "futureDeckField": true
+      },
+      {
+        "id": "course/topic-two",
+        "revision": "改訂-β",
+        "entry": "/course/topic-two/1",
+        "clickTotals": [0],
+        "playback": { "kind": "revision-query", "parameter": "revision" }
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

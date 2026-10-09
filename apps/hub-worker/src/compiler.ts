@@ -4,9 +4,11 @@ import {
   compileTemplate,
   parse as parseSfc,
 } from '@vue/compiler-sfc/dist/compiler-sfc.esm-browser.js';
+import type { BindingMetadata } from '@vue/compiler-sfc';
 import { createGenerator } from '@unocss/core';
 import { presetWind3 } from '@unocss/preset-wind3';
 import { createMarkdownExit } from 'markdown-exit';
+import { inspectNativeClicks, type SlideContent } from '@slidev-stage-hub/slidev-adapter/clicks';
 
 const RUNTIME_VUE_MODULE = '/_runtime/vue.js';
 const RUNTIME_BRIDGE_MODULE = '/_runtime/bridge.js';
@@ -21,7 +23,8 @@ const SLIDE_CONTEXT_BINDINGS = {
   $frontmatter: 'setup-maybe-ref',
   $scale: 'setup-maybe-ref',
   $zoom: 'setup-maybe-ref',
-};
+  // Vue's string enum rejects its own literal values at the type level.
+} as unknown as BindingMetadata;
 const MAX_SLIDES = 100;
 const PLAIN_CODE_WARNING =
   'Fenced code is rendered as plain Markdown; Slidev syntax highlighting and code-block transforms are not included.';
@@ -32,8 +35,61 @@ const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
 const FENCE_OPEN_RE = /^ {0,3}(`{3,}|~{3,})/;
 const NAMED_SLOT_RE = /^ {0,3}::([\w-]+)::[ \t]*$/;
 const SUPPORTED_NAMED_SLOTS = new Set(['default', 'left', 'right']);
+const NATIVE_CLICK_UNSUPPORTED =
+  'This deck uses click behavior that the native player does not support.';
 const markdown = createMarkdownExit({ html: true });
 const unoPromise = createGenerator({ presets: [presetWind3()] });
+
+export class DeckCompileError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DeckCompileError';
+  }
+}
+
+export interface CompiledSlide {
+  no: number;
+  title?: string;
+  frontmatter: Record<string, unknown>;
+  code: string;
+  css: string;
+}
+
+export type NativeClickMetadata = { clickTotals: number[] } | { unsupportedReason: string };
+
+export interface CompileDeckResult {
+  title: string;
+  frontmatter: Record<string, unknown>;
+  slides: CompiledSlide[];
+  warnings: string[];
+  native: NativeClickMetadata;
+}
+
+export interface CompileDeckInput {
+  markdown: string;
+  deckId: string;
+  assetBase?: string;
+}
+
+interface NamedSlotSection {
+  name: string;
+  content: string;
+}
+
+interface SlideSections {
+  hasNamedSlots: boolean;
+  sections: NamedSlotSection[];
+}
+
+interface ProtectedContent {
+  masked: string;
+  fences: string[];
+  restore(value: string): string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 /**
  * Compile a supported subset of Slidev 53 markdown into standalone Vue ESM.
@@ -44,14 +100,14 @@ export async function compileDeck({
   markdown: source,
   deckId,
   assetBase = defaultAssetBase(deckId),
-}) {
-  if (typeof source !== 'string') throw new TypeError('markdown must be a string');
+}: CompileDeckInput): Promise<CompileDeckResult> {
+  if (typeof source !== 'string') throw new DeckCompileError('markdown must be a string');
   validateDeckId(deckId);
   const normalizedAssetBase = normalizeAssetBase(assetBase);
   const parsed = parseSync(source, `${deckId}.md`);
-  if (!parsed.slides.length) throw new Error(`Deck "${deckId}" has no slides`);
+  if (!parsed.slides.length) throw new DeckCompileError(`Deck "${deckId}" has no slides`);
   if (parsed.slides.length > MAX_SLIDES) {
-    throw new Error(
+    throw new DeckCompileError(
       `Deck "${deckId}" has ${parsed.slides.length} slides; the Workers compiler limit is ${MAX_SLIDES}`,
     );
   }
@@ -59,15 +115,17 @@ export async function compileDeck({
   const parsedSlides = parsed.slides;
   let hasOrdinaryFencedCode = false;
   let hasDollarMath = false;
-  const slideSections = [];
+  const slideSections: SlideSections[] = [];
   for (let index = 0; index < parsedSlides.length; index++) {
     const slide = parsedSlides[index];
     const parseErrors = slide.frontmatterDoc?.errors;
     if (parseErrors?.length) {
-      throw new Error(`Slide ${index + 1} has invalid frontmatter: ${parseErrors[0].message}`);
+      throw new DeckCompileError(
+        `Slide ${index + 1} has invalid frontmatter: ${parseErrors[0].message}`,
+      );
     }
     if (slide.frontmatter?.src) {
-      throw new Error(
+      throw new DeckCompileError(
         `Slide ${index + 1} uses Slidev's src include; source includes are not supported by the Workers compiler`,
       );
     }
@@ -77,22 +135,22 @@ export async function compileDeck({
     for (const fenceInfo of protectedContent.fences) {
       const language = fenceInfo.match(/^[^\s{]+/)?.[0]?.toLowerCase();
       if (language === 'mermaid' || language === 'plantuml' || language === 'puml') {
-        throw new Error(
+        throw new DeckCompileError(
           `Slide ${index + 1} uses a ${language} fence; diagram rendering is not supported by the Workers compiler`,
         );
       }
       if (/\bmonaco(?:-run)?\b/i.test(fenceInfo)) {
-        throw new Error(
+        throw new DeckCompileError(
           `Slide ${index + 1} uses Monaco fence metadata; interactive code blocks are not supported by the Workers compiler`,
         );
       }
       if (/\btwoslash\b/i.test(fenceInfo)) {
-        throw new Error(
+        throw new DeckCompileError(
           `Slide ${index + 1} uses Twoslash fence metadata; code annotations are not supported by the Workers compiler`,
         );
       }
       if (/\bmagic[\s_-]*move\b/i.test(fenceInfo)) {
-        throw new Error(
+        throw new DeckCompileError(
           `Slide ${index + 1} uses Magic Move fence metadata; code transitions are not supported by the Workers compiler`,
         );
       }
@@ -100,7 +158,7 @@ export async function compileDeck({
     }
   }
 
-  const slides = [];
+  const slides: CompiledSlide[] = [];
   for (let index = 0; index < parsedSlides.length; index++) {
     const parsedSlide = parsedSlides[index];
     const no = index + 1;
@@ -133,7 +191,7 @@ export async function compileDeck({
         ? first.frontmatter.title
         : deckId;
   const title = cleanPublicString(titleSource);
-  const warnings = [];
+  const warnings: string[] = [];
   if (hasOrdinaryFencedCode) warnings.push(PLAIN_CODE_WARNING);
   if (hasDollarMath) warnings.push(PLAIN_MATH_WARNING);
   return {
@@ -146,7 +204,71 @@ export async function compileDeck({
     ),
     slides,
     warnings,
+    native: inspectNativeMetadata(parsedSlides, deckId, slides),
   };
+}
+
+function inspectNativeMetadata(
+  slides: readonly (SlideContent & { frontmatter?: unknown })[],
+  deckId: string,
+  compiledSlides: readonly CompiledSlide[],
+): NativeClickMetadata {
+  const usesConfiguredClicks = slides.some((slide) => {
+    if (!isRecord(slide.frontmatter)) return false;
+    if (Object.hasOwn(slide.frontmatter, 'clicks')) return true;
+    return (
+      isRecord(slide.frontmatter.defaults) && Object.hasOwn(slide.frontmatter.defaults, 'clicks')
+    );
+  });
+  if (usesConfiguredClicks) return { unsupportedReason: NATIVE_CLICK_UNSUPPORTED };
+
+  // Native playback only implements the adapter's bare v-click subset and its
+  // own layout. Mark uncertain source as unsupported instead of publishing
+  // click totals that would silently differ from the Web presentation.
+  if (
+    slides.some(({ content }) => /\bv-click\s*=|\bv-clicks\b|<v-click\b/u.test(content)) ||
+    compiledSlides.some(({ code }) =>
+      /resolveDynamicComponent\(|resolveComponent\("(?!LabSlideLayout")[^"\\]+"\)/u.test(code),
+    )
+  ) {
+    return { unsupportedReason: NATIVE_CLICK_UNSUPPORTED };
+  }
+
+  try {
+    const clickTotals = inspectNativeClicks(slides, deckId);
+    const visibleSlides = slides.map(({ content }) => ({ content: maskNativeExamples(content) }));
+    const visibleClickTotals = inspectNativeClicks(visibleSlides, deckId);
+    if (clickTotals.some((total, index) => visibleClickTotals[index] !== total)) {
+      return { unsupportedReason: NATIVE_CLICK_UNSUPPORTED };
+    }
+
+    const hasClicks = clickTotals.some((total) => total > 0);
+    const hasConditionalOrRepeatedContent = visibleSlides.some(({ content }) =>
+      /<[^>]*\bv-(?:for|if|else(?:-if)?)(?=[\s=/>])/u.test(content),
+    );
+    if (hasClicks && hasConditionalOrRepeatedContent) {
+      return { unsupportedReason: NATIVE_CLICK_UNSUPPORTED };
+    }
+
+    return { clickTotals };
+  } catch {
+    return { unsupportedReason: NATIVE_CLICK_UNSUPPORTED };
+  }
+}
+
+function maskNativeExamples(source: string): string {
+  const withoutFences = protectFencedCode(source).masked;
+  const withoutComments = withoutFences.replace(HTML_COMMENT_RE, (comment) =>
+    blankPreservingLines(comment),
+  );
+  return withoutComments.replace(
+    /(^|[^\\])(`+)(?!`)([\s\S]*?)\2(?!`)/gu,
+    (match, prefix) => `${prefix}${blankPreservingLines(match.slice(prefix.length))}`,
+  );
+}
+
+function blankPreservingLines(value: string): string {
+  return value.replace(/[^\n]/gu, ' ');
 }
 
 async function compileSlide({
@@ -158,7 +280,16 @@ async function compileSlide({
   pageId,
   assetBase,
   frontmatter,
-}) {
+}: {
+  content: string;
+  sections: SlideSections;
+  title?: string;
+  deckId: string;
+  no: number;
+  pageId: string;
+  assetBase: string;
+  frontmatter: Record<string, unknown>;
+}): Promise<CompiledSlide> {
   const styles = [];
   const renderedSections = [];
   for (const section of sections.sections) {
@@ -170,12 +301,12 @@ async function compileSlide({
     html = protectCodeElements(html);
 
     if (/<\s*script\b/i.test(html)) {
-      throw new Error(
+      throw new DeckCompileError(
         `Slide ${no} contains a <script> block; scripts are not supported by the Workers compiler`,
       );
     }
     if (/<\s*\/?\s*template\b/i.test(html)) {
-      throw new Error(
+      throw new DeckCompileError(
         `Slide ${no} contains a raw <template> tag; raw Vue template blocks are not supported in slide content`,
       );
     }
@@ -197,7 +328,7 @@ async function compileSlide({
   const parsedSfc = parseSfc(sfcSource, { filename });
   if (parsedSfc.errors.length) throw compileError(`Slide ${no} SFC parse`, parsedSfc.errors);
   if (parsedSfc.descriptor.script || parsedSfc.descriptor.scriptSetup) {
-    throw new Error(`Slide ${no} contains an unsupported script block`);
+    throw new DeckCompileError(`Slide ${no} contains an unsupported script block`);
   }
 
   const scoped = parsedSfc.descriptor.styles.some((style) => style.scoped);
@@ -243,15 +374,19 @@ async function compileSlide({
   return { no, title, frontmatter, code, css };
 }
 
-function splitNamedSlotSections(source, no, protectedContent = protectFencedCode(source)) {
+function splitNamedSlotSections(
+  source: string,
+  no: number,
+  protectedContent: ProtectedContent = protectFencedCode(source),
+): SlideSections {
   const lines = protectedContent.masked.match(/[^\n]*(?:\n|$)/g)?.filter(Boolean) ?? [];
-  const slots = new Map();
+  const slots = new Map<string, string>();
   let activeName = 'default';
   let activeWasMarked = false;
   let sawMarker = false;
-  let buffered = [];
+  let buffered: string[] = [];
 
-  function appendSection() {
+  function appendSection(): void {
     const maskedContent = buffered.join('');
     const content = protectedContent.restore(maskedContent);
     if (content.trim() || activeWasMarked) {
@@ -270,7 +405,7 @@ function splitNamedSlotSections(source, no, protectedContent = protectFencedCode
 
     const name = marker[1];
     if (!SUPPORTED_NAMED_SLOTS.has(name)) {
-      throw new Error(
+      throw new DeckCompileError(
         `Slide ${no} uses unsupported named slot "${name}"; supported Slidev shorthand slots are ::left::, ::right::, and ::default::`,
       );
     }
@@ -288,14 +423,14 @@ function splitNamedSlotSections(source, no, protectedContent = protectFencedCode
   };
 }
 
-function protectCodeElements(html) {
+function protectCodeElements(html: string): string {
   return html.replace(/<code(?=[\s>])([^>]*)>/gi, (match, attributes) => {
     if (/(?:^|\s)v-pre(?:\s|=|$)/i.test(attributes)) return match;
     return `<code v-pre${attributes}>`;
   });
 }
 
-function containsDollarMath(protectedMarkdown) {
+function containsDollarMath(protectedMarkdown: string): boolean {
   const withoutCode = protectedMarkdown
     .replace(/(`+)[\s\S]*?\1/g, (match) => ' '.repeat(match.length))
     .replace(HTML_COMMENT_RE, '')
@@ -326,15 +461,19 @@ function containsDollarMath(protectedMarkdown) {
   return false;
 }
 
-function isEscaped(value, index) {
+function isEscaped(value: string, index: number): boolean {
   let backslashes = 0;
   for (let cursor = index - 1; cursor >= 0 && value[cursor] === '\\'; cursor--) backslashes++;
   return backslashes % 2 === 1;
 }
 
-function extractStyles(source, deckId, no) {
+function extractStyles(
+  source: string,
+  deckId: string,
+  no: number,
+): { markdown: string; styles: Array<{ source: string; scoped: boolean }> } {
   const protectedContent = protectFencedCode(source);
-  const styles = [];
+  const styles: Array<{ source: string; scoped: boolean }> = [];
   const withoutStyles = protectedContent.masked.replace(
     /<style(?=[\s>])([^>]*)>([\s\S]*?)<\/style\s*>/gi,
     (_match, rawAttributes, css) => {
@@ -344,12 +483,16 @@ function extractStyles(source, deckId, no) {
     },
   );
   if (/<style(?=[\s>])/i.test(withoutStyles)) {
-    throw new Error(`Slide ${no} has an unclosed <style> block`);
+    throw new DeckCompileError(`Slide ${no} has an unclosed <style> block`);
   }
   return { markdown: protectedContent.restore(withoutStyles), styles };
 }
 
-function parseStyleAttributes(rawAttributes, deckId, no) {
+function parseStyleAttributes(
+  rawAttributes: string,
+  deckId: string,
+  no: number,
+): { scoped: boolean } {
   let scoped = false;
   const attributes = rawAttributes.trim();
   const attributeRe = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
@@ -360,16 +503,19 @@ function parseStyleAttributes(rawAttributes, deckId, no) {
     if (name === 'scoped') scoped = true;
     else if (name === 'lang' && value?.toLowerCase() === 'css') continue;
     else if (name === 'type' && value?.toLowerCase() === 'text/css') continue;
-    else throw new Error(`Slide ${no} uses unsupported <style ${name}> in deck "${deckId}"`);
+    else
+      throw new DeckCompileError(
+        `Slide ${no} uses unsupported <style ${name}> in deck "${deckId}"`,
+      );
   }
   return { scoped };
 }
 
-function protectFencedCode(source) {
+function protectFencedCode(source: string): ProtectedContent {
   const lines = source.match(/[^\n]*(?:\n|$)/g)?.filter(Boolean) ?? [];
-  const blocks = [];
-  const fences = [];
-  const masked = [];
+  const blocks: string[] = [];
+  const fences: string[] = [];
+  const masked: string[] = [];
   let markerPrefix = '\uE000SLIDEV_WORKERS_FENCE_';
   while (source.includes(markerPrefix)) markerPrefix += '_';
 
@@ -419,7 +565,7 @@ function protectFencedCode(source) {
   };
 }
 
-function rewriteMarkupSources(html, assetBase, deckId, no) {
+function rewriteMarkupSources(html: string, assetBase: string, deckId: string, no: number): string {
   return html.replace(
     /(<[A-Za-z][^>]*)(\s+src\s*=\s*)("([^"]*)"|'([^']*)'|([^\s>]+))/gi,
     (match, opening, attribute, quoted, doubleQuoted, singleQuoted, unquoted) => {
@@ -434,7 +580,7 @@ function rewriteMarkupSources(html, assetBase, deckId, no) {
   );
 }
 
-function resolveAssetUrl(value, assetBase, deckId, no) {
+function resolveAssetUrl(value: string, assetBase: string, deckId: string, no: number): string {
   const url = value.trim();
   if (url.startsWith('/') && !url.startsWith('//')) {
     const path = url.split(/[?#]/, 1)[0];
@@ -443,10 +589,12 @@ function resolveAssetUrl(value, assetBase, deckId, no) {
       try {
         decoded = decodeURIComponent(segment);
       } catch {
-        throw new Error(`Slide ${no} has an invalid image URL in deck "${deckId}": ${url}`);
+        throw new DeckCompileError(
+          `Slide ${no} has an invalid image URL in deck "${deckId}": ${url}`,
+        );
       }
       if (decoded === '..')
-        throw new Error(`Slide ${no} image URL escapes deck "${deckId}": ${url}`);
+        throw new DeckCompileError(`Slide ${no} image URL escapes deck "${deckId}": ${url}`);
     }
     return url;
   }
@@ -461,23 +609,27 @@ function resolveAssetUrl(value, assetBase, deckId, no) {
   }
 
   const match = /^([^?#]*)([?#][\s\S]*)?$/.exec(url);
+  if (!match)
+    throw new DeckCompileError(`Slide ${no} has an invalid image URL in deck "${deckId}": ${url}`);
   const rawPath = match[1];
   const suffix = match[2] ?? '';
-  const normalized = [];
+  const normalized: string[] = [];
   for (const rawSegment of rawPath.split('/')) {
     if (!rawSegment || rawSegment === '.') continue;
     let decoded;
     try {
       decoded = decodeURIComponent(rawSegment);
     } catch {
-      throw new Error(`Slide ${no} has an invalid image URL in deck "${deckId}": ${url}`);
+      throw new DeckCompileError(
+        `Slide ${no} has an invalid image URL in deck "${deckId}": ${url}`,
+      );
     }
     if (decoded === '..') {
       if (!normalized.length)
-        throw new Error(`Slide ${no} image URL escapes deck "${deckId}": ${url}`);
+        throw new DeckCompileError(`Slide ${no} image URL escapes deck "${deckId}": ${url}`);
       normalized.pop();
     } else if (decoded.includes('/') || decoded.includes('\\') || decoded.includes('\0')) {
-      throw new Error(`Slide ${no} has an unsafe image URL in deck "${deckId}": ${url}`);
+      throw new DeckCompileError(`Slide ${no} has an unsafe image URL in deck "${deckId}": ${url}`);
     } else {
       normalized.push(encodeURIComponent(decoded));
     }
@@ -485,14 +637,14 @@ function resolveAssetUrl(value, assetBase, deckId, no) {
   return `${assetBase}${normalized.join('/')}${suffix}`;
 }
 
-function normalizeAssetBase(value) {
+function normalizeAssetBase(value: string): string {
   if (
     typeof value !== 'string' ||
     !value.startsWith('/') ||
     value.startsWith('//') ||
     /[?#\\\0]/.test(value)
   ) {
-    throw new TypeError(
+    throw new DeckCompileError(
       'assetBase must be an absolute same-origin path without a query or fragment',
     );
   }
@@ -502,7 +654,7 @@ function normalizeAssetBase(value) {
     try {
       decoded = decodeURIComponent(segment);
     } catch {
-      throw new TypeError('assetBase contains an invalid encoded path segment');
+      throw new DeckCompileError('assetBase contains an invalid encoded path segment');
     }
     if (
       decoded === '..' ||
@@ -510,13 +662,13 @@ function normalizeAssetBase(value) {
       decoded.includes('\\') ||
       decoded.includes('\0')
     ) {
-      throw new TypeError('assetBase contains an unsafe path segment');
+      throw new DeckCompileError('assetBase contains an unsafe path segment');
     }
   }
   return value.endsWith('/') ? value : `${value}/`;
 }
 
-function defaultAssetBase(deckId) {
+function defaultAssetBase(deckId: string): string {
   validateDeckId(deckId);
   return `/sources/${deckId
     .split('/')
@@ -524,29 +676,34 @@ function defaultAssetBase(deckId) {
     .join('/')}/`;
 }
 
-function validateDeckId(deckId) {
+function validateDeckId(deckId: string): void {
   if (typeof deckId !== 'string' || !deckId || deckId.includes('\\') || deckId.includes('\0')) {
-    throw new TypeError('deckId must be a non-empty slash-separated string');
+    throw new DeckCompileError('deckId must be a non-empty slash-separated string');
   }
   if (deckId.split('/').some((segment) => !segment || segment === '.' || segment === '..')) {
-    throw new TypeError('deckId must not contain empty or traversal path segments');
+    throw new DeckCompileError('deckId must not contain empty or traversal path segments');
   }
 }
 
-function publicSlideFrontmatter(frontmatter) {
+function publicSlideFrontmatter(frontmatter: unknown): Record<string, unknown> {
   const value = safePublicValue(frontmatter);
-  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return isRecord(value) ? value : {};
 }
 
-function resolveFrontmatterImages(frontmatter, assetBase, deckId, no) {
+function resolveFrontmatterImages(
+  frontmatter: Record<string, unknown>,
+  assetBase: string,
+  deckId: string,
+  no: number,
+): Record<string, unknown> {
   for (const key of ['image', 'backgroundImage']) {
     if (typeof frontmatter[key] === 'string') {
       frontmatter[key] = resolveAssetUrl(frontmatter[key], assetBase, deckId, no);
     }
   }
   if (Array.isArray(frontmatter.images)) {
-    frontmatter.images = frontmatter.images.map((image) => {
-      if (!image || typeof image !== 'object' || typeof image.src !== 'string') return image;
+    frontmatter.images = frontmatter.images.map((image: unknown) => {
+      if (!isRecord(image) || typeof image.src !== 'string') return image;
       return { ...image, src: resolveAssetUrl(image.src, assetBase, deckId, no) };
     });
   }
@@ -561,7 +718,7 @@ function resolveFrontmatterImages(frontmatter, assetBase, deckId, no) {
   return frontmatter;
 }
 
-function safePublicValue(value, ancestors = new Set()) {
+function safePublicValue(value: unknown, ancestors: Set<object> = new Set()): unknown {
   if (value === null || typeof value === 'boolean') return value;
   if (typeof value === 'string') return cleanPublicString(value);
   if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
@@ -572,7 +729,9 @@ function safePublicValue(value, ancestors = new Set()) {
 
   const branch = new Set(ancestors).add(value);
   if (Array.isArray(value)) {
-    return value.map((item) => safePublicValue(item, branch)).filter((item) => item !== undefined);
+    return value
+      .map((item: unknown) => safePublicValue(item, branch))
+      .filter((item) => item !== undefined);
   }
   return Object.fromEntries(
     Object.entries(value).flatMap(([key, item]) => {
@@ -583,11 +742,11 @@ function safePublicValue(value, ancestors = new Set()) {
   );
 }
 
-function cleanPublicString(value) {
+function cleanPublicString(value: string): string {
   return value.replace(HTML_COMMENT_RE, '').trim();
 }
 
-function stableHash(value) {
+function stableHash(value: string): string {
   let hash = 14695981039346656037n;
   for (const byte of new TextEncoder().encode(value)) {
     hash ^= BigInt(byte);
@@ -596,12 +755,16 @@ function stableHash(value) {
   return hash.toString(16).padStart(16, '0');
 }
 
-function compileError(stage, errors) {
-  const details = errors.map((error) => error?.message ?? String(error)).join('; ');
-  return new Error(`${stage} failed: ${details}`);
+function compileError(stage: string, errors: readonly unknown[]): DeckCompileError {
+  const details = errors
+    .map((error) =>
+      isRecord(error) && typeof error.message === 'string' ? error.message : String(error),
+    )
+    .join('; ');
+  return new DeckCompileError(`${stage} failed: ${details}`);
 }
 
-function escapeHtmlAttribute(value) {
+function escapeHtmlAttribute(value: string): string {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('"', '&quot;')
@@ -610,6 +773,6 @@ function escapeHtmlAttribute(value) {
     .replaceAll('>', '&gt;');
 }
 
-function escapeRegExp(value) {
+function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

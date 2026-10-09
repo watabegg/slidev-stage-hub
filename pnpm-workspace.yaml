@@ -2,7 +2,6 @@ packages:
   - examples/slidev52
   - apps/*
   - packages/*
-  - packages/hub/bundle-sharing/experiments/workers
 allowBuilds:
   playwright-chromium: false
   esbuild: true

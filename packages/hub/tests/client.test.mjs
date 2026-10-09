@@ -7,6 +7,7 @@ import {
   CatalogClientError,
   createCatalogClient,
   createHttpCatalogSource,
+  createWorkersCatalogSource,
   getCatalog,
 } from '../dist/client/index.js';
 
@@ -77,6 +78,117 @@ test('HTTP source uses the default catalog path and injected fetch', async () =>
   assert.deepEqual(await getCatalog(source, { signal: controller.signal }), catalog);
   assert.equal(requestedUrl, '/catalog.json');
   assert.equal(requestInit.signal, controller.signal);
+});
+
+test('Workers source follows every cursor page, merges by ID, and keeps the cursor on one endpoint', async () => {
+  const nextCursor = 'https://outside.example/catalog?next=https://elsewhere.example';
+  const updatedAlgebra = { ...catalog.decks[0], revision: 'rev-2' };
+  const geometry = {
+    ...catalog.decks[0],
+    id: 'math/geometry',
+    title: 'Geometry',
+    entry: '/math/geometry/',
+    revision: 'rev-3',
+  };
+  const secondPage = {
+    schemaVersion: 1,
+    categories: [{ ...catalog.categories[0], name: 'Mathematics' }],
+    decks: [updatedAlgebra, geometry],
+  };
+  const calls = [];
+  const source = createWorkersCatalogSource({
+    url: 'https://hub.example.test/api/catalog?tenant=math',
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      const page = calls.length === 1 ? { ...catalog, cursor: nextCursor } : secondPage;
+      return new Response(JSON.stringify(page), { status: 200 });
+    },
+  });
+  const controller = new AbortController();
+  const result = await getCatalog(source, { signal: controller.signal });
+
+  assert.equal(calls.length, 2);
+  const firstUrl = new URL(calls[0].url);
+  const secondUrl = new URL(calls[1].url);
+  assert.equal(firstUrl.origin, 'https://hub.example.test');
+  assert.equal(secondUrl.origin, firstUrl.origin);
+  assert.equal(secondUrl.pathname, firstUrl.pathname);
+  assert.equal(secondUrl.searchParams.get('tenant'), 'math');
+  assert.equal(secondUrl.searchParams.get('cursor'), nextCursor);
+  assert.equal(calls[0].init.signal, controller.signal);
+  assert.equal(calls[1].init.signal, controller.signal);
+  assert.equal(result.categories.length, 1);
+  assert.equal(result.categories[0].name, 'Mathematics');
+  assert.deepEqual(
+    result.decks.map((deck) => deck.id),
+    ['math/algebra', 'math/geometry'],
+  );
+  assert.equal(result.decks[0].revision, 'rev-2');
+});
+
+test('Workers source rejects invalid and repeated cursors, page limits, and invalid later pages', async () => {
+  const cases = [
+    {
+      name: 'empty cursor',
+      pages: [{ ...catalog, cursor: '' }],
+      expectedCalls: 1,
+    },
+    {
+      name: 'repeated cursor',
+      pages: [
+        { ...catalog, cursor: 'repeat' },
+        { ...catalog, cursor: 'repeat' },
+      ],
+      expectedCalls: 2,
+    },
+    {
+      name: 'page limit',
+      pages: [{ ...catalog, cursor: 'next' }],
+      maxPages: 1,
+      expectedCalls: 1,
+    },
+    {
+      name: 'invalid later page',
+      pages: [
+        { ...catalog, cursor: 'next' },
+        { schemaVersion: 2, categories: [], decks: [] },
+      ],
+      expectedCalls: 2,
+    },
+  ];
+
+  for (const scenario of cases) {
+    let calls = 0;
+    const source = createWorkersCatalogSource({
+      maxPages: scenario.maxPages,
+      fetch: async () => {
+        const page = scenario.pages[Math.min(calls, scenario.pages.length - 1)];
+        calls += 1;
+        return new Response(JSON.stringify(page), { status: 200 });
+      },
+    });
+    await assert.rejects(getCatalog(source), (error) => {
+      assert.equal(error.code, 'INVALID_CATALOG', scenario.name);
+      return true;
+    });
+    assert.equal(calls, scenario.expectedCalls, scenario.name);
+  }
+});
+
+test('Workers source preserves abort errors between catalog pages', async () => {
+  const controller = new AbortController();
+  let calls = 0;
+  const source = createWorkersCatalogSource({
+    fetch: async (_url, init) => {
+      assert.equal(init.signal, controller.signal);
+      calls += 1;
+      controller.abort('stop after first page');
+      return new Response(JSON.stringify({ ...catalog, cursor: 'next' }), { status: 200 });
+    },
+  });
+
+  await assert.rejects(getCatalog(source, { signal: controller.signal }), errorWithCode('ABORTED'));
+  assert.equal(calls, 1);
 });
 
 test('HTTP errors carry status without attempting to parse a response body', async () => {

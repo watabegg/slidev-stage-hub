@@ -165,6 +165,58 @@ importers:
         specifier: 3.3.12
         version: 3.3.12(typescript@6.0.3)
 
+  apps/hub-worker:
+    dependencies:
+      '@slidev-stage-hub/hub':
+        specifier: workspace:*
+        version: link:../../packages/hub
+      '@slidev-stage-hub/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      '@slidev-stage-hub/slidev-adapter':
+        specifier: workspace:*
+        version: link:../../packages/slidev-adapter
+      '@slidev/parser':
+        specifier: 53.0.0
+        version: 53.0.0(@modelcontextprotocol/server@2.3.1)(@nuxt/kit@3.21.11)(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)(typescript@6.0.3)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+      '@unocss/core':
+        specifier: 66.10.5
+        version: 66.10.5
+      '@unocss/preset-wind3':
+        specifier: 66.10.5
+        version: 66.10.5
+      '@vue/compiler-sfc':
+        specifier: 3.5.43
+        version: 3.5.43
+      markdown-exit:
+        specifier: 1.2.1
+        version: 1.2.1
+    devDependencies:
+      '@slidev-stage-hub/stage-tools':
+        specifier: workspace:*
+        version: link:../../packages/stage-tools
+      '@slidev/cli':
+        specifier: 53.0.0
+        version: 53.0.0(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@types/markdown-it@14.2.0)(@types/node@24.10.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(playwright-chromium@1.63.0)(postcss@8.5.28)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)
+      '@slidev/theme-default':
+        specifier: 0.25.0
+        version: 0.25.0
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      miniflare:
+        specifier: 5.20261006.1-alpha
+        version: 5.20261006.1-alpha(@types/node@24.10.0)
+      playwright-chromium:
+        specifier: 1.63.0
+        version: 1.63.0
+      vue:
+        specifier: 3.5.43
+        version: 3.5.43(typescript@6.0.3)
+      wrangler:
+        specifier: 4.149.0
+        version: 4.149.0(@types/node@24.10.0)
+
   apps/stage:
     dependencies:
       '@slidev-stage-hub/protocol':
@@ -229,34 +281,6 @@ importers:
       vue:
         specifier: 3.5.43
         version: 3.5.43(typescript@6.0.3)
-
-  packages/hub/bundle-sharing/experiments/workers:
-    dependencies:
-      '@slidev/parser':
-        specifier: 53.0.0
-        version: 53.0.0(@modelcontextprotocol/server@2.3.1)(@nuxt/kit@3.21.11)(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)(typescript@6.0.3)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
-      '@unocss/core':
-        specifier: 66.10.5
-        version: 66.10.5
-      '@unocss/preset-wind3':
-        specifier: 66.10.5
-        version: 66.10.5
-      '@vue/compiler-sfc':
-        specifier: 3.5.43
-        version: 3.5.43
-      markdown-exit:
-        specifier: 1.2.1
-        version: 1.2.1
-    devDependencies:
-      esbuild:
-        specifier: 0.28.2
-        version: 0.28.2
-      miniflare:
-        specifier: 5.20261006.1-alpha
-        version: 5.20261006.1-alpha(@types/node@24.10.0)
-      wrangler:
-        specifier: 4.149.0
-        version: 4.149.0(@types/node@24.10.0)
 
   packages/protocol:
     devDependencies:
@@ -6538,6 +6562,28 @@ snapshots:
       - supports-color
 
   '@ungap/structured-clone@1.4.0': {}
+
+  '@unhead/bundler@3.4.2(@oxc-project/types@0.153.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(esbuild@0.28.2)(lightningcss@1.33.0)(oxc-parser@0.150.0)(rolldown@1.2.13)(rollup@4.64.2)(unhead@3.4.2(esbuild@0.28.2)(rolldown@1.2.13)(rollup@4.64.2)(vite@8.3.2(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(vite@8.3.2(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))':
+    dependencies:
+      magic-string: 1.4.2
+      oxc-walker: 1.1.1(@oxc-project/types@0.153.0)(oxc-parser@0.150.0)(rolldown@1.2.13)
+      unhead: 3.4.2(esbuild@0.28.2)(rolldown@1.2.13)(rollup@4.64.2)(vite@8.3.2(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+      unplugin: 3.4.0(esbuild@0.28.2)(rolldown@1.2.13)(rollup@4.64.2)(vite@8.3.2(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+    optionalDependencies:
+      '@vitejs/devtools-kit': 0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+      esbuild: 0.28.2
+      lightningcss: 1.33.0
+      oxc-parser: 0.150.0
+      rolldown: 1.2.13
+      vite: 8.3.2(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
+    transitivePeerDependencies:
+      - '@farmfe/core'
+      - '@oxc-project/types'
+      - '@rsbuild/core'
+      - '@rspack/core'
+      - bun-types-no-globals
+      - rollup
+      - unloader
 
   '@unhead/bundler@3.4.2(@oxc-project/types@0.153.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(esbuild@0.28.2)(lightningcss@1.33.0)(oxc-parser@0.150.0)(rolldown@1.2.13)(rollup@4.64.2)(unhead@3.4.2(esbuild@0.28.2)(rolldown@1.2.13)(rollup@4.64.2)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(vite@8.3.2(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))':
     dependencies:

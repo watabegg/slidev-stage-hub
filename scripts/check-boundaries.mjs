@@ -459,6 +459,7 @@ async function resolveExistingFile(basePath) {
 }
 
 function workspaceTargetForSpecifier(packages, specifier) {
+  specifier = specifier.split(/[?#]/, 1)[0];
   return (
     packages
       .filter(
@@ -472,6 +473,7 @@ function workspaceTargetForSpecifier(packages, specifier) {
 }
 
 function exportSubpath(pkg, specifier) {
+  specifier = specifier.split(/[?#]/, 1)[0];
   return specifier === pkg.name ? '.' : `.${specifier.slice(pkg.name.length)}`;
 }
 
@@ -613,15 +615,11 @@ function isProductionFile(root, fullPath) {
   const file = relativePath(root, fullPath);
   return (
     file.startsWith('apps/stage/src/') ||
+    file.startsWith('apps/hub-worker/src/') ||
+    file.startsWith('apps/hub-worker/runtime/') ||
     file.startsWith('packages/hub/frontend/') ||
     file.startsWith('packages/hub/src/frontend/') ||
     file.startsWith('packages/hub/src/client/') ||
-    file.startsWith('packages/hub/bundle-sharing/experiments/workers/runtime/') ||
-    [
-      'packages/hub/bundle-sharing/experiments/workers/worker.mjs',
-      'packages/hub/bundle-sharing/experiments/workers/compiler.mjs',
-      'packages/hub/bundle-sharing/experiments/workers/thumbnail.mjs',
-    ].includes(file) ||
     file.startsWith('packages/protocol/src/')
   );
 }
@@ -732,7 +730,10 @@ export async function checkBoundaries({
       const isRelativePath = ref.specifier?.startsWith('./') || ref.specifier?.startsWith('../');
       const cssRelativePath = ref.kind === 'css-import' && isCssRelativeImport(ref.specifier ?? '');
       if (ref.specifier !== null && (isRelativePath || cssRelativePath)) {
-        const relativeSpecifier = isRelativePath ? ref.specifier : `./${ref.specifier}`;
+        const relativeSpecifier = (isRelativePath ? ref.specifier : `./${ref.specifier}`).split(
+          /[?#]/,
+          1,
+        )[0];
         const targetFile = await resolveExistingFile(
           path.resolve(path.dirname(fullPath), relativeSpecifier),
         );

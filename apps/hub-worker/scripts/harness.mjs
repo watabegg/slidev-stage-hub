@@ -5,8 +5,8 @@ import { dirname, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
-export const experiment = dirname(fileURLToPath(import.meta.url));
-export const artifactRoot = resolve(experiment, '../../../artifacts/workers');
+export const experiment = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+export const artifactRoot = resolve(experiment, 'artifacts');
 const mime = {
   '.js': 'text/javascript',
   '.css': 'text/css',
@@ -28,7 +28,7 @@ export async function startHarness({
 } = {}) {
   await mkdir(artifactRoot, { recursive: true });
   await build({
-    entryPoints: [resolve(experiment, 'worker.mjs')],
+    entryPoints: [resolve(experiment, 'src/worker.ts')],
     outfile: workerPath,
     bundle: true,
     format: 'esm',
@@ -74,7 +74,7 @@ export async function startHarness({
   const options = convertV4MiniflareOptions({
     name: 'slidev-workers-poc',
     modules: true,
-    modulesRoot: artifactRoot,
+    modulesRoot: dirname(workerPath),
     scriptPath: workerPath,
     host: '127.0.0.1',
     port,
@@ -96,6 +96,11 @@ export async function startHarness({
   if (persist) options.resourcePersistencePath = statePath;
   options.telemetry = { enabled: false };
   const mf = new Miniflare(options);
-  const origin = (await mf.ready).origin;
-  return { mf, origin, profileDigest, workerBytes: workerBytes.length };
+  try {
+    const origin = (await mf.ready).origin;
+    return { mf, origin, profileDigest, workerBytes: workerBytes.length };
+  } catch (error) {
+    await mf.dispose();
+    throw error;
+  }
 }

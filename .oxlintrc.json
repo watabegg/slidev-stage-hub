@@ -25,6 +25,7 @@
     "docs/reports/**",
     "docs/plans/**",
     "examples/legacy-native-baseline/**",
-    "docs/migration/**"
+    "docs/migration/**",
+    "apps/hub-worker/worker-configuration.d.ts"
   ]
 }

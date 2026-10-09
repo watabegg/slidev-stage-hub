@@ -1,8 +1,9 @@
+import { mountNavigation } from '@slidev-stage-hub/hub/frontend';
 import { createSlideRoutes } from './routes';
 import { showCatalog } from './catalog';
 import { deckBase, deckId } from '/@lab/selection';
 import baseConfig from '/@lab/base-config';
-import { isRecord, type DeckManifest } from './manifest';
+import { isRecord, validateDeckManifest, type DeckManifest } from './manifest';
 
 type RuntimeConfig = Record<string, unknown> & {
   themeConfig?: Record<string, unknown>;
@@ -28,6 +29,7 @@ type SlidevRuntimeData = {
 declare global {
   interface Window {
     __slidevLabData?: SlidevRuntimeData;
+    __slidevLab?: { runtimeVersion?: string; theme?: string };
     __workersPoc?: { id: string; revision: string; deckBase: string };
   }
 }
@@ -60,17 +62,6 @@ function pinRevision(revision: string) {
   history.replaceState(history.state, '', url);
 }
 
-function addCatalogLink() {
-  if (new URLSearchParams(location.search).get('labThumbnail') === 'true') return;
-  const link = document.createElement('a');
-  link.href = '/';
-  link.textContent = '資料一覧へ';
-  link.setAttribute('aria-label', 'Slidev Lab の資料一覧へ戻る');
-  link.style.cssText =
-    'position:fixed;z-index:10000;top:12px;right:12px;padding:8px 12px;border-radius:999px;background:#132a36;color:#fff;font:600 13px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 10px #0003';
-  document.body.append(link);
-}
-
 async function boot() {
   if (!deckId) {
     await showCatalog();
@@ -83,17 +74,15 @@ async function boot() {
     cache: 'no-store',
   });
   if (!response.ok) throw new Error(`Deck ${deckId} is unavailable (${response.status})`);
-  // The Worker emits this manifest shape; preserve the original shallow checks here.
-  const manifest = (await response.json()) as DeckManifest;
-  if (manifest.id !== deckId || !manifest.revision || !Array.isArray(manifest.slides))
-    throw new Error(`Deck manifest for ${deckId} is invalid`);
+  const manifest = validateDeckManifest(await response.json(), deckId);
   if (requestedRevision && manifest.revision !== requestedRevision)
     throw new Error(
       `Requested revision ${requestedRevision} does not match the returned deck revision`,
     );
 
   pinRevision(manifest.revision);
-  addCatalogLink();
+  mountNavigation();
+  window.__slidevLab = { runtimeVersion: manifest.runtimeVersion, theme: manifest.theme };
   window.__slidevLabData = {
     configs: mergeConfig(manifest),
     slides: createSlideRoutes(manifest),

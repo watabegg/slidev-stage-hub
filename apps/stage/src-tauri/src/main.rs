@@ -110,6 +110,7 @@ fn main() {
             commands::swap_windows,
             commands::qa_audience_next,
             commands::qa_reopen_notes,
+            commands::qa_control_url,
             commands::displays,
             commands::audience_display
         ])

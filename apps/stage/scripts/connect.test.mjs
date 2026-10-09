@@ -202,8 +202,8 @@ test('rejects malformed CLI argument layouts before connecting', () => {
 
 test('rejects schema, protocol, malformed deck, and empty supported-deck lists', async () => {
   assert.throws(
-    () => validatePlayerDocument(playerDocument({ schemaVersion: 2 })),
-    /schemaVersion must be 1/,
+    () => validatePlayerDocument(playerDocument({ schemaVersion: 3 })),
+    /schemaVersion must be 1 or 2/,
   );
   assert.throws(
     () => validatePlayerDocument(playerDocument({ protocolVersion: 2 })),
@@ -227,6 +227,25 @@ test('rejects schema, protocol, malformed deck, and empty supported-deck lists',
     /non-empty array/,
   );
   assert.throws(() => validatePlayerDocument(playerDocument({ decks: [] })), /no supported decks/);
+});
+
+test('validates v2 revision-query playback and retains it in the discovered projection', () => {
+  const v2 = playerDocument({
+    schemaVersion: 2,
+    decks: [
+      {
+        ...validDeck,
+        playback: { kind: 'revision-query', parameter: 'revision' },
+      },
+    ],
+  });
+  assert.deepEqual(validatePlayerDocument(v2).decks, [
+    { ...validDeck, playback: { kind: 'revision-query', parameter: 'revision' } },
+  ]);
+  assert.throws(
+    () => validatePlayerDocument(playerDocument({ schemaVersion: 2 })),
+    /playback must be an object/,
+  );
 });
 
 test('failed fetch and validation leave an existing native config untouched', async () => {

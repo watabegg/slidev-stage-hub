@@ -84,6 +84,7 @@ declare global {
     };
     qa_reopen_notes: { args: { deckId: string; page: number }; result: NativeNoteView };
     qa_audience_next: { args: undefined; result: void };
+    qa_control_url: { args: undefined; result: string };
     viewer_ready: { args: { report: Record<string, unknown> }; result: void };
     capture: {
       args: { label: 'audience' | 'presenter'; name: string };
@@ -155,7 +156,7 @@ declare global {
     };
     NativeFrameController: new (
       frame: HTMLIFrameElement,
-      options: { origin: string } & NativeFrameCallbacks,
+      options: { origin: string; decks?: NativeDeck[] } & NativeFrameCallbacks,
     ) => NativeFrameControllerInstance;
     __nativePoc?: NativePoc;
   }

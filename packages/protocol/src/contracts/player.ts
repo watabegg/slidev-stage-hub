@@ -3,14 +3,33 @@ export interface NativeDeck {
   revision: string;
   entry: string;
   clickTotals: number[];
+  playback?: NativeDeckPlayback;
 }
 
-export interface PlayerDocument {
+export interface NativeDeckPlayback {
+  kind: 'revision-query';
+  parameter: 'revision';
+}
+
+export interface PlayerDocumentV1 {
   schemaVersion: 1;
   protocolVersion: 1;
   decks: NativeDeck[];
   unsupportedDecks: Array<{ id: string; reason: string }>;
 }
+
+export interface PlayerDocumentV2 {
+  schemaVersion: 2;
+  protocolVersion: 1;
+  decks: Array<NativeDeck & { playback: NativeDeckPlayback }>;
+  unsupportedDecks: Array<{ id: string; reason: string }>;
+}
+
+export type PlayerDocument = PlayerDocumentV1 | PlayerDocumentV2;
+export type ValidatedPlayerDocument = {
+  decks: NativeDeck[];
+  unsupportedDecks: Array<{ id: string; reason: string }>;
+};
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -31,11 +50,11 @@ function validateDeckId(id: unknown, label: string, seenIds: Set<string>): asser
 }
 
 /** Validate native-player.json while returning only the fields Stage consumes. */
-export function validatePlayerDocument(
-  document: unknown,
-): Pick<PlayerDocument, 'decks' | 'unsupportedDecks'> {
+export function validatePlayerDocument(document: unknown): ValidatedPlayerDocument {
   if (!isPlainObject(document)) throw new Error('native-player.json must contain a JSON object');
-  if (document.schemaVersion !== 1) throw new Error('native-player.json schemaVersion must be 1');
+  if (document.schemaVersion !== 1 && document.schemaVersion !== 2)
+    throw new Error('native-player.json schemaVersion must be 1 or 2');
+  const schemaVersion = document.schemaVersion;
   if (document.protocolVersion !== 1)
     throw new Error('native-player.json protocolVersion must be 1');
   if (!Array.isArray(document.decks)) throw new Error('native-player.json decks must be an array');
@@ -60,11 +79,22 @@ export function validatePlayerDocument(
           `${label} ${deck.id} clickTotals[${pageIndex}] must be a safe non-negative u32 integer`,
         );
     }
+    let playback: NativeDeckPlayback | undefined;
+    if (schemaVersion === 2) {
+      if (!isPlainObject(deck.playback))
+        throw new Error(`${label} ${deck.id} playback must be an object`);
+      if (deck.playback.kind !== 'revision-query')
+        throw new Error(`${label} ${deck.id} playback kind must be revision-query`);
+      if (deck.playback.parameter !== 'revision')
+        throw new Error(`${label} ${deck.id} playback parameter must be revision`);
+      playback = { kind: 'revision-query', parameter: 'revision' };
+    }
     return {
       id: deck.id,
       revision: deck.revision,
       entry: deck.entry,
       clickTotals: [...deck.clickTotals] as number[],
+      ...(playback === undefined ? {} : { playback }),
     };
   });
   if (decks.length === 0) throw new Error('native-player.json has no supported decks');

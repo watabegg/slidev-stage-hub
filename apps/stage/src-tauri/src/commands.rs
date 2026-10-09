@@ -362,6 +362,27 @@ pub(crate) fn qa_audience_next(window: WebviewWindow, app: tauri::AppHandle) -> 
         .map_err(|e| e.to_string())
 }
 #[tauri::command]
+pub(crate) fn qa_control_url(window: WebviewWindow) -> Result<String, String> {
+    require_presenter(&window)?;
+    if std::env::var_os("NATIVE_POC_QA").is_none() {
+        return Err("QA is not enabled".into());
+    }
+    let value = std::env::var("NATIVE_POC_QA_CONTROL_URL")
+        .map_err(|_| "QA control server is unavailable".to_owned())?;
+    let url = reqwest::Url::parse(&value).map_err(|_| "QA control URL is invalid".to_owned())?;
+    if url.scheme() != "http"
+        || !matches!(url.host_str(), Some("127.0.0.1" | "localhost" | "::1"))
+        || url.path() != "/"
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return Err("QA control URL must be an HTTP loopback origin".into());
+    }
+    Ok(url.origin().ascii_serialization())
+}
+#[tauri::command]
 pub(crate) fn swap_windows(window: WebviewWindow, app: tauri::AppHandle) -> Result<String, String> {
     require_presenter(&window)?;
     let audience = app

@@ -22,6 +22,7 @@
     "pnpm-lock.yaml",
     "docs/migration/**",
     "**/*.toml",
-    "**/Cargo.lock"
+    "**/Cargo.lock",
+    "apps/hub-worker/worker-configuration.d.ts"
   ]
 }

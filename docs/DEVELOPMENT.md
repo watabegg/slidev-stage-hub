@@ -151,9 +151,9 @@ node apps/stage/scripts/prepare.mjs --site packages/hub/artifacts/example-watabe
 `SLIDEV_THEME_PATH` に `package.json` を含むテーマディレクトリの絶対パスまたはカレントディレクトリ相対パスを指定することで、テーマの配置先を変更できます。テーマ自体に独自の CLI や Chromium の導入は不要ですが、テーマ自体の依存関係はインストールされている必要があります。代替の環境変数は `SLIDEV_LAB_THEME`、`SLIDEV_THEME_DIR` の順で適用されます。
 標準の公式テーマはカレントディレクトリに依存せずワークスペースパッケージから解決されます。CLI の基準パスは通常リポジトリルートですが、実験的な特定バージョン固有のツールチェーンを利用する場合に限り `SLIDEV_LAB_DEPENDENCY_ROOT` で明示的に上書きできます。複数プロファイル用のパス設定は従来設計を維持しており、公開 API としての保証はありません。なお、テーマを変更した場合は再ビルドが必要です。
 
-## Workers のローカル実験
+## Workers のローカル開発
 
-Workers のビルドと検証は以下のコマンドで行います。
+現行実装は `apps/hub-worker/` です。公開と Stage 接続は [Workers ガイド](guides/workers.md) を参照してください。ビルドと検証は以下のコマンドで行います。
 
 ```bash
 pnpm build:workers
@@ -164,6 +164,8 @@ pnpm dev:workers
 これらはローカルでの実験のみを目的としています。実行時のテーマは公式テーマが標準ですが、ビルド時に環境変数で選択したテーマも使用できます。公開処理ではビルド済みテーマの別名または完全なパッケージ名のみを受け付け、任意の新しい実行時構成は受け付けません。スライド資料は独自の FigureGrid から標準の Markdown 画像記法へ変更されました。Mermaid などの制約は従来どおりです。
 過去にクラウドへ配備された環境は旧テーマと古い実行時設定のままであり、今回の作業で配備は行っていません。過去の検証結果は `workers/results` に残り、最新の移植結果は別個の `docs/results/portability.json` に記録されます。
 
+
+Step 7 のローカル検証結果は [Workers 統合記録](results/workers-integration.json) に記録しています。
 
 ## 機能移行台帳
 
@@ -190,8 +192,8 @@ pnpm dev:workers
 | native bridge and shared wire types | `packages/protocol/src/contracts/`, `src/bridge/`; `packages/slidev-adapter/src/native-manifest.ts` | `apps/stage/scripts/verify-remote.mjs`; Stage tests | `packages/protocol/src/contracts/` and `src/bridge/` (Step 2) | Step 2 complete |
 | Stage state, frame control, notes, auth | `apps/stage/core/`, `apps/stage/src/`, `apps/stage/src-tauri/`, `apps/stage/scripts/` | `pnpm --filter @slidev-stage-hub/stage test`; `cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core`; `node apps/stage/scripts/verify-remote.mjs` | `packages/stage-tools/src/` for prepare/connect plus modular `apps/stage/src-tauri/` (Step 4); UI and Rust core stay in Stage | Step 4 complete |
 | CLI commands and private installation | `packages/cli/`, `scripts/pack-cli.mjs` | `pnpm test:cli`; `pnpm verify:packed-cli` | thin adapters over Hub / Stage tools (Step 5) | Step 5 complete |
-| Workers compile, publish, and revision lifecycle | `packages/hub/bundle-sharing/experiments/workers/{compiler.mjs,worker.mjs,publish.mjs,runtime/}` | `compiler.test.mjs`; `pnpm verify:workers` | `apps/hub-worker/src/{worker,compiler,storage,versions,native-player}.ts` and `apps/hub-worker/runtime/` (Step 7) | Step 7 pending |
-| Workers thumbnails | `packages/hub/bundle-sharing/experiments/workers/{thumbnail.mjs,local-thumbnail.mjs,verify-thumbnail.mjs}` | `thumbnail.test.mjs`; `verify-thumbnail.mjs`; `pnpm verify:workers` | `apps/hub-worker/` thumbnail/cache path, preserving current cached-response and uncached-503 behavior (Step 7) | Step 7 pending |
+| Workers compile, publish, and revision lifecycle | `apps/hub-worker/src/`, `apps/hub-worker/runtime/`, `packages/cli/src/publish.ts` | `compiler.test.mjs`; `pnpm verify:workers` | `apps/hub-worker/src/{worker,compiler,storage,versions,native-player}.ts` and `apps/hub-worker/runtime/` (Step 7) | Step 7 passed locally |
+| Workers thumbnails | `apps/hub-worker/src/thumbnail.ts`, `apps/hub-worker/scripts/local-thumbnail.mjs` | `apps/hub-worker/tests/thumbnail.test.mjs`; `pnpm verify:workers` | `apps/hub-worker/` thumbnail/cache path, preserving current cached-response and uncached-503 behavior (Step 7) | Step 7 passed locally |
 | Historical benchmark and comparison assets | `packages/hub/bundle-sharing/experiments/`, package `results/`, `docs/results/` | Existing result files and documented reproduction commands | Preserve as test/verification assets; never import into production runtime | Retained; no migration |
 
 ## クリーン環境での検証とCI

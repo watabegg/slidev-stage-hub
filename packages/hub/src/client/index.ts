@@ -1,5 +1,5 @@
 import { validateCatalog } from '@slidev-stage-hub/protocol/contracts';
-import type { Catalog } from '@slidev-stage-hub/protocol/contracts';
+import type { Catalog, CatalogCategory, CatalogDeck } from '@slidev-stage-hub/protocol/contracts';
 
 export type {
   Catalog,
@@ -39,6 +39,10 @@ export interface CatalogSource {
 export interface HttpCatalogSourceOptions {
   url?: string;
   fetch?: typeof globalThis.fetch;
+}
+
+export interface WorkersCatalogSourceOptions extends HttpCatalogSourceOptions {
+  maxPages?: number;
 }
 
 export interface CatalogRequestOptions {
@@ -89,6 +93,91 @@ export function createHttpCatalogSource(options: HttpCatalogSourceOptions = {}):
         if (signal?.aborted) throw abortedError(signal);
         throw networkError(cause);
       }
+    },
+  };
+}
+
+function invalidCatalog(cause: unknown): CatalogClientError {
+  return new CatalogClientError('INVALID_CATALOG', 'Catalog response was invalid', { cause });
+}
+
+function cursorFromPage(value: unknown): string | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value))
+    throw invalidCatalog(new Error('Catalog page must be an object'));
+  const page = value as Record<string, unknown>;
+  if (!Object.hasOwn(page, 'cursor')) return undefined;
+  if (typeof page.cursor !== 'string' || page.cursor.length === 0 || page.cursor.length > 4096)
+    throw invalidCatalog(new Error('Catalog page cursor is invalid'));
+  return page.cursor;
+}
+
+function urlWithCursor(endpoint: string, cursor: string): string {
+  const fragmentIndex = endpoint.indexOf('#');
+  const withoutFragment = fragmentIndex < 0 ? endpoint : endpoint.slice(0, fragmentIndex);
+  const fragment = fragmentIndex < 0 ? '' : endpoint.slice(fragmentIndex);
+  const queryIndex = withoutFragment.indexOf('?');
+  const pathname = queryIndex < 0 ? withoutFragment : withoutFragment.slice(0, queryIndex);
+  const parameters = new URLSearchParams(
+    queryIndex < 0 ? '' : withoutFragment.slice(queryIndex + 1),
+  );
+  parameters.set('cursor', cursor);
+  return `${pathname}?${parameters.toString()}${fragment}`;
+}
+
+/** Read and merge every page returned by the Hub Workers catalog endpoint. */
+export function createWorkersCatalogSource(
+  options: WorkersCatalogSourceOptions = {},
+): CatalogSource {
+  const endpoint = options.url ?? '/catalog.json';
+  const maxPages = options.maxPages ?? 100;
+  if (!Number.isSafeInteger(maxPages) || maxPages < 1)
+    throw new RangeError('maxPages must be a positive safe integer');
+
+  return {
+    async load(request: CatalogRequestOptions = {}): Promise<unknown> {
+      const categories = new Map<string, CatalogCategory>();
+      const decks = new Map<string, CatalogDeck>();
+      const seenCursors = new Set<string>();
+      const signal = request.signal;
+      if (signal?.aborted) throw abortedError(signal);
+      let cursor: string | undefined;
+      let pagesRead = 0;
+
+      for (;;) {
+        const url = cursor === undefined ? endpoint : urlWithCursor(endpoint, cursor);
+        const source = createHttpCatalogSource({
+          url,
+          ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+        });
+        const value = await source.load(signal === undefined ? undefined : { signal });
+        if (signal?.aborted) throw abortedError(signal);
+        let page: Catalog;
+        try {
+          page = validateCatalog(value);
+        } catch (cause) {
+          throw invalidCatalog(cause);
+        }
+
+        pagesRead += 1;
+        for (const category of page.categories) categories.set(category.id, category);
+        for (const deck of page.decks) decks.set(deck.id, deck);
+
+        const nextCursor = cursorFromPage(value);
+        if (nextCursor === undefined) break;
+        if (seenCursors.has(nextCursor))
+          throw invalidCatalog(new Error('Catalog page cursor repeated'));
+        if (pagesRead >= maxPages)
+          throw invalidCatalog(new Error('Catalog page limit was exceeded'));
+        seenCursors.add(nextCursor);
+        cursor = nextCursor;
+      }
+
+      if (signal?.aborted) throw abortedError(signal);
+      return {
+        schemaVersion: 1,
+        categories: [...categories.values()],
+        decks: [...decks.values()],
+      };
     },
   };
 }

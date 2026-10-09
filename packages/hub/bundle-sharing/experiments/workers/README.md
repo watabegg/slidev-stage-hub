@@ -1,3 +1,5 @@
+> 履歴資料です。現行コードは `apps/hub-worker/`、手順はルートの `docs/guides/workers.md` を参照してください。以下のパス・コマンドは記録当時のものです。
+
 # Workersでの資料生成PoC
 
 現在の既定ランタイムは公式defaultテーマです。開発環境は [開発ガイド](../../../../../docs/DEVELOPMENT.md) を参照。以下のresultsは過去のwatabegg固定ランタイムによる記録を含みます。

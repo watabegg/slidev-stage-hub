@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./clicks": {
+      "types": "./dist/clicks.d.ts",
+      "import": "./dist/clicks.js"
+    },
     "./inspect-deck": {
       "types": "./dist/inspect-deck.d.ts",
       "import": "./dist/inspect-deck.js"

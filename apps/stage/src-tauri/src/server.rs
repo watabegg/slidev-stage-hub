@@ -139,6 +139,7 @@ mod tests {
             revision: "r1".into(),
             entry: "/deck-one/index.html".into(),
             click_totals: vec![0, 1],
+            playback: None,
         }
     }
 

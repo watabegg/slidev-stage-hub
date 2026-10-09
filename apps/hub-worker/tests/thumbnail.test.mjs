@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { captureThumbnail, validatePng } from './thumbnail.mjs';
-import { THUMBNAIL_READY_SELECTOR, waitForRenderedSlide } from './local-thumbnail.mjs';
+import { captureThumbnail, validatePng } from '../src/thumbnail.ts';
+import { THUMBNAIL_READY_SELECTOR, waitForRenderedSlide } from '../scripts/local-thumbnail.mjs';
 
 const SLIDE_SELECTOR = '.slidev-page[data-slidev-no="1"]';
 const READY_SELECTOR = `${SLIDE_SELECTOR} [data-lab-slide-ready="1"]`;
@@ -261,7 +261,7 @@ test('exports PNG validation for the worker upload route', () => {
 });
 
 test('local thumbnail CLI prints usage before attempting external work', () => {
-  const script = fileURLToPath(new URL('./local-thumbnail.mjs', import.meta.url));
+  const script = fileURLToPath(new URL('../scripts/local-thumbnail.mjs', import.meta.url));
   const result = spawnSync(process.execPath, [script], { encoding: 'utf8' });
 
   assert.equal(result.status, 1);
@@ -269,7 +269,7 @@ test('local thumbnail CLI prints usage before attempting external work', () => {
 });
 
 test('local thumbnail CLI rejects an invalid revision before contacting its origin', () => {
-  const script = fileURLToPath(new URL('./local-thumbnail.mjs', import.meta.url));
+  const script = fileURLToPath(new URL('../scripts/local-thumbnail.mjs', import.meta.url));
   const result = spawnSync(process.execPath, [script, 'http://127.0.0.1:1', 'demo/deck', 'bad'], {
     encoding: 'utf8',
   });

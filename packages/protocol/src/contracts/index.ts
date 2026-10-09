@@ -6,7 +6,14 @@ export type {
   PublicFrontmatter,
 } from './catalog.js';
 export { validateCatalog } from './catalog.js';
-export type { NativeDeck, PlayerDocument } from './player.js';
+export type {
+  NativeDeck,
+  NativeDeckPlayback,
+  PlayerDocument,
+  PlayerDocumentV1,
+  PlayerDocumentV2,
+  ValidatedPlayerDocument,
+} from './player.js';
 export { validatePlayerDocument } from './player.js';
 export {
   isNativeBridgeDiagnostic,

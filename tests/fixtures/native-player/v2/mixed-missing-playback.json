@@ -1,0 +1,24 @@
+{
+  "name": "v2 rejects mixed supported decks when one omits playback",
+  "accepted": false,
+  "document": {
+    "schemaVersion": 2,
+    "protocolVersion": 1,
+    "decks": [
+      {
+        "id": "course/with-playback",
+        "revision": "build-17",
+        "entry": "/course/with-playback/1",
+        "clickTotals": [0],
+        "playback": { "kind": "revision-query", "parameter": "revision" }
+      },
+      {
+        "id": "course/without-playback",
+        "revision": "build-18",
+        "entry": "/course/without-playback/1",
+        "clickTotals": [0]
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

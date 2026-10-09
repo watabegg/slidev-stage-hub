@@ -2,6 +2,12 @@
 
 > 本文は移植時点の記録です。以後の環境依存解消・公式defaultテーマへの切り替え・watabegg 1.2.1 exampleは [開発ガイド](DEVELOPMENT.md) と [最新の検証記録](results/portability.json) を参照してください。ローカルテーマ必須という本文中の前提は解消済みです。
 
+## 現行実装の補足
+
+- Workers の現行コードは `apps/hub-worker/`。旧配置は履歴用の README・results のみです。
+- `hub publish`、共通カタログ、native-player v2 の接続手順は [Workers ガイド](guides/workers.md) を参照してください。
+- Step 7 の進捗は [進捗台帳](plans/productization-todo.md) を正本とします。
+
 ## 目的と引き継ぎの前提
 
 - **目的**: 本書は、過去のチャットログを参照せずに新しい担当エージェントが自律的に開発を再開できるようにするための引き継ぎ資料である。READMEのような概要紹介ではなく、開発再開に必要な現状、未完了事項、再現コマンド、意思決定理由を明記する。

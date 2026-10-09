@@ -28,50 +28,115 @@ type NativeQaElementMap = {
   try {
     await until(() => window.__nativePoc);
     const poc = window.__nativePoc!;
+    const snapshot = await poc.invoke('snapshot');
     const rendered = async (): Promise<NativeRenderedReport> => {
       const state = poc.getState();
-      const url = `${poc.getOrigin()}/${state.deckId}/${state.page}?clicks=${state.clickIndex}&embedded=true`;
+      const deck = snapshot.decks.find((item) => item.id === state.deckId);
+      const playback = deck?.playback;
+      let result: NativeRenderedReport | undefined;
       await until(() => {
-        const current = poc.rendered.get(url);
-        return (
-          current?.page === state.page &&
-          current.loaded &&
-          current.sessionRevision === state.sessionRevision
+        result = [...poc.rendered.values()].find(
+          (current) =>
+            current.deckId === state.deckId &&
+            current.page === state.page &&
+            current.clickIndex === state.clickIndex &&
+            current.loaded &&
+            current.sessionRevision === state.sessionRevision &&
+            (playback?.kind !== 'revision-query' ||
+              (deck !== undefined &&
+                new URL(current.url).searchParams.getAll(playback.parameter).length === 1 &&
+                new URL(current.url).searchParams.get(playback.parameter) === deck.revision)),
         );
+        return result !== undefined;
       });
-      await sleep(100);
-      return poc.rendered.get(url)!;
+      return result!;
     };
-    const snapshot = await poc.invoke('snapshot');
     if (snapshot.notesMode === 'sidecar') {
-      await rendered();
+      const initialRender = await rendered();
       await until(() => !element('notes').disabled);
       check('remote local notes enabled', snapshot.notesAvailable && !element('notes').disabled);
       const deckId = poc.getState().deckId;
       const page = poc.getState().page;
+      const deck = snapshot.decks.find((item) => item.id === deckId);
+      if (!deck) throw new Error('selected deck is missing from native snapshot');
+      const revisionPlayback = deck.playback?.kind === 'revision-query' ? deck.playback : undefined;
+      const revisionPinned = revisionPlayback !== undefined;
       const prior = await poc.invoke('read_notes', { deckId, page });
-      const marker = 'REMOTE_LOCAL_NOTE_POC_日本語';
+      const marker = revisionPinned ? 'STEP7_SIDECARE_NOTE_日本語' : 'REMOTE_LOCAL_NOTE_POC_日本語';
       const persistedFromPreviousRun = prior.text === marker;
       const revisionWarning = prior.sourceChanged;
+      const revisionA = deck.revision;
+      if (revisionPlayback) {
+        const initialUrl = new URL(initialRender.url);
+        const expectedContent = revisionWarning ? 'STEP7_REVISION_B' : 'STEP7_REVISION_A';
+        check(
+          'connected page is pinned to its manifest revision',
+          initialUrl.searchParams.getAll(revisionPlayback.parameter).length === 1 &&
+            initialUrl.searchParams.get(revisionPlayback.parameter) === revisionA,
+        );
+        check(
+          'connected page displays its published revision content',
+          initialRender.text.includes(expectedContent),
+        );
+        if (revisionWarning) {
+          check(
+            'reconnected config uses the newer Worker revision',
+            initialUrl.searchParams.get(revisionPlayback.parameter) === revisionA,
+          );
+          check('notes from the previous connection remain available', persistedFromPreviousRun);
+        }
+        await poc.invoke('capture', {
+          label: 'presenter',
+          name: revisionWarning ? 'step7-b-connected-given' : 'step7-a-connected-given',
+        });
+      }
       if (revisionWarning)
         check(
           'updated source warning visible',
           element('note-status').textContent!.includes('更新'),
         );
-      element('notes').value = marker;
-      element('notes').dispatchEvent(new Event('input'));
-      element('save').click();
-      await until(
-        () => element('save').disabled && element('note-status').textContent!.includes('端末内'),
-      );
+      if (revisionPinned) {
+        if (!persistedFromPreviousRun) {
+          check('initial notes have no stale-source warning', !revisionWarning);
+          element('notes').value = marker;
+          element('notes').dispatchEvent(new Event('input'));
+          element('save').click();
+          await until(
+            () =>
+              element('save').disabled && element('note-status').textContent!.includes('端末内'),
+          );
+          await poc.invoke('capture', { label: 'presenter', name: 'step7-note-saved' });
+          await poc.invoke('capture', { label: 'presenter', name: 'revision-a-before-b' });
+          await poc.invoke('capture', { label: 'audience', name: 'revision-a-before-b' });
+        }
+      } else {
+        element('notes').value = marker;
+        element('notes').dispatchEvent(new Event('input'));
+        element('save').click();
+        await until(
+          () => element('save').disabled && element('note-status').textContent!.includes('端末内'),
+        );
+      }
       const reopened = await poc.invoke('qa_reopen_notes', { deckId, page });
-      check('remote note saved and reopened', reopened.text === marker && !reopened.sourceChanged);
+      if (revisionPinned) {
+        check(
+          'remote note is visible after reopening its sidecar store',
+          reopened.text === marker && reopened.sourceChanged === revisionWarning,
+        );
+        if (revisionWarning)
+          await poc.invoke('capture', { label: 'presenter', name: 'step7-note-reopened' });
+      } else {
+        check(
+          'remote note saved and reopened',
+          reopened.text === marker && !reopened.sourceChanged,
+        );
+      }
       let conflicted = false;
       try {
         await poc.invoke('save_notes', {
           deckId,
           page,
-          expectedRevision: prior.revision,
+          expectedRevision: revisionPinned ? (prior.revision === '0' ? '-1' : '0') : prior.revision,
           text: 'stale overwrite',
         });
       } catch {
@@ -85,6 +150,89 @@ type NativeQaElementMap = {
         invalid = true;
       }
       check('remote note rejects invalid page', invalid);
+      let pinning: Record<string, unknown> | undefined;
+      if (revisionPinned && !revisionWarning) {
+        const source = element('deck').src;
+        const initialSession = poc.getState();
+        const initialLoads = poc.frames.stats.documentLoads;
+        const controlUrl = await poc.invoke('qa_control_url');
+        const publishResponse = await fetch(`${controlUrl}/publish-b`, { method: 'POST' });
+        if (!publishResponse.ok)
+          throw new Error(`Worker B publish handshake returned HTTP ${publishResponse.status}`);
+        const publication = (await publishResponse.json()) as {
+          id?: string;
+          revision?: string;
+          entry?: string;
+        };
+        const revisionB = publication.revision;
+        check(
+          'Worker accepted a new publication for the same deck',
+          publication.id === deckId &&
+            typeof revisionB === 'string' &&
+            revisionB !== revisionA &&
+            typeof publication.entry === 'string' &&
+            new URL(publication.entry).origin === snapshot.viewerOrigin &&
+            new URL(publication.entry).pathname === `/${deckId}/1` &&
+            new URL(publication.entry).searchParams.getAll('revision').length === 1 &&
+            new URL(publication.entry).searchParams.get('revision') === revisionB,
+        );
+        const stateDuringPublish = poc.getState();
+        check(
+          'active Stage session remains on revision A after publishing B',
+          stateDuringPublish.deckId === deckId &&
+            stateDuringPublish.revision === revisionA &&
+            stateDuringPublish.page === initialSession.page &&
+            stateDuringPublish.sessionRevision === initialSession.sessionRevision &&
+            element('deck').src === source &&
+            new URL(source).searchParams.get('revision') === revisionA,
+        );
+        await poc.invoke('capture', { label: 'presenter', name: 'step7-b-published' });
+
+        await poc.action('next');
+        await until(() => poc.getState().page === initialSession.page + 1);
+        const nextPage = await rendered();
+        await poc.action('previous');
+        await until(() => poc.getState().page === initialSession.page);
+        const afterPublish = await rendered();
+        const afterUrl = new URL(afterPublish.url);
+        check(
+          'persistent frame re-renders revision A content after B is current',
+          afterPublish.sessionRevision > initialRender.sessionRevision &&
+            afterUrl.searchParams.getAll('revision').length === 1 &&
+            afterUrl.searchParams.get('revision') === revisionA &&
+            afterPublish.text.includes('STEP7_REVISION_A') &&
+            !afterPublish.text.includes('STEP7_REVISION_B') &&
+            nextPage.documentToken === initialRender.documentToken &&
+            afterPublish.documentToken === initialRender.documentToken &&
+            poc.frames.stats.documentLoads === initialLoads,
+        );
+        await poc.invoke('capture', { label: 'presenter', name: 'revision-a-after-b' });
+        await poc.invoke('capture', { label: 'presenter', name: 'step7-a-still-pinned' });
+        await poc.invoke('capture', { label: 'audience', name: 'revision-a-after-b' });
+        pinning = {
+          revisionA,
+          revisionB,
+          initialUrl: initialRender.url,
+          currentIframeSrc: source,
+          reRenderedUrl: afterPublish.url,
+          reRenderedText: afterPublish.text,
+          documentToken: afterPublish.documentToken,
+          documentLoads: poc.frames.stats.documentLoads,
+        };
+      } else if (revisionPinned) {
+        await poc.invoke('capture', { label: 'presenter', name: 'step7-b-reconnected' });
+        await poc.invoke('capture', { label: 'presenter', name: 'revision-b-reconnect' });
+        await poc.invoke('capture', { label: 'audience', name: 'revision-b-reconnect' });
+        pinning = {
+          revisionB: revisionA,
+          initialUrl: initialRender.url,
+          content: initialRender.text,
+          persistedFromPreviousRun,
+          revisionWarning,
+        };
+      }
+      if (revisionPinned && revisionWarning)
+        await poc.invoke('capture', { label: 'presenter', name: 'step7-warning-visible' });
       const remote: Array<Record<string, unknown>> = [];
       for (const deck of snapshot.decks) {
         await poc.action('selectDeck', deck.id);
@@ -103,11 +251,25 @@ type NativeQaElementMap = {
           `${deck.id} remote persistent document`,
           before.documentToken === after.documentToken,
         );
-        if (deck.clickTotals[poc.getState().page - 1] > 0) {
+        const pageWithClicks = deck.clickTotals.findIndex((total) => total > 0) + 1;
+        if (pageWithClicks > 0) {
+          while (poc.getState().page < pageWithClicks) {
+            await poc.action('next');
+            await rendered();
+          }
           const click = poc.getState().clickIndex;
+          const clickDocument = (await rendered()).documentToken;
           await poc.action('next');
-          await rendered();
-          check(`${deck.id} remote click`, poc.getState().clickIndex === click + 1);
+          const clicked = await rendered();
+          check(
+            `${deck.id} remote click remains in its document`,
+            poc.getState().clickIndex === click + 1 &&
+              clicked.documentToken === clickDocument &&
+              (deck.playback?.kind !== 'revision-query' ||
+                (new URL(clicked.url).searchParams.getAll(deck.playback.parameter).length === 1 &&
+                  new URL(clicked.url).searchParams.get(deck.playback.parameter) ===
+                    deck.revision)),
+          );
         }
         check(
           `${deck.id} remote bounded frames`,
@@ -125,6 +287,7 @@ type NativeQaElementMap = {
         complete: true,
         assertions,
         remote,
+        revisionPinning: pinning,
         viewerOrigin: snapshot.viewerOrigin,
         sourceOrigin: snapshot.sourceOrigin,
         notes: { persistedFromPreviousRun, revisionWarning },

@@ -139,6 +139,7 @@ type NativeAppElementMap = {
   notesMode = initial.notesMode || 'markdown';
   frames = new window.NativeFrameController(el('deck'), {
     origin: viewerOrigin,
+    decks: registry,
     onInput: (kind) => action(kind),
     onRendered: (report, origin) => {
       rendered.set(report.url, report);
@@ -153,6 +154,7 @@ type NativeAppElementMap = {
   if (role === 'presenter') {
     previewFrames = new window.NativeFrameController(el('next-preview'), {
       origin: viewerOrigin,
+      decks: registry,
       onError: (error) => {
         el('next-heading').textContent = error;
       },

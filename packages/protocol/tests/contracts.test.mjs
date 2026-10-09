@@ -28,6 +28,13 @@ const validPlayerDocument = (overrides = {}) => ({
   ...overrides,
 });
 
+const validPlayerDocumentV2 = (overrides = {}) => ({
+  ...validPlayerDocument(),
+  schemaVersion: 2,
+  decks: [{ ...validDeck, playback: { kind: 'revision-query', parameter: 'revision' } }],
+  ...overrides,
+});
+
 const validCatalog = (overrides = {}) => ({
   schemaVersion: 1,
   categories: [{ id: 'course', name: 'Course', path: ['course'], parentId: null }],
@@ -62,10 +69,85 @@ test('player document validation preserves v1 copies and tolerates unknown field
   assert.notEqual(validated.decks[0].clickTotals, document.decks[0].clickTotals);
 });
 
+test('player document v2 requires revision-query playback on every supported deck', () => {
+  const document = validPlayerDocumentV2({
+    futureField: true,
+    decks: [
+      {
+        ...validDeck,
+        playback: { kind: 'revision-query', parameter: 'revision', futurePlaybackField: true },
+        futureDeckField: 'ignored',
+      },
+      {
+        ...validDeck,
+        id: 'course/topic-2',
+        entry: '/course/topic-2/1',
+        playback: { kind: 'revision-query', parameter: 'revision' },
+      },
+    ],
+  });
+
+  assert.deepEqual(validatePlayerDocument(document), {
+    decks: [
+      {
+        ...validDeck,
+        playback: { kind: 'revision-query', parameter: 'revision' },
+      },
+      {
+        ...validDeck,
+        id: 'course/topic-2',
+        entry: '/course/topic-2/1',
+        playback: { kind: 'revision-query', parameter: 'revision' },
+      },
+    ],
+    unsupportedDecks: [],
+  });
+});
+
 test('player document validation rejects unsupported versions and malformed wire fields', () => {
   assert.throws(
-    () => validatePlayerDocument(validPlayerDocument({ schemaVersion: 2 })),
-    /native-player\.json schemaVersion must be 1/u,
+    () => validatePlayerDocument(validPlayerDocument({ schemaVersion: 3 })),
+    /native-player\.json schemaVersion must be 1 or 2/u,
+  );
+  assert.throws(
+    () => validatePlayerDocument(validPlayerDocumentV2({ decks: [] })),
+    /no supported decks/u,
+  );
+  assert.throws(
+    () => validatePlayerDocument(validPlayerDocumentV2({ decks: [{ ...validDeck }] })),
+    /playback must be an object/u,
+  );
+  assert.throws(
+    () =>
+      validatePlayerDocument(
+        validPlayerDocumentV2({
+          decks: [{ ...validDeck, playback: { kind: 'path', parameter: 'revision' } }],
+        }),
+      ),
+    /playback kind must be revision-query/u,
+  );
+  assert.throws(
+    () =>
+      validatePlayerDocument(
+        validPlayerDocumentV2({
+          decks: [{ ...validDeck, playback: { kind: 'revision-query', parameter: 'build' } }],
+        }),
+      ),
+    /playback parameter must be revision/u,
+  );
+  assert.throws(
+    () =>
+      validatePlayerDocument(validPlayerDocumentV2({ decks: [{ ...validDeck, revision: '  ' }] })),
+    /revision must be a non-empty string/u,
+  );
+  assert.throws(
+    () =>
+      validatePlayerDocument(
+        validPlayerDocumentV2({
+          decks: [{ ...validDeck, entry: '/course/topic-1/1?revision=build-17' }],
+        }),
+      ),
+    /entry must be exactly \/course\/topic-1\/1/u,
   );
   assert.throws(
     () => validatePlayerDocument(validPlayerDocument({ protocolVersion: 2 })),

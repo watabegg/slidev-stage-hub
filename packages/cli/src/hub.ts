@@ -10,6 +10,7 @@ import { resolve } from 'node:path';
 import { type ParseArgsOptionsConfig } from 'node:util';
 import { CliFailure, failInput, failRuntime } from './errors.js';
 import { emitSuccess } from './output.js';
+import { runHubPublish } from './publish.js';
 import {
   callerPath,
   isRecord,
@@ -423,7 +424,7 @@ function hubHelp(): string {
     '  check       Validate Hub config and report effective paths',
     '  serve       Serve a built site (default: ./dist, port 4174)',
     '  thumbnail   Generate thumbnails for a built site',
-    '  publish     Reserved for Step 7',
+    '  publish     Publish Markdown to a Hub Workers API',
     '',
     'Common options: --config PATH, --json, --help (-h), --version',
     'build/check: --source-root PATH --out-dir PATH --theme PATH --dependency-root PATH',
@@ -431,8 +432,11 @@ function hubHelp(): string {
     '             --bootstrap sync|tla --isolate-decks --frontend-entry PATH',
     'serve:       --site PATH --host HOST --port PORT (0 selects an available port)',
     'thumbnail:   --site PATH --chromium-executable PATH',
+    'publish:     --origin ORIGIN --id ID --source PATH [--assets PATH] [--headers-file PATH]',
     'Settings: ./hub.config.json; defaults: ./slides -> ./dist',
+    'Publish requires explicit inputs and never reads hub.config.json.',
     'Examples: hub check --config ./hub.config.json; hub serve --site ./dist',
+    '          hub publish --origin https://hub.example --id course/topic --source slides.md',
   ].join('\n');
 }
 
@@ -450,6 +454,14 @@ function hubCommandOptions(command: string): ParseArgsOptionsConfig {
       config: { type: 'string' },
       site: { type: 'string' },
       'chromium-executable': { type: 'string' },
+    };
+  if (command === 'publish')
+    return {
+      origin: { type: 'string' },
+      id: { type: 'string' },
+      source: { type: 'string' },
+      assets: { type: 'string' },
+      'headers-file': { type: 'string' },
     };
   return {};
 }
@@ -475,17 +487,16 @@ export async function runHub(
   }
   if (!['build', 'check', 'serve', 'thumbnail', 'publish'].includes(command))
     failInput('unknown hub command', 'UNKNOWN_COMMAND');
-  if (command === 'publish')
-    failInput(
-      'Hub publish is unsupported until Step 7 defines the publication workflow',
-      'UNSUPPORTED',
-    );
   if (command === 'build' || command === 'check') {
     await runHubBuildOrCheck(command, parsed, cwd, json);
     return;
   }
   if (command === 'serve') {
     await hubServe(parsed, cwd, json);
+    return;
+  }
+  if (command === 'publish') {
+    await runHubPublish(parsed, cwd, json);
     return;
   }
   await hubThumbnail(parsed, cwd, json);

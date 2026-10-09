@@ -229,6 +229,7 @@ fn normalize_remote_origin(origin: &str) -> Result<String, String> {
 mod tests {
     use super::{ConfigWriteLock, Playback, load};
     use serde_json::{Value, json};
+    use slidev_native_core::{DeckPlayback, RevisionQueryParameter};
     use std::{fs, path::Path};
     use tempfile::tempdir;
 
@@ -391,6 +392,44 @@ mod tests {
                 .unwrap_err()
                 .contains("authHeadersFile must be an absolute path")
         );
+    }
+
+    #[test]
+    fn loads_and_persists_only_the_supported_revision_query_strategy() {
+        let temp = tempdir().unwrap();
+        let source = temp.path().join("source-root");
+        fs::create_dir_all(&source).unwrap();
+        let config_path = temp.path().join("local-config.json");
+        let mut document = base_config();
+        document["schemaVersion"] = json!(1);
+        document["viewerOrigin"] = json!("https://slides.example/");
+        document["decks"][0]["playback"] = json!({
+            "kind": "revision-query",
+            "parameter": "revision"
+        });
+        set_path(&mut document, "approvedSourceRoot", &source);
+        write_config(&config_path, document.clone());
+
+        let loaded = load(&config_path).unwrap();
+        assert_eq!(
+            loaded.config.decks[0].playback,
+            Some(DeckPlayback::RevisionQuery {
+                parameter: RevisionQueryParameter::Revision
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(&loaded.config.decks[0]).unwrap()["playback"],
+            json!({ "kind": "revision-query", "parameter": "revision" })
+        );
+
+        for playback in [
+            json!({ "kind": "path", "parameter": "revision" }),
+            json!({ "kind": "revision-query", "parameter": "build" }),
+        ] {
+            document["decks"][0]["playback"] = playback;
+            write_config(&config_path, document.clone());
+            assert!(load(&config_path).is_err(), "invalid strategy was accepted");
+        }
     }
 
     #[test]

@@ -12,6 +12,20 @@ pub struct Deck {
     pub revision: String,
     pub entry: String,
     pub click_totals: Vec<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playback: Option<DeckPlayback>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum DeckPlayback {
+    RevisionQuery { parameter: RevisionQueryParameter },
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum RevisionQueryParameter {
+    Revision,
 }
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -293,12 +307,14 @@ mod tests {
                 revision: "a".into(),
                 entry: "/aaa/aaa1/1".into(),
                 click_totals: vec![0, 2, 0],
+                playback: None,
             },
             Deck {
                 id: "bbb/bbb1".into(),
                 revision: "b".into(),
                 entry: "/bbb/bbb1/1".into(),
                 click_totals: vec![0],
+                playback: None,
             },
         ])
         .unwrap()

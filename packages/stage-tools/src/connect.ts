@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { NativeDeck } from '@slidev-stage-hub/protocol/contracts';
+import type { ValidatedPlayerDocument } from '@slidev-stage-hub/protocol/contracts';
 import type { RemoteStageConfig } from './config.js';
 import { StageToolsError, withConfigLock, writeConfigAtomically } from './config.js';
 import { readAuthHeadersFile } from './auth-headers.mjs';
@@ -50,10 +50,7 @@ export async function connectStage(options: ConnectStageOptions): Promise<Connec
       const result = (await fetchRemote(origin, {
         fetchImpl: options.fetchImpl,
         requestHeaders: auth?.headers,
-      })) as {
-        decks: NativeDeck[];
-        unsupportedDecks: Array<{ id: string; reason: string }>;
-      };
+      })) as ValidatedPlayerDocument;
       const config: RemoteStageConfig = {
         schemaVersion: 1,
         decks: result.decks,

@@ -4,8 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { startHarness, artifactRoot, experiment } from './harness.mjs';
 const { mf, origin } = await startHarness();
-const hubRoot = resolve(experiment, '../../..');
-const sharedFixtures = resolve(hubRoot, '../../examples/fixtures');
+const sharedFixtures = resolve(experiment, '../../examples/fixtures');
 const browser = await chromium.launch({
   channel: 'chromium',
   executablePath: process.env.CHROMIUM_EXECUTABLE,
@@ -100,7 +99,7 @@ try {
   check('inline code preserves interpolation literally', text.includes('{{ also_missing }}'));
   check('all expanded fixture pages have no browser exceptions', errors.length === 0);
   await writeFile(
-    resolve(experiment, 'results/fixture-browser.json'),
+    resolve(artifactRoot, 'fixture-browser.json'),
     JSON.stringify(
       {
         scope:

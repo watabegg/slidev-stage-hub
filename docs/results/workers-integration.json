@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "step": 7,
+  "status": "passed",
+  "date": "2026-10-10",
+  "baseCommit": "03d8e86",
+  "scope": "Local Workers integration with shared Hub catalog, CLI publication and native Stage revision pinning; no cloud deployment.",
+  "checks": [
+    {
+      "command": "pnpm check",
+      "status": "passed",
+      "nodeTests": 195,
+      "boundaryViolations": 0,
+      "migrationExceptions": 1
+    },
+    {
+      "command": "pnpm verify:workers",
+      "status": "passed",
+      "assertions": 39,
+      "evidence": "apps/hub-worker/artifacts/verification.json"
+    },
+    {
+      "command": "pnpm verify:workers-stage",
+      "status": "passed",
+      "integrationChecks": 14,
+      "nativeAssertions": 27,
+      "evidence": "artifacts/step7/2026-10-09T17-24-16-408Z-573663/result.json"
+    },
+    {
+      "command": "pnpm --filter @slidev-stage-hub/workers verify:auth",
+      "status": "passed",
+      "scope": "Local mock-token rejection, valid publication, public read and missing Browser Run binding"
+    },
+    {
+      "command": "pnpm --filter @slidev-stage-hub/workers verify:fixtures",
+      "status": "passed",
+      "assertions": 24,
+      "scope": "First two pages of four original fixtures plus literal code examples; unsupported third pages explicitly omitted"
+    },
+    {
+      "command": "CARGO_BUILD_JOBS=2 cargo test --locked -p slidev-native-core -p slidev-native-poc",
+      "cwd": "apps/stage",
+      "status": "passed",
+      "tests": 42
+    }
+  ],
+  "verifiedBehavior": [
+    "CLI publishes A; native-player v2 and saved Stage config carry revision-query playback.",
+    "Publishing B during a real Tauri/WebKit session leaves A content, URL and persistent frame unchanged.",
+    "Reconnecting selects B while origin/deck/page sidecar notes survive and show a source-change warning.",
+    "Shared catalog client follows actual R2 cursor pages and Home renders all published decks.",
+    "Home CSS is loaded only on Home; dark slide text remains readable in Chromium and native screenshots.",
+    "Artifact/index write failures cannot advance current; latest generation wins; legacy R2 manifests without native metadata remain Web-only.",
+    "Existing native-player v1 contracts and static playback URLs are preserved in unit/shared fixtures."
+  ],
+  "compatibility": {
+    "r2Binding": "FILES",
+    "durableObjectBinding": "VERSIONS",
+    "durableObjectClass": "DeckVersions",
+    "migrationTag": "v1",
+    "sqlTable": "state",
+    "nativeBridgeProtocolVersion": 1,
+    "stageConfigSchemaVersion": 1
+  },
+  "remaining": [
+    "Step 8 clean-environment full regression and final boundary cleanup are not complete.",
+    "One scoped non-literal import exception remains for validated immutable slide module URLs; removal step 8.",
+    "Actual Cloudflare deployment, Access-protected real host, Windows and physical dual-display operation are unverified.",
+    "A separate real native v1 sidecar session was not rerun in this step; v1 unit/shared fixtures and unchanged static URLs were checked."
+  ],
+  "guide": {
+    "path": "docs/guides/workers.md",
+    "authoring": "agy-writer with lead factual review"
+  },
+  "sample": "examples/workers/slides.md"
+}

@@ -1,3 +1,5 @@
+import type { BrowserRunBinding, ScreenshotOptions } from './types.ts';
+
 const MAX_PNG_BYTES = 4 * 1024 * 1024;
 const SLIDE_SELECTOR = '.slidev-page[data-slidev-no="1"]';
 const READY_SELECTOR = `${SLIDE_SELECTOR} [data-lab-slide-ready="1"]`;
@@ -6,17 +8,47 @@ const VIEWPORT_HEIGHT = 675;
 const WAIT_TIMEOUT_MS = 60_000;
 const PNG_SIGNATURE = Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10);
 
-function captureError(code, message) {
-  const error = new Error(message);
-  error.code = code;
-  return error;
+export type ThumbnailErrorCode = 'BROWSER_UNAVAILABLE' | 'BROWSER_LIMIT' | 'BROWSER_FAILED';
+
+export class ThumbnailError extends Error {
+  readonly code: ThumbnailErrorCode;
+
+  constructor(code: ThumbnailErrorCode, message: string) {
+    super(message);
+    this.name = 'ThumbnailError';
+    this.code = code;
+  }
 }
 
-function isRateLimit(error) {
-  return error?.status === 429 || error?.statusCode === 429;
+export interface ThumbnailCaptureInput {
+  browser?: BrowserRunBinding | null;
+  url?: string;
 }
 
-async function cancelQuietly(resource) {
+export interface ThumbnailCaptureResult {
+  bytes: Uint8Array;
+  contentType: 'image/png';
+  usedMs: number | null;
+}
+
+interface Cancellable {
+  cancel?: () => Promise<unknown> | unknown;
+}
+
+function captureError(code: ThumbnailErrorCode, message: string): ThumbnailError {
+  return new ThumbnailError(code, message);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isRateLimit(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+  return error.status === 429 || error.statusCode === 429;
+}
+
+async function cancelQuietly(resource: Cancellable | null | undefined): Promise<void> {
   try {
     await resource?.cancel?.();
   } catch {
@@ -24,21 +56,23 @@ async function cancelQuietly(resource) {
   }
 }
 
-function readBrowserMsUsed(headers) {
-  const value = headers?.get?.('X-Browser-Ms-Used');
-  if (typeof value !== 'string' || !/^\d+$/u.test(value)) return null;
+function readBrowserMsUsed(headers: Headers): number | null {
+  const value = headers.get('X-Browser-Ms-Used');
+  if (value === null || !/^\d+$/u.test(value)) return null;
   const usedMs = Number(value);
   return Number.isSafeInteger(usedMs) ? usedMs : null;
 }
 
-async function readBoundedBody(body) {
-  const reader = body?.getReader?.();
-  if (!reader) throw captureError('BROWSER_FAILED', 'Browser screenshot response had no PNG body.');
+async function readBoundedBody(body: ReadableStream<Uint8Array> | null): Promise<Uint8Array> {
+  const reader = body?.getReader();
+  if (!reader) {
+    throw captureError('BROWSER_FAILED', 'Browser screenshot response had no PNG body.');
+  }
 
-  const chunks = [];
+  const chunks: Uint8Array[] = [];
   let byteLength = 0;
   try {
-    while (true) {
+    for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       if (!(value instanceof Uint8Array)) {
@@ -52,7 +86,7 @@ async function readBoundedBody(body) {
     }
   } catch (error) {
     await cancelQuietly(reader);
-    if (error?.code === 'BROWSER_FAILED') throw error;
+    if (error instanceof ThumbnailError && error.code === 'BROWSER_FAILED') throw error;
     throw captureError('BROWSER_FAILED', 'Browser screenshot response could not be read.');
   } finally {
     try {
@@ -62,8 +96,9 @@ async function readBoundedBody(body) {
     }
   }
 
-  if (byteLength === 0)
+  if (byteLength === 0) {
     throw captureError('BROWSER_FAILED', 'Browser screenshot response was empty.');
+  }
   const bytes = new Uint8Array(byteLength);
   let offset = 0;
   for (const chunk of chunks) {
@@ -73,7 +108,7 @@ async function readBoundedBody(body) {
   return bytes;
 }
 
-export function validatePng(bytes) {
+export function validatePng(bytes: Uint8Array): void {
   if (bytes.byteLength < 33) {
     throw captureError('BROWSER_FAILED', 'Browser response was not a complete PNG header.');
   }
@@ -100,7 +135,7 @@ export function validatePng(bytes) {
   }
 }
 
-function makeScreenshotOptions(url) {
+function makeScreenshotOptions(url: string): ScreenshotOptions {
   return {
     url,
     viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT, deviceScaleFactor: 1 },
@@ -117,7 +152,10 @@ function makeScreenshotOptions(url) {
 }
 
 /** Capture the first Slidev page through a Cloudflare Browser Run binding. */
-export async function captureThumbnail({ browser, url } = {}) {
+export async function captureThumbnail({
+  browser,
+  url,
+}: ThumbnailCaptureInput = {}): Promise<ThumbnailCaptureResult> {
   if (!browser || typeof browser.quickAction !== 'function') {
     throw captureError('BROWSER_UNAVAILABLE', 'Cloudflare Browser Run is unavailable.');
   }
@@ -135,28 +173,24 @@ export async function captureThumbnail({ browser, url } = {}) {
     throw captureError('BROWSER_FAILED', 'Cloudflare Browser Run screenshot failed.');
   }
 
-  if (response?.status === 429) {
+  if (response.status === 429) {
     await cancelQuietly(response.body);
     throw captureError('BROWSER_LIMIT', 'Cloudflare Browser Run rate limit was reached.');
   }
-  if (!response?.ok) {
-    await cancelQuietly(response?.body);
+  if (!response.ok) {
+    await cancelQuietly(response.body);
     throw captureError('BROWSER_FAILED', 'Cloudflare Browser Run screenshot failed.');
   }
 
-  const contentType = response.headers
-    ?.get?.('content-type')
-    ?.split(';', 1)[0]
-    .trim()
-    .toLowerCase();
+  const contentType = response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase();
   if (contentType !== 'image/png') {
     await cancelQuietly(response.body);
     throw captureError('BROWSER_FAILED', 'Cloudflare Browser Run did not return a PNG.');
   }
 
-  const contentLength = response.headers?.get?.('content-length');
+  const contentLength = response.headers.get('content-length');
   if (
-    typeof contentLength === 'string' &&
+    contentLength !== null &&
     /^\d+$/u.test(contentLength) &&
     Number(contentLength) > MAX_PNG_BYTES
   ) {

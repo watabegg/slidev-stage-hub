@@ -1,0 +1,17 @@
+{
+  "name": "v2 rejects a missing playback strategy",
+  "accepted": false,
+  "document": {
+    "schemaVersion": 2,
+    "protocolVersion": 1,
+    "decks": [
+      {
+        "id": "course/missing-playback",
+        "revision": "build-17",
+        "entry": "/course/missing-playback/1",
+        "clickTotals": [0]
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

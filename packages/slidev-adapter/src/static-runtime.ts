@@ -92,3 +92,44 @@ export function patchSlidevHtmlEntry(html: string): string {
   if (!transformed.includes('/@lab/entry')) throw new Error('Slidev HTML entry signature changed');
   return transformed;
 }
+
+// Presentation labels can vary without changing the compiler's module graph.
+const runtimeOnlyFields = new Set([
+  'title',
+  'slidesTitle',
+  'titleTemplate',
+  'author',
+  'keywords',
+  'info',
+  'seoMeta',
+]);
+export function compileContract(options: {
+  data: { config: Record<string, unknown>; features: unknown };
+  roots: string[];
+  clientRoot: string;
+}) {
+  return {
+    features: options.data.features,
+    config: Object.fromEntries(
+      Object.entries(options.data.config).filter(([key]) => !runtimeOnlyFields.has(key)),
+    ),
+    roots: options.roots,
+    clientRoot: options.clientRoot,
+  };
+}
+export function stableJson(value: unknown): string | undefined {
+  if (Array.isArray(value)) return '[' + value.map(stableJson).join(',') + ']';
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return (
+      '{' +
+      Object.keys(record)
+        .sort()
+        .filter((key) => record[key] !== undefined)
+        .map((key) => JSON.stringify(key) + ':' + stableJson(record[key]))
+        .join(',') +
+      '}'
+    );
+  }
+  return JSON.stringify(value);
+}

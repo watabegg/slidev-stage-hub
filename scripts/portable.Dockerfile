@@ -8,7 +8,7 @@ COPY packages/protocol/package.json ./packages/protocol/package.json
 COPY packages/slidev-adapter/package.json ./packages/slidev-adapter/package.json
 COPY packages/stage-tools/package.json ./packages/stage-tools/package.json
 COPY packages/cli/package.json ./packages/cli/package.json
-COPY packages/hub/bundle-sharing/experiments/workers/package.json ./packages/hub/bundle-sharing/experiments/workers/package.json
+COPY apps/hub-worker/package.json ./apps/hub-worker/package.json
 COPY examples/slidev52/package.json ./examples/slidev52/package.json
 RUN pnpm install --frozen-lockfile
 RUN pnpm exec playwright install --with-deps chromium

@@ -13,7 +13,7 @@
     "stage": "bash apps/stage/scripts/run.sh",
     "build:workers": "pnpm build:packages && pnpm --filter @slidev-stage-hub/workers build:runtime",
     "dev:workers": "pnpm --filter @slidev-stage-hub/workers dev",
-    "verify:workers": "pnpm --filter @slidev-stage-hub/workers verify",
+    "verify:workers": "pnpm build:workers && pnpm --filter @slidev-stage-hub/workers verify",
     "thumbnails:hub": "pnpm --filter @slidev-stage-hub/hub thumbnails",
     "verify:hub": "pnpm --filter @slidev-stage-hub/hub verify:library",
     "browser:install": "playwright install chromium",
@@ -37,7 +37,8 @@
     "hub": "node packages/cli/dist/bin/hub.js",
     "stage:cli": "node packages/cli/dist/bin/stage.js",
     "test:web-client": "pnpm build:packages && node --test packages/hub/tests/client.test.mjs",
-    "verify:web-customization": "pnpm build:packages && node scripts/verify-web-customization.mjs"
+    "verify:web-customization": "pnpm build:packages && node scripts/verify-web-customization.mjs",
+    "verify:workers-stage": "pnpm build:workers && pnpm --filter @slidev-stage-hub/workers verify:stage"
   },
   "devDependencies": {
     "@slidev/cli": "53.0.0",

@@ -1,19 +1,17 @@
-import {
-  themeDirectory,
-  dependencyDirectory,
-} from '../../../../../scripts/runtime-environment.mjs';
+import { themeDirectory, dependencyDirectory } from './environment.mjs';
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { compileContract, resolveRuntime, stableJson } from '../module-graph/profile-runtime.mjs';
+import { resolveRuntime } from '@slidev-stage-hub/slidev-adapter/runtime';
+import { compileContract, stableJson } from '@slidev-stage-hub/slidev-adapter/static-runtime';
 
-const experiment = dirname(fileURLToPath(import.meta.url));
-const projectRoot = resolve(experiment, '../../..');
+const experiment = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const projectRoot = experiment;
 const runtimeRoot = resolve(experiment, 'runtime');
-const artifactsRoot = resolve(projectRoot, 'artifacts/workers');
+const artifactsRoot = resolve(projectRoot, 'artifacts');
 const siteRoot = resolve(artifactsRoot, 'site');
 const viteRoot = resolve(artifactsRoot, 'vite-root');
 const cacheRoot = resolve(artifactsRoot, 'cache/runtime');
@@ -44,7 +42,25 @@ const themeRoots = options.roots.filter((root) => resolve(root) !== runtimeRoot)
 const components = await collectComponents(
   themeRoots.map((root) => ({ root: join(root, 'components'), kind: 'theme' })),
 );
-const plugins = (await ViteSlidevPlugin(options)).flat(Infinity).filter(Boolean);
+const frontendRoot = dirname(fileURLToPath(import.meta.resolve('@slidev-stage-hub/hub/frontend')));
+const plugins = (await ViteSlidevPlugin(options))
+  .flat(Infinity)
+  .filter(Boolean)
+  .map((plugin) => {
+    if (plugin.name !== 'slidev:context-injection') return plugin;
+    const transform =
+      typeof plugin.transform === 'function' ? plugin.transform : plugin.transform.handler;
+    return {
+      ...plugin,
+      transform: {
+        ...plugin.transform,
+        handler(code, id, ...args) {
+          if (id.startsWith(frontendRoot + '/')) return null;
+          return transform.call(this, code, id, ...args);
+        },
+      },
+    };
+  });
 const chunks = [];
 
 function asModuleImports(entries, variablePrefix) {
@@ -180,6 +196,14 @@ html = html.replace(
 html = html.replace(/<link\b[^>]*\bas="image"[^>]*>/gi, '');
 html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>Slidev Lab</title>');
 if (!html.includes('/@lab/entry')) throw new Error('Slidev HTML entry signature changed');
+const nativeBridge = await readFile(
+  fileURLToPath(import.meta.resolve('@slidev-stage-hub/protocol/bridge')),
+  'utf8',
+);
+html = html.replace(
+  '<head>',
+  `<head><script>if(window.parent!==window && new URLSearchParams(location.search).get('nativeProtocol')==='1'){${nativeBridge}}</script>`,
+);
 await writeFile(join(viteRoot, 'index.html'), html);
 
 await build({

@@ -6,7 +6,7 @@
 
 App/Webの機能・コード構成・CLI・導入方法・今後の設計論点は、[現状アーキテクチャレポート（HTML）](docs/reports/architecture-overview.html) にまとめています。
 
-実験機能の集約、パッケージ境界、CLI・Webの拡張性、開発基盤の整備は、[実装計画（HTML）](docs/plans/productization-plan.html) と [進捗台帳](docs/plans/productization-todo.md) を参照してください。Step 6（Web clientと表示のカスタマイズ）まで完了し、Step 7〜8は未着手です。日常の検証は `pnpm check`、結果は [Step 6検証記録](docs/results/web-customization.json) を参照してください。
+実験機能の集約、パッケージ境界、CLI・Webの拡張性、開発基盤の整備は、[実装計画（HTML）](docs/plans/productization-plan.html) と [進捗台帳](docs/plans/productization-todo.md) を参照してください。Step 7（Workers統合）まで完了し、Step 8（最終整理と全量回帰）は未着手です。日常の検証は `pnpm check`、結果は [Step 7検証記録](docs/results/workers-integration.json) を参照してください。
 
 ```sh
 pnpm install --frozen-lockfile
@@ -23,7 +23,8 @@ Hubは http://localhost:4174 。ポートが使用中なら `pnpm --filter @slid
 Stageは `pnpm stage:prepare` の後、`NO_AT_BRIDGE=1 pnpm stage` で起動します。このPCのSDK準備・検証手順は [Stage README](apps/stage/README.md) を参照。Hubの開発にRustは不要です。
 
 - [Stage](apps/stage/): Rust/Tauri、TypeScript UI、端末内ノート、認証付き外部接続
-- [Hub](packages/hub/): Vueホーム、複数資料・テーマの共有ビルド、Workers変換実験
+- [Hub](packages/hub/): Vueホーム、複数資料・テーマの共有ビルド
+- [Hub Worker](apps/hub-worker/): Workers上の変換・公開とStage接続（[ガイド](docs/guides/workers.md)）
 - [Protocol](packages/protocol/): 共通マニフェスト・資料解析・Native bridge・型
 - [Examples](examples/): 共通資料と旧実装の比較用fixture
 

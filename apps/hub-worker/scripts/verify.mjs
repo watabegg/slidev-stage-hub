@@ -1,3 +1,4 @@
+import { createWorkersCatalogSource, getCatalog } from '@slidev-stage-hub/hub/client';
 import { chromium } from 'playwright-chromium';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
@@ -136,7 +137,7 @@ try {
       executablePath: process.env.CHROMIUM_EXECUTABLE,
       headless: true,
     });
-    page = await browser.newPage({ viewport: { width: 1200, height: 675 } });
+    page = await browser.newPage({ viewport: { width: 1200, height: 675 }, colorScheme: 'dark' });
     page.on('pageerror', (error) => {
       errors.push(error.message);
       console.error('PAGE ERROR', error.message);
@@ -148,6 +149,13 @@ try {
       }
     });
     await page.goto(origin + original.entry);
+    await page.locator('.slidev-page[data-slidev-no="1"] h1').waitFor();
+    check(
+      'dark slides retain readable theme text instead of Home colors',
+      (await page
+        .locator('.slidev-page[data-slidev-no="1"] h1')
+        .evaluate((heading) => getComputedStyle(heading).color)) === 'rgb(255, 255, 255)',
+    );
     await page
       .locator('.slidev-page[data-slidev-no="1"]')
       .waitFor({ state: 'visible', timeout: 30000 });
@@ -252,6 +260,20 @@ try {
     added.response.status === 200 &&
       (await (await fetch(origin + '/api/catalog')).json()).decks.length === 3,
   );
+  const catalog = await getCatalog(
+    createWorkersCatalogSource({ url: `${origin}/catalog.json?limit=1` }),
+  );
+  check('common catalog source follows all real R2 pages', catalog.decks.length === 3);
+  check(
+    'catalog links pin revisions',
+    catalog.decks.every(
+      (deck) => new URL(deck.entry, origin).searchParams.get('revision') === deck.revision,
+    ),
+  );
+  check(
+    'missing thumbnails have an available placeholder',
+    (await fetch(origin + '/thumbnail-placeholder.svg')).status === 200,
+  );
   if (page) {
     await page.reload();
     await page.locator('.slidev-page[data-slidev-no="4"]').waitFor({ state: 'visible' });
@@ -283,6 +305,12 @@ try {
     check(
       'runtime files unchanged across publication and new deck',
       beforeRuntimeHash === (await runtimeHash()),
+    );
+    await page.goto(origin);
+    await page.getByRole('link', { name: /A new deck after runtime build/ }).waitFor();
+    check(
+      'common Hub home renders the Workers catalog',
+      (await page.getByRole('link', { name: /A new deck after runtime build/ }).count()) === 1,
     );
   }
   await mkdir(artifactRoot, { recursive: true });

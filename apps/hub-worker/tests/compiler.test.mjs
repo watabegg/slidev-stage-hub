@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compileDeck } from './compiler.mjs';
+import { compileDeck } from '../src/compiler.ts';
 
 const markdown = [
   '---',
@@ -142,6 +142,77 @@ test('compilation is deterministic and warns about plain fenced code', async () 
     (await compileDeck({ markdown: '# No code fences', deckId: 'no-code' })).warnings,
     [],
   );
+});
+
+test('adds static native click totals without changing the supported Web compiler output', async () => {
+  const result = await compileDeck({
+    markdown: '# Cover\n\n<div v-click>First</div>\n\n---\n\n# Next',
+    deckId: 'native-clicks',
+  });
+
+  assert.deepEqual(result.native, { clickTotals: [1, 0] });
+  assert.equal(result.slides.length, 2);
+  assert.match(result.slides[0].code, /resolveDirective\("click"\)/);
+});
+
+test('marks unsupported native click forms and configured clicks with a generic reason', async () => {
+  const unsupportedReason =
+    'This deck uses click behavior that the native player does not support.';
+  const cases = [
+    '---\nnotes: PRIVATE_NATIVE_NOTE\n---\n# Page\n\n<div v-click="clicks">Private content</div>',
+    '---\ndefaults:\n  clicks: true\n---\n# Configured clicks',
+    '---\nclicks: true\n---\n# Root clicks',
+  ];
+
+  for (const [index, markdown] of cases.entries()) {
+    const result = await compileDeck({ markdown, deckId: `native-unsupported-${index}` });
+    assert.deepEqual(result.native, { unsupportedReason });
+    assert.doesNotMatch(JSON.stringify(result.native), /PRIVATE_NATIVE_NOTE|Private content/u);
+    assert.equal(result.slides.length, 1);
+  }
+});
+
+test('does not count click examples in fenced, inline, or commented source as native clicks', async () => {
+  const unsupportedReason =
+    'This deck uses click behavior that the native player does not support.';
+  const cases = [
+    '# Page\n\n```html\n<div v-click>sample</div>\n```',
+    '# Page\n\n`<div v-click>sample</div>`',
+  ];
+
+  for (const [index, markdown] of cases.entries()) {
+    const result = await compileDeck({ markdown, deckId: `native-click-example-${index}` });
+    assert.deepEqual(result.native, { unsupportedReason });
+    assert.equal(result.slides.length, 1);
+  }
+
+  const commentedExample = await compileDeck({
+    markdown: '# Page\n\n<!-- <div v-click>sample</div> -->',
+    deckId: 'native-click-comment-example',
+  });
+  assert.deepEqual(commentedExample.native, { clickTotals: [0] });
+});
+
+test('marks conditional or repeated slides unsupported when they contain native clicks', async () => {
+  const unsupportedReason =
+    'This deck uses click behavior that the native player does not support.';
+  const cases = [
+    '# Page\n\n<div v-for="item in items"><span v-click>Repeated</span></div>',
+    '# Page\n\n<div v-if="ready" v-click>Conditional</div>',
+    '# Page\n\n<div v-if="ready" v-click>First</div>\n<div v-else>Other branch</div>',
+  ];
+
+  for (const [index, markdown] of cases.entries()) {
+    const result = await compileDeck({ markdown, deckId: `native-click-control-${index}` });
+    assert.deepEqual(result.native, { unsupportedReason });
+    assert.equal(result.slides.length, 1);
+  }
+
+  const noClicks = await compileDeck({
+    markdown: '# Page\n\n<div v-if="ready">Conditional</div>',
+    deckId: 'native-control-no-clicks',
+  });
+  assert.deepEqual(noClicks.native, { clickTotals: [0] });
 });
 
 test('keeps Vue moustaches and tags literal inside inline and fenced Markdown code', async () => {

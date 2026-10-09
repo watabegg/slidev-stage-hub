@@ -2,44 +2,12 @@
   "version": 1,
   "exceptions": [
     {
-      "file": "packages/hub/bundle-sharing/experiments/workers/build-runtime.mjs",
-      "specifier": "../../../../../scripts/runtime-environment.mjs",
-      "rule": "cross-package-relative-import",
-      "owner": "Workers",
-      "reason": "The Workers runtime builder still reads root environment settings; Step 7 will establish the Workers package's owned runtime configuration.",
-      "removeStep": 7
-    },
-    {
-      "file": "packages/hub/bundle-sharing/experiments/workers/build-runtime.mjs",
-      "specifier": "../module-graph/profile-runtime.mjs",
-      "rule": "cross-package-relative-import",
-      "owner": "Workers",
-      "reason": "The Workers builder currently calls Hub's private profile runtime; Step 7 will move the worker compiler behind its own package boundary.",
-      "removeStep": 7
-    },
-    {
-      "file": "packages/hub/bundle-sharing/experiments/workers/compatibility.mjs",
-      "specifier": "../../../../../scripts/runtime-environment.mjs",
-      "rule": "cross-package-relative-import",
-      "owner": "Workers",
-      "reason": "Workers compatibility checks still read root environment settings; Step 7 will establish the Workers package's owned runtime configuration.",
-      "removeStep": 7
-    },
-    {
-      "file": "packages/hub/bundle-sharing/experiments/workers/runtime/routes.ts",
+      "file": "apps/hub-worker/runtime/routes.ts",
       "specifier": "<non-literal>",
       "rule": "production-nonliteral-import",
       "owner": "Workers",
-      "reason": "Slide modules are intentionally loaded from immutable revision URLs in the validated manifest; Step 7 will settle and verify this Worker runtime loading contract.",
-      "removeStep": 7
-    },
-    {
-      "file": "packages/hub/bundle-sharing/experiments/workers/thumbnail-experiments.mjs",
-      "specifier": "../../../../../scripts/runtime-environment.mjs",
-      "rule": "cross-package-relative-import",
-      "owner": "Workers",
-      "reason": "Workers thumbnail experiments still read root environment settings; Step 7 will establish the Workers package's owned runtime configuration.",
-      "removeStep": 7
+      "reason": "The browser loads immutable release modules after validateDeckManifest enforces exact same-release paths. Step 8 will settle the checker representation of this intentional runtime loading boundary.",
+      "removeStep": 8
     }
   ]
 }

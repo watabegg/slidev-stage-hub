@@ -1,3 +1,5 @@
+import { inspectNativeClicks } from './clicks.js';
+
 export type SlidevParseSync = (
   text: string,
   source: string,
@@ -21,17 +23,6 @@ export type DeckInspection = {
   slots: Array<NoteSlot | null>;
   clickTotals: number[];
 };
-
-function assertSupportedClickSyntax(content: string, id: string, page: number) {
-  // Native clickTotals model only bare v-click attributes/wrappers. Reject
-  // known alternatives instead of silently reporting incomplete totals.
-  const unsupported =
-    /\bv-(?:after|clicks)\b|(?:^|\s)v-click(?=[.=:/[\]])|<v-click(?:\s[^>]*|\/)>/m;
-  if (unsupported.test(content))
-    throw new Error(
-      `unsupported click syntax in ${id}:${page}; only bare v-click forms are supported`,
-    );
-}
 
 export function inspectDeckSource({
   id,
@@ -67,7 +58,6 @@ export function inspectDeckSource({
   });
 
   const slots = parsed.slides.map((slide) => {
-    assertSupportedClickSyntax(slide.content, id, slide.index + 1);
     if (slide.note === undefined) return null;
     const match = [...slide.raw.matchAll(/<!--([\s\S]*?)-->/g)].at(-1);
     if (!match || match[1].trim() !== slide.note)
@@ -78,9 +68,7 @@ export function inspectDeckSource({
       end: Buffer.byteLength(text.slice(0, start + match[1].length)),
     };
   });
-  const clickTotals = parsed.slides.map(
-    (slide) => [...slide.content.matchAll(/\sv-click(?=[\s>])/g)].length,
-  );
+  const clickTotals = inspectNativeClicks(parsed.slides, id);
   if (legacyFallback && JSON.stringify(clickTotals) !== '[0,2,0]')
     throw new Error(`fixture click bounds changed: ${id}`);
 

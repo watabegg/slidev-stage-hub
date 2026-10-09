@@ -15,14 +15,7 @@ async function makeFixture(t) {
   });
   await writeFile(
     path.join(root, 'pnpm-workspace.yaml'),
-    [
-      'packages:',
-      '  - apps/*',
-      '  - packages/*',
-      '  - packages/hub/bundle-sharing/experiments/workers',
-      '  - examples/slidev52',
-      '',
-    ].join('\n'),
+    ['packages:', '  - apps/*', '  - packages/*', '  - examples/slidev52', ''].join('\n'),
   );
 
   return {
@@ -300,23 +293,23 @@ test('follows Vue style src and CSS @import dependency edges', async (t) => {
 test('includes Workers edge entrypoints in the production dependency graph', async (t) => {
   const fixture = await makeFixture(t);
   await fixture.package('packages/hub', { name: '@fixture/hub' });
-  await fixture.package('packages/hub/bundle-sharing/experiments/workers', {
+  await fixture.package('apps/hub-worker', {
     name: '@fixture/workers',
   });
   await fixture.file(
-    'packages/hub/bundle-sharing/experiments/workers/worker.mjs',
+    'apps/hub-worker/src/worker.mjs',
     "import { start } from './edge-helper.mjs';\nexport default { fetch: start };\n",
   );
   await fixture.file(
-    'packages/hub/bundle-sharing/experiments/workers/edge-helper.mjs',
+    'apps/hub-worker/src/edge-helper.mjs',
     "import { createServer } from 'node:http';\nexport const start = createServer;\n",
   );
   await fixture.file(
-    'packages/hub/bundle-sharing/experiments/workers/compiler.mjs',
+    'apps/hub-worker/src/compiler.mjs',
     "import { readFile } from 'node:fs';\nexport const compile = readFile;\n",
   );
   await fixture.file(
-    'packages/hub/bundle-sharing/experiments/workers/thumbnail.mjs',
+    'apps/hub-worker/src/thumbnail.mjs',
     "import { Buffer } from 'node:buffer';\nexport const render = Buffer;\n",
   );
 
@@ -377,11 +370,11 @@ test('does not treat a type-only import from a Node builtin as a runtime depende
 test('requires an exception for a nonliteral import in the Workers production runtime', async (t) => {
   const fixture = await makeFixture(t);
   await fixture.package('packages/hub', { name: '@fixture/hub' });
-  await fixture.package('packages/hub/bundle-sharing/experiments/workers', {
+  await fixture.package('apps/hub-worker', {
     name: '@fixture/workers',
   });
   await fixture.file(
-    'packages/hub/bundle-sharing/experiments/workers/runtime/routes.ts',
+    'apps/hub-worker/runtime/routes.ts',
     'export async function load(url: string) { return import(url); }\n',
   );
 
@@ -425,5 +418,42 @@ test('Hub client and frontend source roots independently reject Node imports', a
       { rule: 'production-node-builtin', file: 'packages/hub/src/client/index.ts' },
       { rule: 'production-node-builtin', file: 'packages/hub/src/frontend/index.ts' },
     ],
+  );
+});
+
+test('bundler queries preserve public CSS exports without hiding private or relative imports', async (t) => {
+  const fixture = await makeFixture(t);
+  await fixture.package('packages/hub', {
+    name: '@fixture/hub',
+    exports: { './frontend/style.css': './src/frontend/style.css' },
+  });
+  await fixture.file('packages/hub/src/frontend/style.css', '.library { color: black; }');
+  await fixture.package('apps/stage', {
+    name: '@fixture/stage',
+    dependencies: { '@fixture/hub': 'workspace:*' },
+  });
+  await fixture.file(
+    'apps/stage/src/main.ts',
+    "import styles from '@fixture/hub/frontend/style.css?inline';\nexport { styles };\n",
+  );
+  assert.deepEqual((await checkBoundaries({ root: fixture.root, exceptions: [] })).violations, []);
+  await fixture.file(
+    'apps/stage/src/private.ts',
+    "import '@fixture/hub/src/frontend/style.css?inline';\n",
+  );
+  await fixture.file(
+    'apps/stage/src/relative.ts',
+    "import '../../../packages/hub/src/frontend/style.css?inline';\n",
+  );
+  const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
+  assert.ok(
+    result.violations.some(
+      (item) => item.file.endsWith('/private.ts') && item.rule === 'workspace-private-import',
+    ),
+  );
+  assert.ok(
+    result.violations.some(
+      (item) => item.file.endsWith('/relative.ts') && item.rule === 'cross-package-relative-import',
+    ),
   );
 });

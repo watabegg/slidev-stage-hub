@@ -53,6 +53,7 @@ function isNativeFrameMessage(value: unknown): value is NativeFrameMessage {
 
 window.NativeFrameController = class implements NativeFrameControllerInstance {
   declare origin: string;
+  declare decks: NativeDeck[];
   declare callbacks: NativeFrameControllerCallbacks;
   declare preview: boolean;
   declare active: NativeFrameSlot;
@@ -64,13 +65,15 @@ window.NativeFrameController = class implements NativeFrameControllerInstance {
     frame: HTMLIFrameElement,
     {
       origin,
+      decks,
       onRendered = () => {},
       onInput = () => {},
       onDiagnostic = () => {},
       onError = () => {},
-    }: { origin: string } & NativeFrameCallbacks,
+    }: { origin: string; decks?: NativeDeck[] } & NativeFrameCallbacks,
   ) {
     this.origin = origin;
+    this.decks = decks ?? [];
     this.callbacks = { onRendered, onInput, onDiagnostic, onError };
     this.preview = frame.id === 'next-preview';
     this.active = this.slot(frame);
@@ -149,6 +152,8 @@ window.NativeFrameController = class implements NativeFrameControllerInstance {
       nativeProtocol: '1',
       nativeParentOrigin: location.origin,
     });
+    if (this.decks.find((deck) => deck.id === state.deckId)?.playback?.kind === 'revision-query')
+      query.set('revision', state.revision);
     if (this.preview) query.set('nativePreview', 'true');
     target.timer = window.setTimeout(
       () => this.fail(target, 'スライドの描画確認がタイムアウトしました'),
@@ -252,6 +257,20 @@ window.NativeFrameController = class implements NativeFrameControllerInstance {
         report.sessionRevision !== this.latest!.sessionRevision
       )
         return true;
+      if (
+        this.decks.find((deck) => deck.id === desired.deckId)?.playback?.kind === 'revision-query'
+      ) {
+        let reportedRevision: string | null = null;
+        try {
+          const reportedUrl = new URL(report.url);
+          if (this.origin.startsWith('http') && reportedUrl.origin !== this.origin) return true;
+          const revisions = reportedUrl.searchParams.getAll('revision');
+          if (revisions.length === 1) reportedRevision = revisions[0];
+        } catch {
+          return true;
+        }
+        if (reportedRevision !== desired.revision) return true;
+      }
       if (slot.timer !== null) window.clearTimeout(slot.timer);
       slot.timer = null;
       this.stats.acknowledgements++;

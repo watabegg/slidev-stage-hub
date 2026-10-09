@@ -6,26 +6,36 @@ import { build } from 'esbuild';
 import { validatePlayerDocument } from '@slidev-stage-hub/protocol';
 import { repositoryRoot } from './runtime-environment.mjs';
 
-const fixturesRoot = new URL('../tests/fixtures/native-player/v1/', import.meta.url);
-for (const file of (await readdir(fixturesRoot)).filter((name) => name.endsWith('.json')).sort()) {
-  const fixture = JSON.parse(await readFile(new URL(file, fixturesRoot), 'utf8'));
-  test(`shared Rust/TS deck fixture: ${fixture.name}`, () => {
-    if (!fixture.accepted) {
-      assert.throws(() => validatePlayerDocument(fixture.document));
-      return;
-    }
-    const result = validatePlayerDocument(fixture.document);
-    assert.deepEqual(
-      result.decks,
-      fixture.document.decks.map(({ id, revision, entry, clickTotals }) => ({
-        id,
-        revision,
-        entry,
-        clickTotals,
-      })),
-    );
-    assert.deepEqual(result.unsupportedDecks, []);
-  });
+for (const schemaVersion of [1, 2]) {
+  const fixturesRoot = new URL(
+    `../tests/fixtures/native-player/v${schemaVersion}/`,
+    import.meta.url,
+  );
+  for (const file of (await readdir(fixturesRoot))
+    .filter((name) => name.endsWith('.json'))
+    .sort()) {
+    const fixture = JSON.parse(await readFile(new URL(file, fixturesRoot), 'utf8'));
+    test(`shared Rust/TS deck fixture: ${fixture.name}`, () => {
+      if (!fixture.accepted) {
+        assert.throws(() => validatePlayerDocument(fixture.document));
+        return;
+      }
+      const result = validatePlayerDocument(fixture.document);
+      assert.deepEqual(
+        result.decks,
+        fixture.document.decks.map(({ id, revision, entry, clickTotals, playback }) => ({
+          id,
+          revision,
+          entry,
+          clickTotals,
+          ...(schemaVersion === 2
+            ? { playback: { kind: playback.kind, parameter: playback.parameter } }
+            : {}),
+        })),
+      );
+      assert.deepEqual(result.unsupportedDecks, []);
+    });
+  }
 }
 
 for (const platform of ['browser', 'neutral']) {
