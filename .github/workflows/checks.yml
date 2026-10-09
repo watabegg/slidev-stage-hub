@@ -16,9 +16,35 @@ jobs:
       - run: pnpm check
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm verify:portable
+      - run: pnpm verify:packed-cli
   rust-core:
+    needs: portable
+    env:
+      CARGO_BUILD_JOBS: 2
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - run: cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core
+      - run: cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core -p slidev-native-poc
+  native:
+    needs: rust-core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: 2
+      NO_AT_BRIDGE: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - run: npm install --global pnpm@12.3.4
+      - run: pnpm install --frozen-lockfile
+      - name: Install Linux desktop SDK and virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb dbus-x11
+          pnpm exec playwright install --with-deps chromium
+      - run: pnpm build:hub
+      - name: Workers and static Stage native regression
+        run: xvfb-run -a dbus-run-session -- sh -c 'pnpm verify:workers-stage && pnpm verify:stage'

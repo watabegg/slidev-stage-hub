@@ -3,11 +3,11 @@
 ## 対象範囲と前提
 
 本リポジトリは、過去の概念実証を取り込んで構成された非公開モノレポです。本稿は開発環境セットアップガイド（`docs/DEVELOPMENT.md`）であり、設計文書ではないため新たなアーキテクチャや API の決定は含みません。標準テーマには公開済みの公式 `@slidev/theme-default` 0.25.0 を採用し、`@slidev/cli` およびクライアントは 53.0.0 をワークスペースのロックファイルで固定しています。別ディレクトリの `examples/slidev52` は、既存の複数プロファイル実験専用として CLI とクライアントを 52.15.2 に固定しています。
-追加サンプル用には公開済みの `slidev-theme-watabegg` 1.2.1 を明示的に指定して利用し、隣接リポジトリへのリンクや古い `slidev-lab`、`slidev-watabegg` の直接編集は行いません。環境依存の解消は完了しています。現在は再設計計画のStep 6（Web clientと表示のカスタマイズ）まで完了し、次はStep 7でWorkersを統合します。npm への公開、リモートへの push、クラウドへの配備は実施していません。実際の検証結果は `docs/results/portability.json` に記録されており、クリーンなコンテナ環境での Node.js およびブラウザ検証と、ローカル環境でのネイティブ回帰試験を区別して管理しています（独立したネイティブ配布を保証するものではありません）。
+追加サンプル用には公開済みの `slidev-theme-watabegg` 1.2.1 を明示的に指定して利用し、隣接リポジトリへのリンクや古い `slidev-lab`、`slidev-watabegg` の直接編集は行いません。環境依存の解消は完了しています。Step 1〜8 の実装とローカル検証は完了しました。最新の進捗は [進捗台帳](plans/productization-todo.md) を参照してください。npm への公開、リモートへの push、クラウドへの配備は実施していません。実際の検証結果は `docs/results/portability.json` に記録されており、クリーンなコンテナ環境での Node.js およびブラウザ検証と、ローカル環境でのネイティブ回帰試験を区別して管理しています（独立したネイティブ配布を保証するものではありません）。
 
 ## 環境構築と初期セットアップ
 
-`package.json` の `engines` では Node.js 22.12 以上を指定していますが、実際に検証されているのは 24.15.0 です（CI 設定も 24.15.0 ですが、ホスト環境での CI は未実行です）。パッケージマネージャーには pnpm 12.3.4 を指定します。リポジトリルートから以下の手順を実行します。
+Node.js 24.15.0 以上を使用します。CI 設定も 24.15.0 です。GitHub 上の CI は未実行です。パッケージマネージャーには pnpm 12.3.4 を指定します。リポジトリルートから以下の手順を実行します。
 
 ```bash
 pnpm install --frozen-lockfile
@@ -28,13 +28,7 @@ pnpm check
 ## 開発チェックとフォーマット
 
 ### ベースラインと現状のステータス
-2026年10月9日時点の検証状況および移行ステータスは以下のとおりです。
-
-- **検証ベースライン**: 本日の実装変更前において、ルートディレクトリで `pnpm typecheck` を実行した後に `pnpm test` を実行した結果、いずれも終了コード 0 で完了しました。Node.js 環境でのテスト実行数は合計 64 件です（実行環境: Node.js 24.15.0、pnpm 12.3.4）。
-- **ベースラインログ**: 実行ログはローカルの `artifacts/implementation/baseline-types.log` および `artifacts/implementation/baseline-tests.log` に出力されています。これらは生成された成果物であり、バージョン管理で追跡する文書資産には含めません。
-- **インストール検証**: レジストリのメタデータが利用可能な状態で、新規の一時的な `node_modules` と既存の pnpm ストア（`--store-dir`）を使用した frozen-lockfile でのインストールが通過することを確認しました。なお、`baseline-browser-mapping` のキャッシュメタデータが存在せずオフラインでの再試行は失敗したため、オフラインでのインストール成功は確認できていません。
-- **ゲート統合の状況**: 2026年10月9日にステップ 1 の検証ゲート G1 が確認され、`pnpm check` は終了コード 0 で通過しました。正式な根拠は `docs/results/development-foundation.json` に記録されています。Node.js のテストは合計 81 件（ルート 19、Hub 12、Stage 23、Workers 27）が通過し、境界検査では登録済みの移行例外が 19 件、未登録の境界違反は 0 件でした。なお、例外をゼロ件にすることが求められるのはステップ 8 です。
-- **計画の進捗**: 全体計画は `docs/plans/productization-plan.html` に記載されています。ステップ 1〜2（T01〜T06）は完了し、次はステップ 3です。ステップ 3〜8は未着手です。
+最新の進捗は [進捗台帳](plans/productization-todo.md)、Step 8 の実測は [最終回帰記録](results/final-regression.json) を参照してください。初期の 64 件のテストから始まる検証履歴は [開発基盤の記録](results/development-foundation.json) など `results/` に保存しています。
 
 ### 検証コマンドと対象範囲
 開発時の検証を迅速に行うため、ルートの `package.json` に `pnpm lint`、`pnpm format`、`pnpm format:check`、`pnpm check:boundaries`、`pnpm check` のスクリプトを追加しています。
@@ -73,7 +67,7 @@ pnpm check
 
 - **例外定義ファイル**: 例外は `scripts/boundary-exceptions.json` で管理します。
 - **必須項目**: 各例外エントリは、厳密に `rule`、`file`、`specifier`、`owner`、`reason`、`removeStep` の 6 項目のみで構成します。
-- **運用の制約**: 例外は移行専用の措置です。ステップ 8 が完了するまでは、境界例外がゼロ件であると主張してはなりません。
+- **運用の制約**: 例外は移行専用の措置です。Step 8 で移行例外を削除しました。新しい本番コードから `experiments/` への import は認めません。Workers の動的 import は `runtime/manifest.ts` の `validatedRevisionModuleUrl` を直接通す経路だけを許可し、同一オリジンのリリースモジュール URL を実行時に検証します。
 
 ### コードとテストの規約
 コードベースの品質と保守性を保つため、以下の規約に従います。
@@ -98,15 +92,15 @@ pnpm check
 
 ## 共有契約とSlidev adapter
 
-Step 2のG2は通過済みです（2026-10-09）。`pnpm check` 115件、Rust共通フィクスチャ、Hub/Stage HTTP・HTTPS連携66項目を確認しました。移行例外は16件です。詳細は [検証記録](results/protocol-adapter.json) を参照してください。
+Step 2のG2は通過済みです（2026-10-09）。`pnpm check` 115件、Rust共通フィクスチャ、Hub/Stage HTTP・HTTPS連携66項目を確認しました。当時の移行例外は16件でした。詳細は [検証記録](results/protocol-adapter.json) を参照してください。
 
-アプリケーション内部の状態すべてを公開APIとせず責務を分離するため、共有契約と処理系を整理しています。`packages/protocol/src/contracts`（ESM公開: `.`および`./contracts`）はCatalog、Discovery v1、iframeブリッジ通信の型、純粋なTypeScriptランタイム検証器を担当し、Node API非依存でブラウザやWorker環境と互換性を持ちます。Stage固有のセッション、Tauri、ウィンドウ、UIの型は`apps/stage/src/types`へ移設されました。また、`src/bridge`からビルドされる独立したクラシックスクリプト`dist/deck-bridge.js`は`./bridge`から提供されますが、`./build`はNodeビルド専用ツールでありブラウザ向け契約APIではありません。
+アプリケーション内部の状態すべてを公開APIとせず責務を分離するため、共有契約と処理系を整理しています。`packages/protocol/src/contracts`（ESM公開: `.`および`./contracts`）はCatalog、Discovery v1/v2、iframeブリッジ通信の型、純粋なTypeScriptランタイム検証器を担当し、Node API非依存でブラウザやWorker環境と互換性を持ちます。Stage固有のセッション、Tauri、ウィンドウ、UIの型は`apps/stage/src/types`へ移設されました。また、`src/bridge`からビルドされる独立したクラシックスクリプト`dist/deck-bridge.js`は`./bridge`から提供されますが、`./build`はNodeビルド専用ツールでありブラウザ向け契約APIではありません。
 
-Node専用の`packages/slidev-adapter`は`protocol`の型に一方向依存し、逆依存は持ちません。ここには`inspect-deck.ts`（パーサーとノートのバイトオフセット）、`native-manifest.ts`（ファイルシステムから読み込み、ソースパスや非公開ノートを除外する公開マニフェスト）、`runtime.ts`（CLIとクライアントの52.15.2および53.0.0完全一致バージョン解決）、`static-runtime.ts`（署名チェックで保護された非公開ソース向けパッチ適用）が配置されます。旧`protocol`の`./inspect-deck`と`./native-player`エクスポートは内部呼び出し元の移行に合わせて一括削除されたため、新アダプターのエクスポートを使用します。
+`packages/slidev-adapter`のNode向け入口は`protocol`の型に一方向依存し、逆依存は持ちません。ここには`inspect-deck.ts`（パーサーとノートのバイトオフセット）、`native-manifest.ts`（ファイルシステムから読み込み、ソースパスや非公開ノートを除外する公開マニフェスト）、`runtime.ts`（CLIとクライアントの52.15.2および53.0.0完全一致バージョン解決）、`static-runtime.ts`（署名チェックで保護された非公開ソース向けパッチ適用）が配置されます。旧`protocol`の`./inspect-deck`と`./native-player`エクスポートは内部呼び出し元の移行に合わせて一括削除されたため、新アダプターのエクスポートを使用します。
 
 ビルド時は`pnpm build:packages`で`protocol`、アダプターの順にdistエクスポートを準備します。通常のルートビルドやテストラッパー、`pnpm check`で自動構築されますが、Nodeスクリプトを直接実行する場合はインストール後やソース変更後に一度本ビルドを実行する必要があります。`pnpm test:contracts`はJS検証器、アダプターテスト、ブラウザ・Worker向けバンドル、共有フィクスチャ、Rustコア連携フィクスチャを実行します（全体のゲートは`pnpm check`が担います）。`tests/fixtures/native-player/v1`の共有JSONはTypeScriptのDiscovery検証とRust実DeckのserdeおよびControllerページ境界の検証のみを対象とします。Rustは完全なDiscoveryドキュメントを受け取らないため、バージョンやID、非対応デッキの判定方針はNode側でテストされ、Rustとの同等性は保証されません。
 
-v1では未知の追加フィールドを許容し、capabilities契約やschema2は導入していません。オリジン、ウィンドウ、マウント、トークン、リビジョンの保護を維持しつつ、不正なブリッジフィールドや未対応ナビゲーションは拒否されます。なお、Hubのオーケストレーション移設はStep 3で完了し、Workersコンパイラ移設はStep 7で進めますが、既存Workersビルドに対応するためHubの`profile-runtime`ファサードは保持されており、実験的機能の全面撤去ではありません。
+v1では未知の追加フィールドを許容し、capabilities契約やschema2は導入していません。オリジン、ウィンドウ、マウント、トークン、リビジョンの保護を維持しつつ、不正なブリッジフィールドや未対応ナビゲーションは拒否されます。なお、Hubのオーケストレーション移設はStep 3で完了し、Workersコンパイラ移設はStep 7で完了しました。`slidev-adapter/clicks` は Node 非依存のクリック解析入口として Workers からも使用します。互換ラッパーと過去の再現資産は保持します。
 
 ## Hub と Stage の実行と検証
 
@@ -162,7 +156,7 @@ pnpm dev:workers
 ```
 
 これらはローカルでの実験のみを目的としています。実行時のテーマは公式テーマが標準ですが、ビルド時に環境変数で選択したテーマも使用できます。公開処理ではビルド済みテーマの別名または完全なパッケージ名のみを受け付け、任意の新しい実行時構成は受け付けません。スライド資料は独自の FigureGrid から標準の Markdown 画像記法へ変更されました。Mermaid などの制約は従来どおりです。
-過去にクラウドへ配備された環境は旧テーマと古い実行時設定のままであり、今回の作業で配備は行っていません。過去の検証結果は `workers/results` に残り、最新の移植結果は別個の `docs/results/portability.json` に記録されます。
+過去にクラウドへ配備された環境は旧テーマと古い実行時設定のままであり、今回の作業で配備は行っていません。過去の検証結果は `packages/hub/workers/results` に残り、最新の移植結果は別個の `docs/results/portability.json` に記録されます。
 
 
 Step 7 のローカル検証結果は [Workers 統合記録](results/workers-integration.json) に記録しています。
@@ -176,7 +170,7 @@ Step 7 のローカル検証結果は [Workers 統合記録](results/workers-int
 台帳の解釈と運用にあたっては、以下の原則を適用します。
 
 - **移行状況の定義**: `status` は本番向け移行作業自体の進捗を表し、現行コードでの動作可否を示すものではありません。移行が完了するまで、現行の移行元コードは現在の場所に維持します。
-- **計画ステップの保留**: ステップ 1〜3は完了しています。後続のステップ 4〜8を未着手（`pending`）として記録します。
+- **進捗の正本**: Step 1〜8 は完了しています。検証状況は [進捗台帳](plans/productization-todo.md) で管理します。
 - **検証資産の保持**: 過去のベンチマークや比較用資産は検証・再現用として保持し、本番の実行時環境（ランタイム）にはインポートしません。
 
 ### 機能移行一覧
@@ -185,13 +179,14 @@ Step 7 のローカル検証結果は [Workers 統合記録](results/workers-int
 
 | feature | current source | test / verification | planned destination | status |
 | --- | --- | --- | --- | --- |
-| module-graph shared build | `packages/hub/src/node/build.ts`, `src/node/internal/graph.mjs` | `packages/hub/bundle-sharing/experiments/module-graph/catalog.test.mjs`; `pnpm verify:hub` | `packages/hub/src/node/build.ts` and associated `packages/hub/src/node/` (Step 3) | Step 3 complete |
+| module-graph shared build | `packages/hub/src/node/build.ts`, `src/node/internal/graph.mjs` | `packages/hub/tests/catalog.test.mjs`; `pnpm verify:hub` | `packages/hub/src/node/build.ts` and associated `packages/hub/src/node/` (Step 3) | Step 3 complete |
 | multi-profile resolution and process isolation | `packages/hub/src/node/internal/profiles.mjs`, `profile-probe.mjs`; `packages/hub/bundle-sharing/experiments/multi-profile/` | `packages/hub/bundle-sharing/experiments/multi-profile/scripts/browser.mjs`, `compare.mjs`; historical `packages/hub/bundle-sharing/experiments/multi-profile/results/experiment.md` | `packages/slidev-adapter/` isolation plus Hub profile service in `packages/hub/src/node/internal/profiles.mjs` (Steps 2–3) | Step 2 adapter complete; Step 3 complete |
 | offline output and fingerprint cache | `packages/hub/src/node/offline.ts`, `src/node/internal/fingerprint-offline.mjs`, `packages/hub/src/frontend/` | `packages/hub/scripts/fingerprint-offline.test.mjs`; `pnpm verify:hub` | Integrated Hub build pipeline in `packages/hub/src/node/` (Step 3) | Step 3 complete |
 | Hub thumbnail generation | `packages/hub/src/node/thumbnail.ts` | `pnpm thumbnails:hub`; `pnpm verify:hub` | `packages/hub/src/node/thumbnail.ts` (Step 3) | Step 3 complete |
 | native bridge and shared wire types | `packages/protocol/src/contracts/`, `src/bridge/`; `packages/slidev-adapter/src/native-manifest.ts` | `apps/stage/scripts/verify-remote.mjs`; Stage tests | `packages/protocol/src/contracts/` and `src/bridge/` (Step 2) | Step 2 complete |
 | Stage state, frame control, notes, auth | `apps/stage/core/`, `apps/stage/src/`, `apps/stage/src-tauri/`, `apps/stage/scripts/` | `pnpm --filter @slidev-stage-hub/stage test`; `cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core`; `node apps/stage/scripts/verify-remote.mjs` | `packages/stage-tools/src/` for prepare/connect plus modular `apps/stage/src-tauri/` (Step 4); UI and Rust core stay in Stage | Step 4 complete |
 | CLI commands and private installation | `packages/cli/`, `scripts/pack-cli.mjs` | `pnpm test:cli`; `pnpm verify:packed-cli` | thin adapters over Hub / Stage tools (Step 5) | Step 5 complete |
+| Headless Web client and custom entry/style | `packages/hub/src/client/`, `src/frontend/` | `pnpm test:web-client`; `pnpm verify:web-customization` | public client/frontend exports (Step 6) | Step 6 complete |
 | Workers compile, publish, and revision lifecycle | `apps/hub-worker/src/`, `apps/hub-worker/runtime/`, `packages/cli/src/publish.ts` | `compiler.test.mjs`; `pnpm verify:workers` | `apps/hub-worker/src/{worker,compiler,storage,versions,native-player}.ts` and `apps/hub-worker/runtime/` (Step 7) | Step 7 passed locally |
 | Workers thumbnails | `apps/hub-worker/src/thumbnail.ts`, `apps/hub-worker/scripts/local-thumbnail.mjs` | `apps/hub-worker/tests/thumbnail.test.mjs`; `pnpm verify:workers` | `apps/hub-worker/` thumbnail/cache path, preserving current cached-response and uncached-503 behavior (Step 7) | Step 7 passed locally |
 | Historical benchmark and comparison assets | `packages/hub/bundle-sharing/experiments/`, package `results/`, `docs/results/` | Existing result files and documented reproduction commands | Preserve as test/verification assets; never import into production runtime | Retained; no migration |
@@ -204,16 +199,16 @@ Step 7 のローカル検証結果は [Workers 統合記録](results/workers-int
 pnpm verify:portable
 ```
 
-このコマンドは、型検査、単体テスト、Slidev 52 の解決、Hub のビルドとブラウザ検証、Stage と UI の準備、HTTP/HTTPS ブラウザテスト、追加サンプルのビルドと検証、Workers のビルドと検証（4 つのスライドの先頭 2 ページ）を順次実行します。実行時に既存の `SLIDEV_*`、`CHROMIUM_EXECUTABLE`、`NODE_PATH` を解除し、上書き設定による初期値の隠蔽を防ぎます。これは一連の検証手順であり、それ自体が環境を隔離するわけではありません。
+このコマンドは、型検査、単体テスト、Slidev 52 の解決、Hub のビルドとブラウザ検証、Stage と UI の準備、HTTP/HTTPS ブラウザテスト、追加サンプルのビルドと検証、カスタム Web、Workers のビルド・フィクスチャ・模擬認証の検証を順次実行します。実行時に既存の `SLIDEV_*`、`CHROMIUM_EXECUTABLE`、`NODE_PATH` を解除し、上書き設定による初期値の隠蔽を防ぎます。これは一連の検証手順であり、それ自体が環境を隔離するわけではありません。
 ホスト環境の依存関係や生成成果物から隔離して検証する場合は Docker を使用します。
 
 ```bash
 docker build -f scripts/portable.Dockerfile -t slidev-stage-hub:portable .
-docker run --rm --init --shm-size=1g slidev-stage-hub:portable
+docker run --rm --init --shm-size=1g slidev-stage-hub:portable sh -c 'pnpm check && pnpm verify:portable && pnpm verify:packed-cli'
 ```
 
 ホストのディレクトリはマウントせず、`.dockerignore` により `node_modules`、成果物、`target`、`dist`、`.git`、ローカル認証情報を除外します。セットアップとビルドにはネットワーク接続が必要です。
-`.github/workflows/checks.yml` では上記の Node.js およびブラウザ検証に加え、`cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core` を独立して実行します。リポジトリの push を行っていないため GitHub 上での CI 自体は未実行であり、手元の Docker による検証記録とは区別されます。コンテナ環境は独立したネイティブ GTK/WebKit アプリケーションとしての配布を保証するものではありません。ローカルのデスクトップ環境で回帰試験を実施した場合は別途記録します。
+`.github/workflows/checks.yml` では上記の Node.js およびブラウザ検証に加え、private tarball 導入、Rust core/host テスト、Linux SDK と Xvfb 上の `pnpm verify:workers-stage && pnpm verify:stage` をジョブの依存順に実行する設定です。リポジトリの push を行っていないため GitHub 上での CI 自体は未実行であり、手元の Docker による検証記録とは区別されます。コンテナ環境は独立したネイティブ GTK/WebKit アプリケーションとしての配布を保証するものではありません。ローカルのデスクトップ環境で回帰試験を実施した場合は別途記録します。
 
 Hubの公開Node API・設定・非公開receipt・通常失敗時の復元範囲は [Hubサービス開発ガイド](guides/hub-service.md)、Step 3の実測は [検証記録](results/hub-service.json) を参照。
 

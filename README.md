@@ -4,9 +4,9 @@
 
 旧PoCから機能を移植した開発用モノレポです。まず **[引き継ぎ](docs/HANDOFF.md)**、[TODO](TODO.md)、[移行後の検証結果](docs/migration/verification.json) を読んでください。開発環境の再現手順は **[開発ガイド](docs/DEVELOPMENT.md)** を参照してください。一般配布の準備はこれからです。
 
-App/Webの機能・コード構成・CLI・導入方法・今後の設計論点は、[現状アーキテクチャレポート（HTML）](docs/reports/architecture-overview.html) にまとめています。
+App/Webの機能・コード構成・CLI・導入方法・今後の設計論点は、[再設計前のアーキテクチャレポート（HTML）](docs/reports/architecture-overview.html) にまとめています。
 
-実験機能の集約、パッケージ境界、CLI・Webの拡張性、開発基盤の整備は、[実装計画（HTML）](docs/plans/productization-plan.html) と [進捗台帳](docs/plans/productization-todo.md) を参照してください。Step 7（Workers統合）まで完了し、Step 8（最終整理と全量回帰）は未着手です。日常の検証は `pnpm check`、結果は [Step 7検証記録](docs/results/workers-integration.json) を参照してください。
+実験機能の集約、パッケージ境界、CLI・Webの拡張性、開発基盤の整備は、[実装計画（HTML）](docs/plans/productization-plan.html) と [進捗台帳](docs/plans/productization-todo.md) を参照してください。Step 1〜8 は完了しました。日常の検証は `pnpm check`、結果は [最終回帰記録](docs/results/final-regression.json) を参照してください。
 
 ```sh
 pnpm install --frozen-lockfile
@@ -25,12 +25,13 @@ Stageは `pnpm stage:prepare` の後、`NO_AT_BRIDGE=1 pnpm stage` で起動し�
 - [Stage](apps/stage/): Rust/Tauri、TypeScript UI、端末内ノート、認証付き外部接続
 - [Hub](packages/hub/): Vueホーム、複数資料・テーマの共有ビルド
 - [Hub Worker](apps/hub-worker/): Workers上の変換・公開とStage接続（[ガイド](docs/guides/workers.md)）
-- [Protocol](packages/protocol/): 共通マニフェスト・資料解析・Native bridge・型
+- [Protocol](packages/protocol/): 共通マニフェスト・Native bridge・型
+- [Slidev adapter](packages/slidev-adapter/): 資料解析・ツールチェーン解決・クリック判定
 - [Examples](examples/): 共通資料と旧実装の比較用fixture
 
 既定は公式 `@slidev/theme-default`。Slidev・テーマ・検証ツールはworkspaceのlockfileで管理します。公開済みwatabegg 1.2.1のexampleは `pnpm build:example:watabegg` → `pnpm dev:example:watabegg`（localhost:4175）で確認できます。
 
-クリーン環境の検証は `scripts/portable.Dockerfile`、実行結果は [portability.json](docs/results/portability.json) を参照。旧リポジトリとテーマ開発ディレクトリは変更しません。GitHubへの公開、npm公開、Cloudflareへの再デプロイは行っていません。
+クリーン環境の検証は `scripts/portable.Dockerfile`、実行結果は [final-regression.json](docs/results/final-regression.json) を参照。旧リポジトリとテーマ開発ディレクトリは変更しません。GitHubへの公開、npm公開、Cloudflareへの再デプロイは行っていません。
 
 Hub Node APIの使い方は [Hubサービス開発ガイド](docs/guides/hub-service.md)、Step 3の検証結果は [hub-service.json](docs/results/hub-service.json) を参照。
 

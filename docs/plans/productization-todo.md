@@ -4,8 +4,8 @@
 
 - 計画書: `docs/plans/productization-plan.html`
 - goal prompt: `なし`
-- 計画検証日時: 2026-10-10（base: main@03d8e86。鮮度チェックを実施したら更新する）
-- アクティブタスク: Step 7 / T19〜T21 完了。次は Step 8 / T22〜T24（未着手）。
+- 計画検証日時: 2026-10-10（base: main@0104954。鮮度チェックを実施したら更新する）
+- アクティブタスク: なし。Step 1〜8 / T01〜T24 と G1〜G8 は完了。公開・配布・UI刷新は別スコープ。
 - ステータス凡例: `[ ]` 未着手 / `[x]` 完了 / `[!]` blocked（理由必須） / `[-]` cancelled（理由必須）
 - 完了条件: 全行が `[x]` または `[-]` に消し込まれていること。未消し込みのままの完了報告は禁止。
 - cancelled の扱い: `[-]` にはユーザー指示または計画改訂に紐づく理由が必要。`[-]` が1件でもあれば完了報告は「完了（一部取消あり）」とし、取消一覧を明記する。
@@ -23,7 +23,7 @@
 | Gate G5 | Step 5 | `pnpm test:cli && pnpm verify:packed-cli`（両スクリプト新設済み） | exit 0、引数解決順序・JSON 出力・終了コード整合、packed private tarball からの実行成功 | PASS 2026-10-10 / CLI 13 tests、外部tarball導入から実ビルド・サムネイル・prepare/connect/doctor・HTTP配信まで13 checks。`docs/results/cli.json` |
 | Gate G6 | Step 6 | `pnpm test:web-client && pnpm verify:web-customization`（両スクリプト新設済み） | exit 0、default 表示維持、カスタム entry / style 差替え成功、headless client に副作用なし | PASS 2026-10-10 / client 7 tests、Web実ビルド・ブラウザー確認、private tarball導入を通過。`docs/results/web-customization.json` |
 | Gate G7 | Step 7 | `pnpm verify:workers && pnpm verify:workers-stage`（ローカル workerd・実 Tauri/WebKit） | exit 0、ローカル workerd での publish・catalog ページネーション全件取得・Stage 接続・セッション固定確認 | PASS 2026-10-10 / Node 195・Rust 42 tests、Workers 39 assertions、Stage 27 assertions。境界違反0・移行例外1。`docs/results/workers-integration.json` |
-| Gate G8 | Step 8 | `pnpm check && pnpm verify:portable && pnpm verify:packed-cli && pnpm verify:workers-stage && pnpm verify:stage`（`verify:portable` 既存、他 Step 新設） | exit 0、クリーン環境での全量回帰通過、パッケージ循環 0、禁止 import 0、allowlist 例外 0 | 未実施 |
+| Gate G8 | Step 8 | `pnpm check && pnpm verify:portable && pnpm verify:packed-cli && pnpm verify:workers-stage && pnpm verify:stage`（`verify:portable` 既存、他 Step 新設） | exit 0、クリーン環境での全量回帰通過、パッケージ循環 0、禁止 import 0、allowlist 例外 0 | PASS 2026-10-10 / clean Node container 203 tests、Rust 42 tests、Workers Stage 27・静的 Stage 18 native assertions。境界違反・循環・移行例外0。`docs/results/final-regression.json` |
 
 Gate の結果は実施後に in-place で更新する。失敗時は依存する後続 Step に進まない。
 
@@ -75,6 +75,6 @@ Gate の結果は実施後に in-place で更新する。失敗時は依存す�
 - [x] T19: `apps/hub-worker/src/{worker,compiler,storage,versions}.ts` workermove/compilerstore: Worker環境への移行と専用コンパイラストア分離（Gate: G7）
 - [x] T20: `apps/hub-worker/src/native-player.ts`, `apps/hub-worker/runtime/*` catalog/discovery/nativebridge: カタログ・検出機能とネイティブブリッジ連携（Gate: G7）
 - [x] T21: `packages/cli/src/publish.ts`, `apps/hub-worker/` publish/revisionintegration: 公開処理およびリビジョン統合の検証（Gate: G7）
-- [ ] T22: `packages/`, `apps/` duplicate撤去/boundaries: 旧重複コード撤去とパッケージ境界の確定（Gate: G8）
-- [ ] T23: クリーン環境 cleanregression: クリーン環境での全体リグレッション検証（Gate: G8）
-- [ ] T24: `docs/{DEVELOPMENT,HANDOFF}.md`, `.github/workflows/checks.yml`, `TODO.md` docs/results/CI: ドキュメント更新・結果記録・CI統合（Gate: G8）
+- [x] T22: `packages/`, `apps/` duplicate撤去/boundaries: 旧重複コード撤去とパッケージ境界の確定（Gate: G8）
+- [x] T23: クリーン環境 cleanregression: クリーン環境での全体リグレッション検証（Gate: G8）
+- [x] T24: `docs/{DEVELOPMENT,HANDOFF}.md`, `.github/workflows/checks.yml`, `TODO.md` docs/results/CI: ドキュメント更新・結果記録・CI統合（Gate: G8）

@@ -22,6 +22,19 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** Resolve only same-origin modules in the immutable release path format. */
+export function validatedRevisionModuleUrl(value: string): string {
+  if (
+    typeof value !== 'string' ||
+    !/^\/releases\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*\/[a-f0-9]{64}\/(?:[1-9]|[1-9]\d|100)\.js(?![\s\S])/u.test(
+      value,
+    )
+  ) {
+    throw new Error('Invalid revision module URL');
+  }
+  return value;
+}
+
 /** Only same-release modules may enter the dynamic Slidev route loader. */
 export function validateDeckManifest(value: unknown, id: string): DeckManifest {
   if (

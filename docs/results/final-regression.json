@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "step": 8,
+  "status": "passed",
+  "date": "2026-10-10",
+  "baseCommit": "0104954",
+  "tasks": [
+    "T22",
+    "T23",
+    "T24"
+  ],
+  "scope": "Local productization regression: independent Node container and packed installation; Linux SDK/display native gates. No cloud deploy, push, npm publish or native distribution.",
+  "cleanup": [
+    "Removed Hub legacy-environment export and tarball entry after migrating its last root consumer.",
+    "Moved production catalog and environment behavior tests into Hub tests.",
+    "Retained compatibility wrappers, public node/serve aliases, historical results and reproduction harnesses.",
+    "Validated immutable revision module URLs replace the last migration exception.",
+    "Production imports into experiments are forbidden transitively, including through scripts helpers. Boundary CLI also fails on consumed migration exceptions."
+  ],
+  "container": {
+    "image": "sha256:f61644672aec005d30fd51a5270cb78b85db326a6a555ea68e0192339a5b39b3",
+    "base": "node:24.15.0-bookworm",
+    "pnpm": "12.3.4",
+    "dockerfile": "scripts/portable.Dockerfile",
+    "hostMounts": [],
+    "install": "pnpm install --frozen-lockfile; pnpm exec playwright install --with-deps chromium",
+    "commands": "pnpm check && pnpm verify:portable && pnpm verify:packed-cli",
+    "exitCode": 0,
+    "startedAt": "2026-10-09T17:46:45.32401875Z",
+    "finishedAt": "2026-10-09T17:49:26.632988591Z",
+    "log": "artifacts/step8/clean-container.log",
+    "note": "Documentation status/results were finalized after this source snapshot; runtime/tooling sources are unchanged."
+  },
+  "checks": [
+    {
+      "command": "pnpm check",
+      "environment": "clean Node container",
+      "exitCode": 0,
+      "nodeTests": 203,
+      "boundaryViolations": 0,
+      "packageCycles": 0,
+      "migrationExceptions": 0,
+      "validatedRuntimeResolutions": 1
+    },
+    {
+      "command": "pnpm verify:portable",
+      "environment": "clean Node container",
+      "exitCode": 0,
+      "nodeTests": 203,
+      "webCustomizationChecks": 13,
+      "remoteBridgeChecks": 66,
+      "workersChecks": 39,
+      "workersFixtureChecks": 24,
+      "auth": "passed local bearer-token emulation; not actual Cloudflare Access",
+      "themes": [
+        "@slidev/theme-default@0.25.0",
+        "slidev-theme-watabegg@1.2.1"
+      ],
+      "coverage": [
+        "Slidev 52.15.2 resolution",
+        "static Hub/offline output/thumbnails",
+        "custom Web entry/style/source",
+        "Stage prepare/UI",
+        "HTTP/HTTPS bridge",
+        "watabegg build/browser",
+        "Workers runtime/catalog/publication",
+        "Workers fixtures/auth"
+      ]
+    },
+    {
+      "command": "pnpm verify:packed-cli",
+      "environment": "clean Node container; temporary installation outside /workspace",
+      "exitCode": 0,
+      "checks": 16,
+      "tarballs": 5,
+      "repositorySymlinks": false,
+      "evidence": "artifacts/step8/container-evidence/packed-cli.json"
+    },
+    {
+      "command": "CARGO_BUILD_JOBS=2 nice -n 10 cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core -p slidev-native-poc",
+      "environment": "local Linux",
+      "exitCode": 0,
+      "rustTests": 42,
+      "log": "artifacts/step8/rust.log"
+    },
+    {
+      "command": "pnpm verify:workers-stage",
+      "environment": "local Linux SDK/display; actual Tauri/WebKit and local workerd",
+      "exitCode": 0,
+      "integrationChecks": 14,
+      "nativeAssertions": 27,
+      "evidence": "artifacts/step7/2026-10-09T17-50-11-532Z-693886/result.json",
+      "log": "artifacts/step8/workers-stage.log"
+    },
+    {
+      "command": "pnpm verify:stage",
+      "environment": "local Linux SDK/display; actual Tauri/WebKit launched from empty cwd",
+      "exitCode": 0,
+      "nativeAssertions": 18,
+      "remoteBridgeChecks": 66,
+      "persistentIframe": "passed",
+      "sourceRestored": true,
+      "evidence": "artifacts/step4/gate.json",
+      "log": "artifacts/step8/stage.log"
+    }
+  ],
+  "ci": {
+    "workflow": ".github/workflows/checks.yml",
+    "configured": [
+      "portable and packed CLI",
+      "Rust core/host",
+      "Linux native SDK + Xvfb: Workers Stage then static Stage"
+    ],
+    "order": "portable -> rust-core -> native",
+    "githubRun": "not executed"
+  },
+  "documentation": {
+    "handoff": "docs/HANDOFF.md",
+    "history": "docs/legacy/handoff-through-step7.md",
+    "development": "docs/DEVELOPMENT.md",
+    "writer": "agy-writer / Gemini; factual review and repair completed"
+  },
+  "unverified": [
+    "Windows",
+    "physical dual-display setup",
+    "independent native installer/distribution",
+    "actual Cloudflare/Access host acceptance",
+    "GitHub Actions execution"
+  ],
+  "deferred": [
+    "App/Web UI redesign",
+    "public naming/license/distribution decisions",
+    "R2-to-Queue automation",
+    "SSO"
+  ],
+  "sourceSha256": {
+    "scripts/check-boundaries.mjs": "bb49f01f06f828bf40f6fdfdd339a7427af2ceb319d9fc92735d9fd938b73f4c",
+    "scripts/check-boundaries.test.mjs": "7c7cbaa8e74bdebb8fd9ed68420f856d051f541ee18918ec7a8cea365bba3c26",
+    "scripts/verify-portable.mjs": "f3d086818c569200e5b3a5cf9ce14aaa50e616d7a849ed764b185ce3df14a743",
+    "apps/hub-worker/runtime/manifest.ts": "136c662d1f1137719921e8b0bcb78f190457a9a893e8580b678b8c2a9c84ed37",
+    "apps/hub-worker/runtime/routes.ts": "06c8c09423fb238b2a0d399dc10fa86619485c0f6c87d4f838c584217720362d",
+    "packages/hub/package.json": "ca8e7fe0aa058294d66e186be46295c2ba42ac6095f713625409aaf4a00d034f"
+  }
+}

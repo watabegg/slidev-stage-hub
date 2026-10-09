@@ -6,7 +6,7 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.client.json",
     "build": "pnpm --filter @slidev-stage-hub/protocol build && pnpm --filter @slidev-stage-hub/slidev-adapter build && pnpm build:node && pnpm build:client && node scripts/build.mjs",
     "serve": "node scripts/serve.mjs artifacts/module-graph-offline/site 4174",
-    "test": "node --test scripts/fingerprint-offline.test.mjs scripts/native-player.test.mjs bundle-sharing/experiments/module-graph/catalog.test.mjs tests/service.test.mjs tests/client.test.mjs",
+    "test": "node --test scripts/fingerprint-offline.test.mjs scripts/native-player.test.mjs tests/catalog.test.mjs tests/runtime-environment.test.mjs tests/service.test.mjs tests/client.test.mjs",
     "baseline": "node scripts/baseline-build.mjs",
     "verify:library": "node scripts/verify-library.mjs artifacts/module-graph-offline/site",
     "thumbnails": "node scripts/thumbnails.mjs artifacts/module-graph-offline/site",
@@ -34,7 +34,6 @@
       "types": "./dist/node/internal/serve.d.mts",
       "import": "./dist/node/internal/serve.mjs"
     },
-    "./legacy-environment": "./scripts/runtime-environment.mjs",
     "./client": {
       "types": "./dist/client/index.d.ts",
       "import": "./dist/client/index.js"
@@ -45,8 +44,7 @@
   "version": "0.1.0",
   "files": [
     "dist",
-    "src/frontend",
-    "scripts/runtime-environment.mjs"
+    "src/frontend"
   ],
   "engines": {
     "node": ">=24.15.0"

@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { checkBoundaries } from './check-boundaries.mjs';
+import { boundaryCheckExitCode, checkBoundaries } from './check-boundaries.mjs';
 
 async function makeFixture(t) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'slidev-boundaries-'));
@@ -46,6 +46,13 @@ async function writeJson(filePath, value) {
 
 function rules(result) {
   return result.violations.map((violation) => violation.rule);
+}
+
+async function addWorkersRuntime(fixture, routesSource, manifestSource) {
+  await fixture.package('packages/hub', { name: '@fixture/hub' });
+  await fixture.package('apps/hub-worker', { name: '@fixture/workers' });
+  await fixture.file('apps/hub-worker/runtime/manifest.ts', manifestSource);
+  await fixture.file('apps/hub-worker/runtime/routes.ts', routesSource);
 }
 
 test('a package can consume its own public exports without a workspace cycle', async (t) => {
@@ -133,6 +140,60 @@ test('rejects an undeclared workspace dependency even when its export is public'
 
   const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
   assert.ok(rules(result).includes('workspace-undeclared-dependency'));
+});
+
+test('production src cannot import same-package experiments directly or transitively', async (t) => {
+  const fixture = await makeFixture(t);
+  await fixture.package('packages/cli', { name: '@fixture/cli' });
+  await fixture.package('apps/widget', { name: '@fixture/widget' });
+  await fixture.file(
+    'packages/cli/src/index.ts',
+    "import './direct';\nimport './nested/helper';\nimport '../scripts/helper';\n",
+  );
+  await fixture.file('packages/cli/src/direct.ts', "import '../experiments/direct';\n");
+  await fixture.file(
+    'packages/cli/src/nested/helper.ts',
+    "import '../../experiments/transitive';\n",
+  );
+  await fixture.file(
+    'packages/cli/scripts/helper.ts',
+    "import '../experiments/from-script-helper';\n",
+  );
+  await fixture.file('packages/cli/experiments/direct.ts', 'export const direct = true;\n');
+  await fixture.file('packages/cli/experiments/transitive.ts', 'export const transitive = true;\n');
+  await fixture.file(
+    'packages/cli/experiments/from-script-helper.ts',
+    'export const fromScriptHelper = true;\n',
+  );
+  await fixture.file('packages/cli/experiments/wrapper.ts', "import '../src/index';\n");
+  await fixture.file(
+    'apps/widget/src/runtime/entry.ts',
+    "import '../../experiments/runtime-only';\n",
+  );
+  await fixture.file(
+    'apps/widget/experiments/runtime-only.ts',
+    'export const runtimeOnly = true;\n',
+  );
+
+  const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
+  assert.deepEqual(
+    result.violations
+      .filter((violation) => violation.rule === 'production-experiment-import')
+      .map((violation) => violation.file),
+    [
+      'apps/widget/src/runtime/entry.ts',
+      'packages/cli/scripts/helper.ts',
+      'packages/cli/src/direct.ts',
+      'packages/cli/src/nested/helper.ts',
+    ],
+  );
+  assert.ok(
+    !result.violations.some(
+      (violation) =>
+        violation.rule === 'production-experiment-import' &&
+        violation.file === 'packages/cli/experiments/wrapper.ts',
+    ),
+  );
 });
 
 test('reports a cycle between workspace packages', async (t) => {
@@ -367,19 +428,114 @@ test('does not treat a type-only import from a Node builtin as a runtime depende
   assert.equal(result.violations.length, 0);
 });
 
-test('requires an exception for a nonliteral import in the Workers production runtime', async (t) => {
+test('rejects a nonliteral import in the Workers production runtime', async (t) => {
   const fixture = await makeFixture(t);
-  await fixture.package('packages/hub', { name: '@fixture/hub' });
-  await fixture.package('apps/hub-worker', {
-    name: '@fixture/workers',
-  });
-  await fixture.file(
-    'apps/hub-worker/runtime/routes.ts',
+  await addWorkersRuntime(
+    fixture,
     'export async function load(url: string) { return import(url); }\n',
+    'export function validatedRevisionModuleUrl(value: string) { return value; }\n',
   );
 
   const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
   assert.ok(rules(result).includes('production-nonliteral-import'));
+  assert.equal(result.runtimeResolutions, 0);
+});
+
+test('recognizes a direct import through the canonical exported runtime resolver', async (t) => {
+  const fixture = await makeFixture(t);
+  await addWorkersRuntime(
+    fixture,
+    [
+      "import { validatedRevisionModuleUrl } from './manifest';",
+      'export async function load(url: string) { return import(validatedRevisionModuleUrl(url)); }',
+      '',
+    ].join('\n'),
+    'export function validatedRevisionModuleUrl(value: string) { return value; }\n',
+  );
+
+  const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
+  assert.deepEqual(result.violations, []);
+  assert.deepEqual(result.exceptionsUsed, []);
+  assert.equal(result.runtimeResolutions, 1);
+});
+
+test('rejects a resolver name imported from the canonical file under a different export', async (t) => {
+  const fixture = await makeFixture(t);
+  await addWorkersRuntime(
+    fixture,
+    [
+      "import { validateDeckManifest as validatedRevisionModuleUrl } from './manifest';",
+      'export async function load(url: string) { return import(validatedRevisionModuleUrl(url)); }',
+      '',
+    ].join('\n'),
+    [
+      'export function validateDeckManifest(value: string) { return value; }',
+      'export function validatedRevisionModuleUrl(value: string) { return value; }',
+      '',
+    ].join('\n'),
+  );
+
+  const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
+  assert.ok(rules(result).includes('production-nonliteral-import'));
+  assert.equal(result.runtimeResolutions, 0);
+});
+
+test('does not trust a locally defined function with the runtime resolver name', async (t) => {
+  const fixture = await makeFixture(t);
+  await addWorkersRuntime(
+    fixture,
+    [
+      'function validatedRevisionModuleUrl(value: string) { return value; }',
+      'export async function load(url: string) { return import(validatedRevisionModuleUrl(url)); }',
+      '',
+    ].join('\n'),
+    'export function validatedRevisionModuleUrl(value: string) { return value; }\n',
+  );
+
+  const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
+  assert.ok(rules(result).includes('production-nonliteral-import'));
+  assert.equal(result.runtimeResolutions, 0);
+});
+
+test('does not allow an additional unguarded dynamic import beside a guarded one', async (t) => {
+  const fixture = await makeFixture(t);
+  await addWorkersRuntime(
+    fixture,
+    [
+      "import { validatedRevisionModuleUrl } from './manifest';",
+      'export async function load(url: string) {',
+      '  return Promise.all([import(validatedRevisionModuleUrl(url)), import(url)]);',
+      '}',
+      '',
+    ].join('\n'),
+    'export function validatedRevisionModuleUrl(value: string) { return value; }\n',
+  );
+
+  const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
+  assert.ok(rules(result).includes('production-nonliteral-import'));
+  assert.equal(result.runtimeResolutions, 1);
+});
+
+test('does not recognize a runtime resolver import when its local binding is shadowed', async (t) => {
+  const fixture = await makeFixture(t);
+  await addWorkersRuntime(
+    fixture,
+    [
+      "import { validatedRevisionModuleUrl } from './manifest';",
+      'export async function load(url: string) {',
+      '  function nested(validatedRevisionModuleUrl: (value: string) => string) {',
+      '    return import(validatedRevisionModuleUrl(url));',
+      '  }',
+      '  return nested((value) => value);',
+      '}',
+      '',
+    ].join('\n'),
+    'export function validatedRevisionModuleUrl(value: string) { return value; }\n',
+  );
+
+  const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
+  assert.ok(rules(result).includes('production-nonliteral-import'));
+  assert.equal(result.runtimeResolutions, 0);
 });
 
 test('fails when a migration exception no longer matches a violation', async (t) => {
@@ -400,6 +556,31 @@ test('fails when a migration exception no longer matches a violation', async (t)
 
   assert.ok(rules(result).includes('stale-exception'));
   assert.deepEqual(result.exceptionsUsed, []);
+});
+
+test('preserves consumed migration exceptions in the API but fails the CLI gate', async (t) => {
+  const fixture = await makeFixture(t);
+  await fixture.package('apps/stage', { name: '@fixture/stage' });
+  await fixture.file('apps/stage/src/index.ts', "import 'node:fs';\n");
+
+  const result = await checkBoundaries({
+    root: fixture.root,
+    exceptions: [
+      {
+        file: 'apps/stage/src/index.ts',
+        specifier: 'node:fs',
+        rule: 'production-node-builtin',
+        owner: 'Stage',
+        reason: 'Fixture for the Step 8 zero-exception gate.',
+        removeStep: 8,
+      },
+    ],
+  });
+
+  assert.deepEqual(result.violations, []);
+  assert.equal(result.exceptionsUsed.length, 1);
+  assert.equal(boundaryCheckExitCode(result), 1);
+  assert.equal(boundaryCheckExitCode({ violations: [], exceptionsUsed: [] }), 0);
 });
 
 test('Hub client and frontend source roots independently reject Node imports', async (t) => {

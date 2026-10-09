@@ -16,4 +16,5 @@
 - 変更後はルートの `pnpm check` を使う。これは lint、format:check、typecheck、test、check:boundaries を順に実行する。
 - Oxlint は Vue の未使用変数検査や template 全般を保証しない。型検査には既存の `vue-tsc` を使う。
 - Formatter の対象と除外は現行の `.oxfmtrc.json` に従う。Markdown と `pnpm-lock.yaml` は対象外。
-- 境界例外は移行用に限り、`rule`、`file`、`specifier`、`owner`、`reason`、`removeStep` を記録する。例外ゼロは Step 8 まで主張しない。
+- Step 8 以降は移行例外ゼロを維持する。本番コードから `experiments/` を import しない。Workers の動的 import は `validatedRevisionModuleUrl` を直接通し、未検証 URL の解決を追加しない。
+- 全量回帰は `pnpm check && pnpm verify:portable && pnpm verify:packed-cli && pnpm verify:workers-stage && pnpm verify:stage`。Node のクリーンコンテナ検証と Linux SDK・画面を使うネイティブ検証の実測を区別し、未実行を成功扱いしない。

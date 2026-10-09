@@ -269,7 +269,112 @@ function exportHasRuntimeBindings(declaration) {
   return true;
 }
 
-function collectReferencesFromAst(sourceText, fileName, scriptKind) {
+function boundNames(name, names = []) {
+  if (ts.isIdentifier(name)) {
+    names.push(name);
+  } else if (ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name)) {
+    for (const element of name.elements) {
+      if (ts.isBindingElement(element)) boundNames(element.name, names);
+    }
+  }
+  return names;
+}
+
+function resolvesToRuntimeManifest(fileName, specifier, root) {
+  if (!specifier.startsWith('.')) return false;
+  const basePath = path.resolve(path.dirname(fileName), specifier);
+  const manifestPath = path.resolve(root, 'apps/hub-worker/runtime/manifest.ts');
+  return basePath === manifestPath || `${basePath}.ts` === manifestPath;
+}
+
+function hasOtherBinding(source, localName, expectedImport) {
+  let conflict = false;
+  const checkName = (name, declaration) => {
+    if (declaration !== expectedImport && ts.isIdentifier(name) && name.text === localName)
+      conflict = true;
+  };
+
+  function visit(node) {
+    if (ts.isImportSpecifier(node)) checkName(node.name, node);
+    else if (ts.isNamespaceImport(node)) checkName(node.name, node);
+    else if (ts.isImportClause(node) && node.name) checkName(node.name, node);
+    else if (ts.isImportEqualsDeclaration(node)) checkName(node.name, node);
+    else if (ts.isVariableDeclaration(node) || ts.isParameter(node)) {
+      for (const name of boundNames(node.name)) checkName(name, node);
+    } else if (ts.isBindingElement(node)) {
+      for (const name of boundNames(node.name)) checkName(name, node);
+    } else if (
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isClassDeclaration(node) ||
+      ts.isClassExpression(node) ||
+      ts.isInterfaceDeclaration(node) ||
+      ts.isTypeAliasDeclaration(node) ||
+      ts.isEnumDeclaration(node) ||
+      ts.isModuleDeclaration(node)
+    ) {
+      if (node.name) checkName(node.name, node);
+    } else if (ts.isTypeParameterDeclaration(node)) {
+      checkName(node.name, node);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return conflict;
+}
+
+function exportedRuntimeResolver(sourceText, fileName) {
+  const source = ts.createSourceFile(
+    fileName,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  return source.statements.some(
+    (statement) =>
+      ts.isFunctionDeclaration(statement) &&
+      statement.name?.text === 'validatedRevisionModuleUrl' &&
+      statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword),
+  );
+}
+
+function runtimeResolverBindings(source, fileName, runtimeResolver) {
+  const bindings = new Map();
+  if (!runtimeResolver.exported) return bindings;
+
+  for (const statement of source.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !isStringLiteral(statement.moduleSpecifier) ||
+      !resolvesToRuntimeManifest(fileName, statement.moduleSpecifier.text, runtimeResolver.root)
+    )
+      continue;
+    const clause = statement.importClause;
+    if (!clause || clause.isTypeOnly || !clause.namedBindings) continue;
+    if (!ts.isNamedImports(clause.namedBindings)) continue;
+    for (const element of clause.namedBindings.elements) {
+      if (
+        element.isTypeOnly ||
+        (element.propertyName ?? element.name).text !== 'validatedRevisionModuleUrl'
+      )
+        continue;
+      const localName = element.name.text;
+      const candidates = bindings.get(localName) ?? [];
+      candidates.push(element);
+      bindings.set(localName, candidates);
+    }
+  }
+
+  for (const [localName, candidates] of bindings) {
+    if (candidates.length !== 1 || hasOtherBinding(source, localName, candidates[0]))
+      bindings.delete(localName);
+  }
+  return bindings;
+}
+
+function collectReferencesFromAst(sourceText, fileName, scriptKind, runtimeResolver = {}) {
   const source = ts.createSourceFile(
     fileName,
     sourceText,
@@ -278,6 +383,9 @@ function collectReferencesFromAst(sourceText, fileName, scriptKind) {
     scriptKind,
   );
   const references = [];
+  const runtimeResolverImports = runtimeResolver.root
+    ? runtimeResolverBindings(source, fileName, runtimeResolver)
+    : new Map();
 
   const add = (specifier, kind, runtime = true) => {
     references.push({ specifier, kind, runtime });
@@ -314,7 +422,17 @@ function collectReferencesFromAst(sourceText, fileName, scriptKind) {
       const isRequire = ts.isIdentifier(node.expression) && node.expression.text === 'require';
       if (isDynamicImport || isRequire) {
         const argument = node.arguments[0];
-        if (argument && isStringLiteral(argument))
+        const resolverName =
+          isDynamicImport &&
+          node.arguments.length === 1 &&
+          argument &&
+          ts.isCallExpression(argument) &&
+          ts.isIdentifier(argument.expression) &&
+          runtimeResolverImports.has(argument.expression.text)
+            ? argument.expression.text
+            : null;
+        if (resolverName) add(null, 'validated-runtime-import');
+        else if (argument && isStringLiteral(argument))
           add(argument.text, isDynamicImport ? 'dynamic-import' : 'require');
         else add(null, isDynamicImport ? 'dynamic-import' : 'require');
       }
@@ -352,7 +470,7 @@ function collectCssReferences(sourceText, fileName) {
   return references;
 }
 
-function parseVueSource(sourceText, fileName) {
+function parseVueSource(sourceText, fileName, runtimeResolver) {
   const result = parseSfc(sourceText, { filename: fileName });
   if (result.errors.length) throw result.errors[0];
   const references = [];
@@ -369,7 +487,7 @@ function parseVueSource(sourceText, fileName) {
           : lang === 'js' || lang === 'mjs'
             ? ts.ScriptKind.JS
             : ts.ScriptKind.TS;
-    references.push(...collectReferencesFromAst(block.content, fileName, kind));
+    references.push(...collectReferencesFromAst(block.content, fileName, kind, runtimeResolver));
   }
   const template = result.descriptor.template;
   if (template?.src) {
@@ -382,7 +500,12 @@ function parseVueSource(sourceText, fileName) {
     });
     if (compiled.errors.length) throw compiled.errors[0];
     references.push(
-      ...collectReferencesFromAst(compiled.code, `${fileName}?template`, ts.ScriptKind.TS),
+      ...collectReferencesFromAst(
+        compiled.code,
+        `${fileName}?template`,
+        ts.ScriptKind.TS,
+        runtimeResolver,
+      ),
     );
   }
   for (const style of result.descriptor.styles) {
@@ -392,12 +515,13 @@ function parseVueSource(sourceText, fileName) {
   return references;
 }
 
-async function parseFile(fullPath) {
+async function parseFile(fullPath, runtimeResolver) {
   const sourceText = await readFile(fullPath, 'utf8');
   if (path.extname(fullPath).toLowerCase() === '.css') {
     return collectCssReferences(sourceText, fullPath);
   }
-  if (path.extname(fullPath).toLowerCase() === '.vue') return parseVueSource(sourceText, fullPath);
+  if (path.extname(fullPath).toLowerCase() === '.vue')
+    return parseVueSource(sourceText, fullPath, runtimeResolver);
   const extension = path.extname(fullPath).toLowerCase();
   const kind =
     extension === '.jsx'
@@ -405,7 +529,7 @@ async function parseFile(fullPath) {
       : extension === '.js' || extension === '.mjs' || extension === '.cjs'
         ? ts.ScriptKind.JS
         : ts.ScriptKind.TS;
-  return collectReferencesFromAst(sourceText, fullPath, kind);
+  return collectReferencesFromAst(sourceText, fullPath, kind, runtimeResolver);
 }
 
 async function resolveExistingFile(basePath) {
@@ -624,6 +748,24 @@ function isProductionFile(root, fullPath) {
   );
 }
 
+function isProductionSourceFile(root, fullPath) {
+  const file = relativePath(root, fullPath);
+  return (
+    /^(?:apps|packages)\/[^/]+\/(?:src|runtime)\//.test(file) || isProductionFile(root, fullPath)
+  );
+}
+
+function isExperimentPath(root, fullPath) {
+  const relative = path.relative(root, path.resolve(fullPath));
+  return (
+    relative !== '' &&
+    !relative.startsWith(`..${path.sep}`) &&
+    relative !== '..' &&
+    !path.isAbsolute(relative) &&
+    relative.split(path.sep).includes('experiments')
+  );
+}
+
 function addViolation(violations, violation) {
   const key = exceptionKey(violation);
   if (!violations.some((existing) => exceptionKey(existing) === key)) violations.push(violation);
@@ -707,6 +849,17 @@ export async function checkBoundaries({
   const graphEdges = declaredDependencyEdges(packages);
   const files = await collectFiles(absoluteRoot, packages);
   const parsed = new Map();
+  const runtimeManifestPath = path.resolve(absoluteRoot, 'apps/hub-worker/runtime/manifest.ts');
+  let runtimeResolverExported = false;
+  try {
+    runtimeResolverExported = exportedRuntimeResolver(
+      await readFile(runtimeManifestPath, 'utf8'),
+      runtimeManifestPath,
+    );
+  } catch {
+    // Fixtures and partial workspaces may omit the Workers runtime entirely.
+  }
+  const runtimeResolver = { root: absoluteRoot, exported: runtimeResolverExported };
 
   for (const fullPath of files) {
     const file = relativePath(absoluteRoot, fullPath);
@@ -714,7 +867,7 @@ export async function checkBoundaries({
     if (!owner) continue;
     let refs;
     try {
-      refs = await parseFile(fullPath);
+      refs = await parseFile(fullPath, runtimeResolver);
     } catch (error) {
       addViolation(violations, {
         file,
@@ -726,7 +879,16 @@ export async function checkBoundaries({
     }
     const enriched = [];
     for (const ref of refs) {
-      const item = { ...ref, fromFile: fullPath, file, owner, targets: [], workspaceTarget: null };
+      const item = {
+        ...ref,
+        fromFile: fullPath,
+        file,
+        owner,
+        targets: [],
+        experimentCandidates: [],
+        workspaceTarget: null,
+      };
+      const experimentCandidates = [];
       const isRelativePath = ref.specifier?.startsWith('./') || ref.specifier?.startsWith('../');
       const cssRelativePath = ref.kind === 'css-import' && isCssRelativeImport(ref.specifier ?? '');
       if (ref.specifier !== null && (isRelativePath || cssRelativePath)) {
@@ -734,9 +896,9 @@ export async function checkBoundaries({
           /[?#]/,
           1,
         )[0];
-        const targetFile = await resolveExistingFile(
-          path.resolve(path.dirname(fullPath), relativeSpecifier),
-        );
+        const targetPath = path.resolve(path.dirname(fullPath), relativeSpecifier);
+        experimentCandidates.push(targetPath);
+        const targetFile = await resolveExistingFile(targetPath);
         if (targetFile) {
           item.targets.push(targetFile);
           const targetOwner = packageForPath(packages, targetFile);
@@ -789,15 +951,54 @@ export async function checkBoundaries({
                   )
                 : await resolveExistingFile(path.resolve(targetPackage.dir, `.${subpath}`));
             if (fallback) item.targets.push(fallback);
+            experimentCandidates.push(
+              subpath === '.'
+                ? path.resolve(
+                    targetPackage.dir,
+                    targetPackage.manifest.module ?? targetPackage.manifest.main ?? 'index',
+                  )
+                : path.resolve(targetPackage.dir, `.${subpath}`),
+            );
           }
         }
       }
+      item.experimentCandidates = experimentCandidates;
       enriched.push(item);
     }
     parsed.set(fullPath, enriched);
   }
 
   findCycles(packages, graphEdges, violations);
+
+  const visitedExperimentSources = new Set();
+  function walkProductionExperiments(fullPath) {
+    const normalized = path.resolve(fullPath);
+    if (visitedExperimentSources.has(normalized)) return;
+    visitedExperimentSources.add(normalized);
+
+    for (const ref of parsed.get(normalized) ?? []) {
+      for (const target of [...ref.targets, ...ref.experimentCandidates]) {
+        if (isExperimentPath(absoluteRoot, target)) {
+          addViolation(violations, {
+            file: ref.file,
+            specifier: ref.specifier ?? '<non-literal>',
+            rule: 'production-experiment-import',
+            detail: 'Production source dependency graphs must not reach an experiments directory.',
+          });
+          continue;
+        }
+        if (isInside(absoluteRoot, target) && parsed.has(target)) walkProductionExperiments(target);
+      }
+    }
+  }
+  for (const fullPath of files) {
+    if (
+      isProductionSourceFile(absoluteRoot, fullPath) &&
+      !isExperimentPath(absoluteRoot, fullPath)
+    ) {
+      walkProductionExperiments(fullPath);
+    }
+  }
 
   const visitedProduction = new Set();
   async function walkProduction(fullPath) {
@@ -807,6 +1008,7 @@ export async function checkBoundaries({
     const refs = parsed.get(normalized) ?? [];
     for (const ref of refs) {
       if (!ref.runtime) continue;
+      if (ref.kind === 'validated-runtime-import') continue;
       if (ref.specifier === null) {
         addViolation(violations, {
           file: ref.file,
@@ -864,7 +1066,14 @@ export async function checkBoundaries({
     `${a.file}\0${a.specifier}\0${a.rule}`.localeCompare(`${b.file}\0${b.specifier}\0${b.rule}`),
   );
   const exceptionsUsed = exceptionEntries.filter((entry) => usedKeys.has(exceptionKey(entry)));
-  return { violations: resultViolations, exceptionsUsed };
+  const runtimeResolutions = [...parsed.values()]
+    .flat()
+    .filter((reference) => reference.kind === 'validated-runtime-import').length;
+  return { violations: resultViolations, exceptionsUsed, runtimeResolutions };
+}
+
+export function boundaryCheckExitCode(result) {
+  return result.violations.length || result.exceptionsUsed.length ? 1 : 0;
 }
 
 function isMainModule() {
@@ -887,7 +1096,7 @@ if (isMainModule()) {
     );
   }
   console.log(
-    `Boundary check: ${result.violations.length} violation(s), ${result.exceptionsUsed.length} migration exception(s) used.`,
+    `Boundary check: ${result.violations.length} violation(s), ${result.exceptionsUsed.length} migration exception(s) used, ${result.runtimeResolutions} validated runtime resolution(s).`,
   );
-  if (result.violations.length) process.exitCode = 1;
+  process.exitCode = boundaryCheckExitCode(result);
 }

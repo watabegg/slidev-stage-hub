@@ -1,13 +1,4 @@
 {
   "version": 1,
-  "exceptions": [
-    {
-      "file": "apps/hub-worker/runtime/routes.ts",
-      "specifier": "<non-literal>",
-      "rule": "production-nonliteral-import",
-      "owner": "Workers",
-      "reason": "The browser loads immutable release modules after validateDeckManifest enforces exact same-release paths. Step 8 will settle the checker representation of this intentional runtime loading boundary.",
-      "removeStep": 8
-    }
-  ]
+  "exceptions": []
 }

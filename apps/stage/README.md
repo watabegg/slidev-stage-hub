@@ -51,3 +51,5 @@ pnpm --filter @slidev-stage-hub/stage test
 ```
 
 準備・接続サービス、`--config`、旧設定との互換性は [Stageツール開発ガイド](../../docs/guides/stage-tools.md) を参照。
+
+準備・接続・設定の Node API は [Stage tools](../../packages/stage-tools/README.md)、CLI は [利用ガイド](../../docs/guides/cli.md) を参照。Linux の全量ネイティブ回帰はルートで `pnpm verify:workers-stage && pnpm verify:stage` を実行します。SDK と画面が必要で、未導入時は検証を成功扱いにしません。

@@ -8,7 +8,7 @@ import {
   discoverDecks,
   encodeDeckPath,
   publicFrontmatter,
-} from './catalog.mjs';
+} from '../dist/node/internal/catalog.mjs';
 
 async function fixtures(t, paths) {
   const root = await mkdtemp(join(tmpdir(), 'slidev-lab-catalog-'));

@@ -4,11 +4,11 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
-  themeDirectory,
   dependencyDirectory,
   repositoryRoot,
   slidevRequire,
-} from './runtime-environment.mjs';
+  themeDirectory,
+} from '../scripts/runtime-environment.mjs';
 
 test('default theme and CLI resolve inside this checkout regardless of cwd', () => {
   const cwd = process.cwd();

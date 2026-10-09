@@ -14,14 +14,15 @@ const commands = [
   ['node', ['packages/hub/bundle-sharing/experiments/multi-profile/scripts/prepare.mjs']],
   ['pnpm', ['build:hub']],
   ['pnpm', ['verify:hub']],
+  ['pnpm', ['verify:web-customization']],
   ['pnpm', ['stage:prepare']],
   ['pnpm', ['build:stage-ui']],
   ['node', ['apps/stage/scripts/verify-remote.mjs']],
   ['pnpm', ['build:example:watabegg']],
   ['pnpm', ['verify:example:watabegg']],
-  ['pnpm', ['build:workers']],
   ['pnpm', ['verify:workers']],
   ['pnpm', ['--filter', '@slidev-stage-hub/workers', 'verify:fixtures']],
+  ['pnpm', ['--filter', '@slidev-stage-hub/workers', 'verify:auth']],
 ];
 for (const [command, args] of commands) {
   console.log(`\n> ${command} ${args.join(' ')}`);

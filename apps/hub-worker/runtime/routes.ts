@@ -7,7 +7,7 @@ import {
   shallowRef,
 } from 'vue';
 import type { Component } from 'vue';
-import { isRecord, type DeckManifest } from './manifest';
+import { isRecord, type DeckManifest, validatedRevisionModuleUrl } from './manifest';
 
 type SlideComponentModule = { default: Component };
 
@@ -42,7 +42,9 @@ const styleLoads = new Map<string, Promise<void>>();
 
 function loadSlideComponent(moduleUrl: string): Promise<SlideComponentModule> {
   // Compiled slide modules export a Vue component as their default export.
-  return import(/* @vite-ignore */ moduleUrl) as Promise<SlideComponentModule>;
+  return import(
+    /* @vite-ignore */ validatedRevisionModuleUrl(moduleUrl)
+  ) as Promise<SlideComponentModule>;
 }
 
 function ensureStylesheet(href?: string) {
