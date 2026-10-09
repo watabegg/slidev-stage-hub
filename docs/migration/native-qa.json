@@ -1,0 +1,129 @@
+{
+  "qa": {
+    "assertions": [
+      {
+        "name": "wrapper Enter one transition",
+        "pass": true
+      },
+      {
+        "name": "frame Enter one transition with theme shortcut suppressed",
+        "pass": true
+      },
+      {
+        "name": "frame repeats and stock controls cannot bypass Rust",
+        "pass": true
+      },
+      {
+        "name": "actual rendered click-one visibility",
+        "pass": true
+      },
+      {
+        "name": "native third slide code and math loaded",
+        "pass": true
+      },
+      {
+        "name": "click sequence then page advance",
+        "pass": true
+      },
+      {
+        "name": "previous returns previous final click",
+        "pass": true
+      },
+      {
+        "name": "notes keyboard suppression",
+        "pass": true
+      },
+      {
+        "name": "notes native save",
+        "pass": true
+      },
+      {
+        "name": "saved private mapping survives new document instance",
+        "pass": true
+      },
+      {
+        "name": "notes restore roundtrip",
+        "pass": true
+      },
+      {
+        "name": "audience input reaches Rust and preserves editor draft",
+        "pass": true
+      },
+      {
+        "name": "draft restored after audience navigation",
+        "pass": true
+      },
+      {
+        "name": "next preview is read only",
+        "pass": true
+      },
+      {
+        "name": "Rust timer pause elapsed",
+        "pass": true
+      },
+      {
+        "name": "Rust timer reset",
+        "pass": true
+      },
+      {
+        "name": "blackout",
+        "pass": true
+      },
+      {
+        "name": "deck switch resets page/click/blackout",
+        "pass": true
+      }
+    ],
+    "complete": true,
+    "flicker": {
+      "activeFrames": 2,
+      "initialDocument": "1791542333698-kro2hwzgob",
+      "initialLoads": 1,
+      "sameDeckDocumentStable": true,
+      "stats": {
+        "acknowledgements": 12,
+        "documentLoads": 2,
+        "documentTokens": [
+          "1791542333698-kro2hwzgob",
+          "1791542356775-gkxolda82r"
+        ],
+        "readyLatenciesMs": [
+          246.99999999999991,
+          302,
+          36.99999999999818,
+          38,
+          69,
+          61,
+          55,
+          57.00000000000364,
+          51,
+          109,
+          50,
+          469
+        ],
+        "swaps": 1
+      }
+    },
+    "session": {
+      "blackout": false,
+      "clickIndex": 0,
+      "deckId": "bbb/bbb1",
+      "page": 1,
+      "revision": "f5ce77d0bf3877bcb7a072b097878e3d727728cb1b4a2e7e9fd09b85363d7e76",
+      "sessionRevision": 13,
+      "timer": {
+        "elapsedMs": 0,
+        "startedAt": null
+      }
+    }
+  },
+  "error": null,
+  "sourceRestored": true,
+  "sourceSHA256": {
+    "/home/watabegg/slidev-stage-hub/examples/fixtures/aaa/aaa1/slides.md": "c1805b79439eead16db0aa335ad4d161a9fb38b3f89461d9060ba4eea02e47a6",
+    "/home/watabegg/slidev-stage-hub/examples/fixtures/aaa/aaa2/slides.md": "a47caf836c0c8be01fd4f7a31f58981876f597d02a3a345e7d4dedbe16d61491",
+    "/home/watabegg/slidev-stage-hub/examples/fixtures/bbb/bbb1/slides.md": "ec8c4793ddd1693823e3803bfab61934faf0c25bd947c19b38241ce220be8a60",
+    "/home/watabegg/slidev-stage-hub/examples/fixtures/bbb/bbb2/slides.md": "a1f2af4816c86b8bb14c9725d4cf30e231c2682b91a7987d51dd62642e9d3407"
+  },
+  "log": "/home/watabegg/slidev-stage-hub/apps/stage/artifacts/migration-qa.log"
+}

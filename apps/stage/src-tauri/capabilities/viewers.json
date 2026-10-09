@@ -1,0 +1,1 @@
+{"identifier":"local-viewers","description":"Local native wrapper event subscription only","windows":["presenter","audience"],"permissions":["core:event:allow-listen","core:event:allow-unlisten"]}

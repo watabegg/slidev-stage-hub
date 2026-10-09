@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#dcfce7"/>
+  <rect x="72" y="72" width="216" height="216" rx="32" fill="#15803d"/>
+  <text x="330" y="170" fill="#052e16" font-family="sans-serif" font-size="42">aaa2</text>
+  <text x="330" y="222" fill="#14532d" font-family="sans-serif" font-size="20">same path, unique bytes</text>
+</svg>

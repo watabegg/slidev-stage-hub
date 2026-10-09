@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-09",
+  "repository": "/home/watabegg/slidev-stage-hub",
+  "status": "passed",
+  "checks": {
+    "frozenInstall": true,
+    "typecheckProtocolHubStage": true,
+    "nodeUnitTests": {
+      "hub": 12,
+      "stage": 23,
+      "workers": 27
+    },
+    "hubBuild": true,
+    "hubThumbnails": 4,
+    "hubBrowserChecks": 15,
+    "workersRuntimeBuild": true,
+    "workersWorkerdBrowserChecks": 32,
+    "stagePrepareDecks": 4,
+    "stageDesktopBuild": true,
+    "stageDesktopInitialBuildSeconds": 147,
+    "stageWebKitChecks": 18,
+    "stageHttpBrowserChecks": 31,
+    "stageHttpsBrowserChecks": 31,
+    "sourceAndThemeDiffUnchanged": {
+      "/home/watabegg/slidev-lab": true,
+      "/home/watabegg/slidev-watabegg": true
+    },
+    "rustTests": {
+      "core": 13,
+      "authTransport": 13
+    },
+    "flickerComparison": {
+      "raceChecks": 11,
+      "raceChecksPassed": true,
+      "sameDeckBlankDOMFrames": 0,
+      "switchingBlankDOMFrames": 0
+    }
+  },
+  "notVerified": [
+    "Windows",
+    "physical dual displays",
+    "actual Cloudflare Access",
+    "cloud deployment from new repository",
+    "distribution on an independent clean machine"
+  ],
+  "externalMutations": {
+    "githubRepoCreated": false,
+    "pushed": false,
+    "cloudDeployed": false
+  },
+  "environmentNotes": [
+    "Uses local read-only slidev-watabegg theme",
+    "WebKit QA uses NO_AT_BRIDGE=1",
+    "HTTPS browser QA uses test-only certificate exception",
+    "Local SDK was copied to ignored Stage artifacts"
+  ]
+}

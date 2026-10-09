@@ -1,0 +1,55 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "slidev-lab-poc",
+  "account_id": "23f5eafcd8c9e8750ac3737b433e1aad",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-09",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "../../../artifacts/workers/site",
+    "binding": "STATIC",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "slidev-lab-poc-20261009"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "VERSIONS",
+        "class_name": "DeckVersions"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "DeckVersions"
+      ]
+    }
+  ],
+  "browser": {
+    "binding": "BROWSER"
+  },
+  "vars": {
+    "LOCAL_MUTATIONS": "false",
+    "PROFILE_DIGEST": "c36bc683e480de685934e4296180c1420279028177a6c77e8341fe4ef79d1f6b",
+    "PROFILE_LAYOUTS": "[\"404\",\"agenda\",\"center\",\"cover\",\"default\",\"end\",\"error\",\"fact\",\"full\",\"iframe\",\"iframe-left\",\"iframe-right\",\"image\",\"image-left\",\"image-right\",\"image-scroll\",\"intro\",\"none\",\"quote\",\"section\",\"statement\",\"two-cols\",\"two-cols-header\"]",
+    "PROFILE_COMPONENTS": "[\"AgendaList\",\"Cite\",\"DiagramFrame\",\"FigureGrid\",\"KaTexReveal\",\"QuestionList\",\"SectionNumber\",\"SlideReferences\",\"SmallText\",\"TextBox\",\"ThemeFooter\",\"ThemeWave\"]"
+  },
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true
+    }
+  }
+}

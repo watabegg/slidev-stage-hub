@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slidev Lab</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header id="presenter-header"><div><span class="label">SLIDEV LAB / LOCAL</span><h1>発表者画面</h1></div><select id="decks" aria-label="資料"></select><div id="status">起動中</div></header>
+<main><div id="viewer"><iframe id="deck" title="スライド" sandbox="allow-scripts allow-same-origin"></iframe><div id="blackout"></div></div><aside id="notes-panel"><div class="next-heading" id="next-heading">次スライド · 操作無効</div><iframe id="next-preview" title="次スライドの読み取り専用プレビュー" tabindex="-1" sandbox="allow-scripts allow-same-origin"></iframe><div class="notes-heading"><h2>発表者ノート</h2><span id="page"></span></div><label class="font-size">文字サイズ <input id="note-size" type="range" min="12" max="28" value="16" aria-label="ノートの文字サイズ"></label><textarea id="notes" aria-label="発表者ノート" spellcheck="false"></textarea><div class="notes-footer"><button id="save">ソースへ保存</button><span id="note-status"></span></div><section><h2>投影先</h2><select id="displays" aria-label="投影先ディスプレイ"></select><label><input type="checkbox" id="fullscreen">全画面</label><button id="apply-display">反映</button><button id="swap">配置を入れ替え</button><p id="display-status"></p></section></aside></main>
+<footer id="controls"><button data-action="previous">← 戻る</button><button data-action="next">進む →</button><button data-action="toggleBlackout">暗転 · B</button><button data-action="toggleTimer">タイマー</button><button data-action="resetTimer">リセット</button><span id="timer">00:00</span><span id="revision"></span></footer>
+<script src="frame-controller.js"></script><script src="app.js"></script>
+</body></html>

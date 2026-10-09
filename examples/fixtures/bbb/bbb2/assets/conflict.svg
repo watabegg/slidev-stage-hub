@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#f3e8ff"/>
+  <path d="M180 52 212 138 304 142 232 198 258 286 180 234 102 286 128 198 56 142 148 138Z" fill="#7e22ce"/>
+  <text x="330" y="170" fill="#3b0764" font-family="sans-serif" font-size="42">bbb2</text>
+  <text x="330" y="222" fill="#581c87" font-family="sans-serif" font-size="20">same path, unique bytes</text>
+</svg>

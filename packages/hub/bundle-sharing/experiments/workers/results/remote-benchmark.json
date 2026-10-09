@@ -1,0 +1,54 @@
+{
+  "origin": "https://slidev-lab-poc.watabegg.workers.dev",
+  "measurement": "Client HTTP wall time; actual cpuTime recorded separately by cloud-tail",
+  "measurements": [
+    {
+      "pages": 5,
+      "phase": "compile",
+      "status": 200,
+      "httpWallMs": 1849,
+      "cached": false,
+      "revision": "84a1d906df339a6e88f29710b9ff6d9eea23bf563d63ac82c5e576763d875b16"
+    },
+    {
+      "pages": 5,
+      "phase": "cached",
+      "status": 200,
+      "httpWallMs": 493,
+      "cached": true,
+      "revision": "84a1d906df339a6e88f29710b9ff6d9eea23bf563d63ac82c5e576763d875b16"
+    },
+    {
+      "pages": 50,
+      "phase": "compile",
+      "status": 200,
+      "httpWallMs": 8721,
+      "cached": false,
+      "revision": "18aaeda14ff3ad8fa471a63de5aca88b8011c749dc122016ab3539f4dde2f64a"
+    },
+    {
+      "pages": 50,
+      "phase": "cached",
+      "status": 200,
+      "httpWallMs": 411,
+      "cached": true,
+      "revision": "18aaeda14ff3ad8fa471a63de5aca88b8011c749dc122016ab3539f4dde2f64a"
+    },
+    {
+      "pages": 100,
+      "phase": "compile",
+      "status": 200,
+      "httpWallMs": 14018,
+      "cached": false,
+      "revision": "bce4c6b77c789cd4bea1a800fdf5032bd6db54ff98966a7201812a8a81ddfabe"
+    },
+    {
+      "pages": 100,
+      "phase": "cached",
+      "status": 200,
+      "httpWallMs": 545,
+      "cached": true,
+      "revision": "bce4c6b77c789cd4bea1a800fdf5032bd6db54ff98966a7201812a8a81ddfabe"
+    }
+  ]
+}

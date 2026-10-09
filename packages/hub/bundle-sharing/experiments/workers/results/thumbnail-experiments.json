@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "runId": "mv0dfvmk-1j62m",
+  "startedAt": "2026-10-09T02:53:58.364Z",
+  "command": "node thumbnail-experiments.mjs",
+  "environment": {
+    "node": "v24.15.0",
+    "chromiumPath": "/usr/bin/google-chrome",
+    "themePath": "/home/watabegg/slidev-watabegg",
+    "harness": "isolated-miniflare",
+    "origin": "http://127.0.0.1:33867",
+    "serverStatus": 200,
+    "harnessDisposed": true
+  },
+  "experiments": [
+    {
+      "id": "real-cli-heading-svg-cover",
+      "deckId": "experiments/thumb-cover-mv0dfvmk-1j62m",
+      "revision": "fdf7dbf329d69ffcf3082cd9247398991c3194832e356467cc295d6990e0a639",
+      "command": "node local-thumbnail.mjs http://127.0.0.1:33867 experiments/thumb-cover-mv0dfvmk-1j62m",
+      "cliStatus": 0,
+      "cliTimedOut": false,
+      "cliStderr": "",
+      "cliOutput": {
+        "src": "/releases/experiments/thumb-cover-mv0dfvmk-1j62m/fdf7dbf329d69ffcf3082cd9247398991c3194832e356467cc295d6990e0a639/thumbnail.png",
+        "revision": "fdf7dbf329d69ffcf3082cd9247398991c3194832e356467cc295d6990e0a639",
+        "elapsedMs": 1152,
+        "backend": "local-chromium"
+      },
+      "expectedHeading": "Thumbnail experiment heading",
+      "svgAsset": "cover.svg",
+      "cliSucceeded": true,
+      "png": {
+        "dimensions": {
+          "width": 1200,
+          "height": 675
+        },
+        "bytes": 15198,
+        "sha256": "37a767bbeb7ee97f6e03e488174f535537a112f1302a91180780569498c4c682",
+        "cacheControl": "public, max-age=31536000, immutable"
+      },
+      "renderProbe": {
+        "headingRendered": true,
+        "svgDecoded": true,
+        "svgNaturalDimensions": {
+          "width": 240,
+          "height": 120
+        }
+      }
+    },
+    {
+      "id": "playwright-delayed-dynamic-slide-module",
+      "deckId": "experiments/thumb-cover-mv0dfvmk-1j62m",
+      "revision": "fdf7dbf329d69ffcf3082cd9247398991c3194832e356467cc295d6990e0a639",
+      "routePath": "/releases/experiments/thumb-cover-mv0dfvmk-1j62m/fdf7dbf329d69ffcf3082cd9247398991c3194832e356467cc295d6990e0a639/1.js",
+      "requestedDelayMs": 650,
+      "observedDelayMs": 651,
+      "headingRenderedAfterRoute": true,
+      "delayApplied": true
+    },
+    {
+      "id": "png-invalid-upload-rejected",
+      "deckId": "experiments/thumb-invalid-png-mv0dfvmk-1j62m",
+      "revision": "f1a7a9829cb6efe7a4ed9bc32cb8be204e95038252c130faa9119827fdc46134",
+      "uploadStatus": 400,
+      "response": {
+        "error": "Browser response was not a complete PNG header."
+      },
+      "thumbnailAfterRejectStatus": 404,
+      "rejectedWithoutStore": true
+    },
+    {
+      "id": "valid-png-wrong-dimensions-rejected",
+      "deckId": "experiments/thumb-wrong-dim-mv0dfvmk-1j62m",
+      "revision": "1f28009cccaeda9bc394a1fb626820dcf08653a5051734e04e1729af447fff4e",
+      "attemptedDimensions": {
+        "width": 980,
+        "height": 551
+      },
+      "uploadStatus": 400,
+      "response": {
+        "error": "Browser screenshot dimensions did not match 1200×675."
+      },
+      "thumbnailAfterRejectStatus": 404,
+      "rejectedWithoutStore": true
+    },
+    {
+      "id": "real-cli-image-decode-failure",
+      "deckId": "experiments/thumb-bad-image-mv0dfvmk-1j62m",
+      "revision": "618b907afed99f32e7bc2708411d5abf5c60f29c9ac71ef054fa605ba44ef81b",
+      "decodeProbe": {
+        "routeModulePath": null,
+        "routeDelayMs": 0,
+        "imageDecode": {
+          "resolved": false,
+          "errorName": "EncodingError"
+        }
+      },
+      "command": "node local-thumbnail.mjs http://127.0.0.1:33867 experiments/thumb-bad-image-mv0dfvmk-1j62m",
+      "cliStatus": 1,
+      "cliTimedOut": false,
+      "cliStderr": "Slide image failed to decode: broken",
+      "cliOutput": null,
+      "decodeRejected": true,
+      "cliRejectedCapture": true,
+      "cliErrorIsClear": true,
+      "thumbnailAfterFailureStatus": 404,
+      "rejectedWithoutUpload": true
+    },
+    {
+      "id": "revision-pinning-and-immutable-thumbnail-cache",
+      "deckId": "experiments/thumb-cover-mv0dfvmk-1j62m",
+      "originalRevision": "fdf7dbf329d69ffcf3082cd9247398991c3194832e356467cc295d6990e0a639",
+      "updatedRevision": "708f93c418daa8285887faf8bd99bb85bc5dcea17e546b6aca5a67911e3627bb",
+      "pinnedManifestRevision": "fdf7dbf329d69ffcf3082cd9247398991c3194832e356467cc295d6990e0a639",
+      "latestManifestRevision": "708f93c418daa8285887faf8bd99bb85bc5dcea17e546b6aca5a67911e3627bb",
+      "originalThumbnailHash": "37a767bbeb7ee97f6e03e488174f535537a112f1302a91180780569498c4c682",
+      "oldThumbnailHashAfterMarkdownUpdate": "37a767bbeb7ee97f6e03e488174f535537a112f1302a91180780569498c4c682",
+      "pinnedCli": {
+        "status": 0,
+        "revision": "fdf7dbf329d69ffcf3082cd9247398991c3194832e356467cc295d6990e0a639",
+        "src": "/releases/experiments/thumb-cover-mv0dfvmk-1j62m/fdf7dbf329d69ffcf3082cd9247398991c3194832e356467cc295d6990e0a639/thumbnail.png",
+        "thumbnailHash": "37a767bbeb7ee97f6e03e488174f535537a112f1302a91180780569498c4c682"
+      },
+      "alternateUpload": {
+        "status": 200,
+        "response": {
+          "status": "cached",
+          "src": "/releases/experiments/thumb-cover-mv0dfvmk-1j62m/fdf7dbf329d69ffcf3082cd9247398991c3194832e356467cc295d6990e0a639/thumbnail.png"
+        },
+        "attemptedHash": "fdbcd11bc454d6138ad203860ec2da255ca724db3789a94f82ff7f1ec33b80af",
+        "cachedThumbnailHashAfterUpload": "37a767bbeb7ee97f6e03e488174f535537a112f1302a91180780569498c4c682"
+      },
+      "oldRevisionRemainsPinned": true,
+      "newCurrentRevisionPublished": true,
+      "oldThumbnailSurvivedUpdate": true,
+      "repeatedUploadDidNotOverwrite": true,
+      "immutableCacheControl": "public, max-age=31536000, immutable"
+    }
+  ],
+  "browserRunAdapterMocks": [
+    {
+      "name": "unbound",
+      "expectedCode": "BROWSER_UNAVAILABLE",
+      "observedCode": "BROWSER_UNAVAILABLE",
+      "message": "Cloudflare Browser Run is unavailable.",
+      "matched": true
+    },
+    {
+      "name": "upstream-http-429",
+      "expectedCode": "BROWSER_LIMIT",
+      "observedCode": "BROWSER_LIMIT",
+      "message": "Cloudflare Browser Run rate limit was reached.",
+      "matched": true
+    },
+    {
+      "name": "upstream-thrown-failure",
+      "expectedCode": "BROWSER_FAILED",
+      "observedCode": "BROWSER_FAILED",
+      "message": "Cloudflare Browser Run screenshot failed.",
+      "matched": true
+    }
+  ],
+  "finishedAt": "2026-10-09T02:54:04.840Z",
+  "status": "completed"
+}

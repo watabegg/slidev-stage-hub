@@ -1,0 +1,41 @@
+{
+  "scope": "Local Chrome, two same-origin tabs, old/new revisions and network fault injection",
+  "checks": [
+    {
+      "name": "two same-origin decks retain their own scoped CSS",
+      "passed": true
+    },
+    {
+      "name": "navigation and clicks do not move another deck tab",
+      "passed": true
+    },
+    {
+      "name": "existing tab stays on old revision after update and reload",
+      "passed": true
+    },
+    {
+      "name": "unversioned URL opens newly published revision",
+      "passed": true
+    },
+    {
+      "name": "slide content does not flash before stylesheet is available",
+      "passed": true
+    },
+    {
+      "name": "delayed stylesheet eventually renders styled content",
+      "passed": true
+    },
+    {
+      "name": "failed stylesheet shows actionable error instead of blank slide",
+      "passed": true
+    },
+    {
+      "name": "reload recovers after stylesheet connection is restored",
+      "passed": true
+    }
+  ],
+  "expectedNetworkErrors": [
+    "Failed to load slide stylesheet: /releases/browser/beta/71e89353f70ad3606c71b5cd313f80398d4f154efea2c983d3610e05d9fefa34/1.css",
+    "Failed to load slide stylesheet: /releases/browser/beta/71e89353f70ad3606c71b5cd313f80398d4f154efea2c983d3610e05d9fefa34/1.css"
+  ]
+}

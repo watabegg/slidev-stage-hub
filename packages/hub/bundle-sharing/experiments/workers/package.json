@@ -1,0 +1,37 @@
+{
+  "name": "@slidev-stage-hub/workers",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.3.4",
+  "scripts": {
+    "build:runtime": "node build-runtime.mjs",
+    "dev": "node serve.mjs",
+    "test": "node --test compiler.test.mjs thumbnail.test.mjs",
+    "verify:api": "node verify.mjs --api-only",
+    "verify": "node verify.mjs",
+    "publish": "node publish.mjs",
+    "thumbnail": "node local-thumbnail.mjs",
+    "verify:stress": "node stress.mjs",
+    "verify:browser": "node browser-experiments.mjs",
+    "verify:fixtures": "node fixture-browser.mjs",
+    "verify:thumbnail": "node thumbnail-experiments.mjs",
+    "verify:compatibility": "node compatibility.mjs",
+    "demo": "node prepare-demo.mjs",
+    "build:cloud": "node cloud-config.mjs",
+    "verify:auth": "node verify-auth.mjs",
+    "verify:remote": "node remote-verify.mjs",
+    "benchmark:remote": "node remote-benchmark.mjs"
+  },
+  "dependencies": {
+    "@slidev/parser": "53.0.0",
+    "@unocss/core": "66.10.5",
+    "@unocss/preset-wind3": "66.10.5",
+    "@vue/compiler-sfc": "3.5.43",
+    "markdown-exit": "1.2.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "miniflare": "5.20261006.1-alpha",
+    "wrangler": "4.149.0"
+  }
+}

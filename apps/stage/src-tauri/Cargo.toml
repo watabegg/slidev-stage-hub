@@ -1,0 +1,31 @@
+[package]
+name = "slidev-native-poc"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+desktop = ["dep:tauri", "dep:tauri-build", "dep:webkit2gtk", "dep:cairo-rs"]
+
+[[bin]]
+name = "slidev-native-poc"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[dependencies]
+slidev-native-core = { path = "../core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "rustls"] }
+tauri = { version = "2", default-features = false, features = ["wry", "custom-protocol"], optional = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "2", optional = true }
+cairo-rs = { version = "0.18", features = ["png"], optional = true }
+
+[build-dependencies]
+tauri-build = { version = "2", optional = true }

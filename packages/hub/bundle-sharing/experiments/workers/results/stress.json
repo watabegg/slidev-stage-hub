@@ -1,0 +1,417 @@
+{
+  "scope": "Local workerd, R2 and SQLite DO; real HTTP concurrency and persisted restart",
+  "checks": [
+    {
+      "name": "initial publication succeeds",
+      "passed": true
+    },
+    {
+      "name": "script rejected and old publication retained",
+      "passed": true
+    },
+    {
+      "name": "unknown component rejected and old publication retained",
+      "passed": true
+    },
+    {
+      "name": "unknown layout rejected and old publication retained",
+      "passed": true
+    },
+    {
+      "name": "unknown theme rejected and old publication retained",
+      "passed": true
+    },
+    {
+      "name": "101 pages rejected and old publication retained",
+      "passed": true
+    },
+    {
+      "name": "oversized request rejected and old publication retained",
+      "passed": true
+    },
+    {
+      "name": "invalid YAML rejected and old publication retained",
+      "passed": true
+    },
+    {
+      "name": "concurrent responses are published or superseded",
+      "passed": true
+    },
+    {
+      "name": "current revision belongs to a successful concurrent publication",
+      "passed": true
+    },
+    {
+      "name": "all concurrent generated revisions remain readable",
+      "passed": true
+    },
+    {
+      "name": "explicit later update becomes current",
+      "passed": true
+    },
+    {
+      "name": "concurrent identical updates preserve same immutable revision",
+      "passed": true
+    },
+    {
+      "name": "same relative asset path is isolated across decks",
+      "passed": true
+    },
+    {
+      "name": "asset is scoped to its deck revision",
+      "passed": true
+    },
+    {
+      "name": "asset map insertion order does not change revision",
+      "passed": true
+    },
+    {
+      "name": "catalog lists every independently published deck",
+      "passed": true
+    },
+    {
+      "name": "restart preserves runtime/compiler identity",
+      "passed": true
+    },
+    {
+      "name": "restart preserves current revision",
+      "passed": true
+    },
+    {
+      "name": "restart preserves old revision bytes",
+      "passed": true
+    },
+    {
+      "name": "restart preserves catalog",
+      "passed": true
+    }
+  ],
+  "timings": [
+    {
+      "id": "stress/same",
+      "status": 200,
+      "wallMs": 63,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 400,
+      "wallMs": 6
+    },
+    {
+      "id": "stress/same",
+      "status": 400,
+      "wallMs": 7
+    },
+    {
+      "id": "stress/same",
+      "status": 400,
+      "wallMs": 10
+    },
+    {
+      "id": "stress/same",
+      "status": 400,
+      "wallMs": 5
+    },
+    {
+      "id": "stress/same",
+      "status": 400,
+      "wallMs": 5
+    },
+    {
+      "id": "stress/same",
+      "status": 400,
+      "wallMs": 6
+    },
+    {
+      "id": "stress/same",
+      "status": 400,
+      "wallMs": 8
+    },
+    {
+      "id": "stress/same",
+      "status": 200,
+      "wallMs": 30,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 155,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 155,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 155,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 155,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 155,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 155,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 156,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 155,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 155,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 155,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 200,
+      "wallMs": 159,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 200,
+      "wallMs": 18,
+      "cached": false
+    },
+    {
+      "id": "stress/same",
+      "status": 200,
+      "wallMs": 7,
+      "cached": true
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 23,
+      "cached": true
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 23,
+      "cached": true
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 23,
+      "cached": true
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 23,
+      "cached": true
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 23,
+      "cached": true
+    },
+    {
+      "id": "stress/same",
+      "status": 409,
+      "wallMs": 23,
+      "cached": true
+    },
+    {
+      "id": "stress/same",
+      "status": 200,
+      "wallMs": 24,
+      "cached": true
+    },
+    {
+      "id": "isolation/red",
+      "status": 200,
+      "wallMs": 27,
+      "cached": false
+    },
+    {
+      "id": "isolation/blue",
+      "status": 200,
+      "wallMs": 48,
+      "cached": false
+    },
+    {
+      "id": "assets/order",
+      "status": 200,
+      "wallMs": 29,
+      "cached": false
+    },
+    {
+      "id": "assets/order",
+      "status": 200,
+      "wallMs": 6,
+      "cached": true
+    },
+    {
+      "id": "catalog/deck-0",
+      "status": 200,
+      "wallMs": 27,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-1",
+      "status": 200,
+      "wallMs": 79,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-2",
+      "status": 200,
+      "wallMs": 79,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-3",
+      "status": 200,
+      "wallMs": 81,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-4",
+      "status": 200,
+      "wallMs": 22,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-5",
+      "status": 200,
+      "wallMs": 76,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-6",
+      "status": 200,
+      "wallMs": 76,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-7",
+      "status": 200,
+      "wallMs": 77,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-8",
+      "status": 200,
+      "wallMs": 21,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-9",
+      "status": 200,
+      "wallMs": 77,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-10",
+      "status": 200,
+      "wallMs": 77,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-11",
+      "status": 200,
+      "wallMs": 78,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-12",
+      "status": 200,
+      "wallMs": 23,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-13",
+      "status": 200,
+      "wallMs": 76,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-14",
+      "status": 200,
+      "wallMs": 76,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-15",
+      "status": 200,
+      "wallMs": 77,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-16",
+      "status": 200,
+      "wallMs": 21,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-17",
+      "status": 200,
+      "wallMs": 87,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-18",
+      "status": 200,
+      "wallMs": 87,
+      "cached": false
+    },
+    {
+      "id": "catalog/deck-19",
+      "status": 200,
+      "wallMs": 88,
+      "cached": false
+    }
+  ],
+  "concurrentStatuses": [
+    200,
+    409,
+    409,
+    409,
+    409,
+    409,
+    409,
+    409,
+    409,
+    409,
+    409,
+    200
+  ],
+  "failed": []
+}

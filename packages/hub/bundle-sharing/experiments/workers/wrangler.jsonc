@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "slidev-workers-poc",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-09",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "../../../artifacts/workers/site",
+    "binding": "STATIC",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "slidev-workers-poc" }],
+  "durable_objects": {
+    "bindings": [{ "name": "VERSIONS", "class_name": "DeckVersions" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DeckVersions"] }],
+  "vars": {
+    "LOCAL_MUTATIONS": "false",
+    "PROFILE_DIGEST": "configure-from-built-runtime-and-compiler-before-remote-use"
+  },
+  // Optional after account setup: "browser": { "binding": "BROWSER" }
+  // The local harness deliberately has no remote Browser Run binding.
+  "observability": { "enabled": true, "traces": { "enabled": true } }
+}

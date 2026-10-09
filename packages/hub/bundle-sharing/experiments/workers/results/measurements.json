@@ -1,0 +1,137 @@
+{
+  "date": "2026-10-09",
+  "scope": "Local workerd and Chrome; no remote deployment",
+  "unitTests": 21,
+  "integration": {
+    "runtime": "workerd",
+    "profileDigest": "daeb02deb45d4d53863f08a01478722739865d220fa0b6259a8f858aae27e01c",
+    "workerBytes": 2209827,
+    "checks": [
+      "workerd compiles all five pages",
+      "title and actual theme metadata retained",
+      "generated ESM uses shared runtime",
+      "new UnoCSS and scoped styles generated",
+      "private presenter note absent",
+      "relative component image resolves to revision asset",
+      "identical source reuses revision artifacts",
+      "unsupported source fails without changing published version",
+      "unregistered theme component is rejected",
+      "missing Browser Run returns explicit fallback status",
+      "source is stored privately",
+      "private source is not a public route",
+      "latest publication commits",
+      "late completion cannot roll current backwards",
+      "real Slidev cover renders Worker output",
+      "theme Enter shortcut advances once to section layout",
+      "v-click initially hidden",
+      "v-click revealed without changing slide",
+      "generated UnoCSS applies in browser",
+      "scoped CSS applies",
+      "prebuilt FigureGrid loads revision image",
+      "router preserves pinned revision",
+      "MD update creates and publishes a new revision",
+      "old revision remains retrievable",
+      "old manifest remains pinned",
+      "asset-only change changes revision",
+      "new deck added without runtime rebuild",
+      "open session still uses original revision after publication",
+      "new version rendered by same prebuilt runtime",
+      "no browser runtime exceptions",
+      "browser downloads no compiler",
+      "runtime files unchanged across publication and new deck"
+    ],
+    "timings": [
+      {
+        "status": 200,
+        "wallMs": 89.777241,
+        "cached": false
+      },
+      {
+        "status": 200,
+        "wallMs": 6.270472000000041,
+        "cached": true
+      },
+      {
+        "status": 400,
+        "wallMs": 8.760816999999975
+      },
+      {
+        "status": 400,
+        "wallMs": 4.908278999999993
+      },
+      {
+        "status": 200,
+        "wallMs": 19.51299199999994,
+        "cached": false
+      },
+      {
+        "status": 200,
+        "wallMs": 20.599001999999928,
+        "cached": false
+      },
+      {
+        "status": 200,
+        "wallMs": 7.761035999999876,
+        "cached": false
+      }
+    ],
+    "timingMeaning": "Node-measured HTTP wall time, not Worker CPU time",
+    "errors": []
+  },
+  "benchmark": {
+    "environment": "Local Miniflare/workerd; synthetic heading/list/v-click decks",
+    "timingMeaning": "HTTP wall time including local R2/DO I/O; not production CPU usage or peak memory",
+    "workerBytes": 2209827,
+    "workerGzipBytes": 492999,
+    "measurements": [
+      {
+        "pages": 5,
+        "phase": "compile",
+        "wallMs": 65.03288599999996,
+        "cached": false
+      },
+      {
+        "pages": 5,
+        "phase": "cached",
+        "wallMs": 6.900258000000008,
+        "cached": true
+      },
+      {
+        "pages": 50,
+        "phase": "compile",
+        "wallMs": 127.81930499999999,
+        "cached": false
+      },
+      {
+        "pages": 50,
+        "phase": "cached",
+        "wallMs": 5.111176999999998,
+        "cached": true
+      },
+      {
+        "pages": 100,
+        "phase": "compile",
+        "wallMs": 208.91478299999994,
+        "cached": false
+      },
+      {
+        "pages": 100,
+        "phase": "cached",
+        "wallMs": 5.025609000000031,
+        "cached": true
+      }
+    ]
+  },
+  "thumbnail": {
+    "src": "/releases/poc/demo/ec1f7f5074062ed5b299e1147e9f8a2264f8b6bd2192880d76585292ca3dc972/thumbnail.png",
+    "revision": "ec1f7f5074062ed5b299e1147e9f8a2264f8b6bd2192880d76585292ca3dc972",
+    "elapsedMs": 1028,
+    "backend": "local-chromium",
+    "pngBytes": 253647,
+    "width": 1200,
+    "height": 675,
+    "cache": "cached",
+    "catalogVisible": true,
+    "homeReturn": true
+  }
+}

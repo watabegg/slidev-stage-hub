@@ -1,0 +1,14 @@
+{
+  "name": "@slidev-stage-hub/protocol",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./native-player": "./src/native-player.mjs",
+    "./inspect-deck": "./src/inspect-deck.mjs"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

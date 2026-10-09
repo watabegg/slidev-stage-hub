@@ -1,0 +1,10 @@
+{
+  "name": "@slidev-stage-hub/stage",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build:ui": "node scripts/build-ui.mjs",
+    "test": "node --test scripts/*.test.mjs"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Slidev Native PoC",
+  "version": "0.1.0",
+  "identifier": "local.slidev.lab",
+  "build": { "frontendDist": "../dist" },
+  "app": { "withGlobalTauri": true, "windows": [], "security": { "csp": null } },
+  "bundle": { "active": false }
+}

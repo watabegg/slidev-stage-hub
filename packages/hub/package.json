@@ -1,0 +1,17 @@
+{
+  "name": "@slidev-stage-hub/hub",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
+    "build": "node bundle-sharing/experiments/module-graph/build.mjs && node scripts/prepare-offline.mjs",
+    "serve": "node scripts/serve.mjs artifacts/module-graph-offline/site 4174",
+    "test": "node --test scripts/fingerprint-offline.test.mjs scripts/native-player.test.mjs bundle-sharing/experiments/module-graph/catalog.test.mjs",
+    "baseline": "node scripts/baseline-build.mjs",
+    "verify:library": "node scripts/verify-library.mjs artifacts/module-graph-offline/site",
+    "thumbnails": "node scripts/thumbnails.mjs artifacts/module-graph-offline/site"
+  },
+  "dependencies": {
+    "@slidev-stage-hub/protocol": "workspace:*"
+  }
+}

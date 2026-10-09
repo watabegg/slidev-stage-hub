@@ -1,0 +1,27 @@
+# Dependencies and generated builds
+node_modules/
+target/
+dist/
+.tauri/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.local
+
+# Disposable experiment output; keep written results and scripts in Git
+artifacts/
+.cache/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated Slidev entry, recreated by the shared build
+/bundle-sharing/experiments/module-graph/index.html
+__pycache__/
+
+# Migrated Hub generated entry
+/packages/hub/bundle-sharing/experiments/module-graph/index.html

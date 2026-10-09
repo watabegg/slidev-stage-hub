@@ -1,0 +1,28 @@
+{
+  "name": "slidev-stage-hub",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.3.4",
+  "scripts": {
+    "typecheck": "pnpm --filter @slidev-stage-hub/protocol typecheck && pnpm --filter @slidev-stage-hub/hub typecheck && pnpm --filter @slidev-stage-hub/stage typecheck",
+    "test": "pnpm --filter @slidev-stage-hub/hub test && pnpm --filter @slidev-stage-hub/stage test && pnpm --filter @slidev-stage-hub/workers test",
+    "build:hub": "pnpm --filter @slidev-stage-hub/hub build",
+    "dev:hub": "pnpm --filter @slidev-stage-hub/hub serve",
+    "build:stage-ui": "pnpm --filter @slidev-stage-hub/stage build:ui",
+    "stage:prepare": "node apps/stage/scripts/prepare.mjs",
+    "stage": "bash apps/stage/scripts/run.sh",
+    "build:workers": "pnpm --filter @slidev-stage-hub/workers build:runtime",
+    "dev:workers": "pnpm --filter @slidev-stage-hub/workers dev",
+    "verify:workers": "pnpm --filter @slidev-stage-hub/workers verify",
+    "thumbnails:hub": "pnpm --filter @slidev-stage-hub/hub thumbnails",
+    "verify:hub": "pnpm --filter @slidev-stage-hub/hub verify:library"
+  },
+  "devDependencies": {
+    "@slidev/cli": "link:../slidev-watabegg/node_modules/@slidev/cli",
+    "slidev-theme-watabegg": "link:../slidev-watabegg",
+    "typescript": "6.0.3",
+    "vue": "3.5.43",
+    "vue-tsc": "3.3.12"
+  },
+  "version": "0.1.0"
+}
