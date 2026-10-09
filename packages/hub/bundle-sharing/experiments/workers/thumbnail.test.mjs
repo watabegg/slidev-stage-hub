@@ -32,7 +32,7 @@ function binding(response) {
 }
 
 function assertCode(code) {
-  return error => error?.code === code;
+  return (error) => error?.code === code;
 }
 
 function thumbnailPage(imageResult) {
@@ -53,7 +53,9 @@ function thumbnailPage(imageResult) {
         },
       };
     },
-    waitForFunction: async (...args) => { pageFunctionCalls.push(args); },
+    waitForFunction: async (...args) => {
+      pageFunctionCalls.push(args);
+    },
   };
 }
 
@@ -72,10 +74,7 @@ test('waits for the loaded layout marker before checking images once', async () 
 test('fails promptly with the image alt text when decoding rejects', async () => {
   const page = thumbnailPage({ failedImage: 'broken' });
 
-  await assert.rejects(
-    waitForRenderedSlide(page),
-    /Slide image failed to decode: broken/u,
-  );
+  await assert.rejects(waitForRenderedSlide(page), /Slide image failed to decode: broken/u);
 
   assert.equal(page.evaluations.length, 1);
   assert.equal(page.pageFunctionCalls.length, 2);
@@ -92,7 +91,10 @@ test('requests a first-slide PNG at 1200×675 and returns usage metadata', async
     },
   };
 
-  const result = await captureThumbnail({ browser, url: 'https://slides.example/deck/1?embedded=true' });
+  const result = await captureThumbnail({
+    browser,
+    url: 'https://slides.example/deck/1?embedded=true',
+  });
 
   assert.equal(requestedAction, 'screenshot');
   assert.equal(requestedOptions.selector, undefined);
@@ -103,7 +105,12 @@ test('requests a first-slide PNG at 1200×675 and returns usage metadata', async
     timeout: 60_000,
   });
   assert.deepEqual(requestedOptions.gotoOptions, { waitUntil: 'networkidle0', timeout: 60_000 });
-  assert.deepEqual(requestedOptions.screenshotOptions, { type: 'png', encoding: 'binary', fullPage: false, captureBeyondViewport: false });
+  assert.deepEqual(requestedOptions.screenshotOptions, {
+    type: 'png',
+    encoding: 'binary',
+    fullPage: false,
+    captureBeyondViewport: false,
+  });
   assert.equal(requestedOptions.actionTimeout, 60_000);
   assert.deepEqual(result, { bytes: pngHeader(), contentType: 'image/png', usedMs: 42 });
   assert.ok(result.bytes instanceof Uint8Array);
@@ -114,7 +121,10 @@ test('returns null usage metadata when the response header is missing or invalid
     const headers = { 'content-type': 'image/png' };
     if (value !== undefined) headers['x-browser-ms-used'] = value;
     const response = new Response(pngHeader(), { headers });
-    const result = await captureThumbnail({ browser: binding(response), url: 'https://slides.example/deck/1' });
+    const result = await captureThumbnail({
+      browser: binding(response),
+      url: 'https://slides.example/deck/1',
+    });
     assert.equal(result.usedMs, null);
   }
 });
@@ -135,25 +145,35 @@ test('maps HTTP 429 to BROWSER_LIMIT without exposing the response body', async 
 
   await assert.rejects(
     captureThumbnail({ browser: binding(response), url: 'https://private.example/token=secret' }),
-    error => error?.code === 'BROWSER_LIMIT'
-      && !error.message.includes(secretBody)
-      && !error.message.includes('private.example'),
+    (error) =>
+      error?.code === 'BROWSER_LIMIT' &&
+      !error.message.includes(secretBody) &&
+      !error.message.includes('private.example'),
   );
 });
 
 test('maps a thrown rate-limit error to BROWSER_LIMIT and sanitizes other failures', async () => {
-  const limitedBrowser = { quickAction: async () => { throw Object.assign(new Error('secret upstream message'), { status: 429 }); } };
+  const limitedBrowser = {
+    quickAction: async () => {
+      throw Object.assign(new Error('secret upstream message'), { status: 429 });
+    },
+  };
   await assert.rejects(
     captureThumbnail({ browser: limitedBrowser, url: 'https://slides.example/deck/1' }),
     assertCode('BROWSER_LIMIT'),
   );
 
-  const failedBrowser = { quickAction: async () => { throw new Error('failed for https://private.example/token=secret'); } };
+  const failedBrowser = {
+    quickAction: async () => {
+      throw new Error('failed for https://private.example/token=secret');
+    },
+  };
   await assert.rejects(
     captureThumbnail({ browser: failedBrowser, url: 'https://private.example/token=secret' }),
-    error => error?.code === 'BROWSER_FAILED'
-      && !error.message.includes('private.example')
-      && !error.message.includes('secret'),
+    (error) =>
+      error?.code === 'BROWSER_FAILED' &&
+      !error.message.includes('private.example') &&
+      !error.message.includes('secret'),
   );
 });
 
@@ -164,9 +184,10 @@ test('rejects non-PNG responses without reading or exposing their body', async (
 
   await assert.rejects(
     captureThumbnail({ browser: binding(response), url: 'https://private.example/token=secret' }),
-    error => error?.code === 'BROWSER_FAILED'
-      && !error.message.includes('private details')
-      && !error.message.includes('private.example'),
+    (error) =>
+      error?.code === 'BROWSER_FAILED' &&
+      !error.message.includes('private details') &&
+      !error.message.includes('private.example'),
   );
 });
 
@@ -174,19 +195,24 @@ test('bounds streamed response reads to 4 MiB and cancels overflow', async () =>
   let canceled = false;
   let nextChunk = 0;
   let enqueuedBytes = 0;
-  const body = new ReadableStream({
-    pull(controller) {
-      if (nextChunk === 0) {
-        controller.enqueue(new Uint8Array(3 * 1024 * 1024));
-        enqueuedBytes += 3 * 1024 * 1024;
-      } else if (nextChunk === 1) {
-        controller.enqueue(new Uint8Array(2 * 1024 * 1024));
-        enqueuedBytes += 2 * 1024 * 1024;
-      }
-      nextChunk += 1;
+  const body = new ReadableStream(
+    {
+      pull(controller) {
+        if (nextChunk === 0) {
+          controller.enqueue(new Uint8Array(3 * 1024 * 1024));
+          enqueuedBytes += 3 * 1024 * 1024;
+        } else if (nextChunk === 1) {
+          controller.enqueue(new Uint8Array(2 * 1024 * 1024));
+          enqueuedBytes += 2 * 1024 * 1024;
+        }
+        nextChunk += 1;
+      },
+      cancel() {
+        canceled = true;
+      },
     },
-    cancel() { canceled = true; },
-  }, { highWaterMark: 0 });
+    { highWaterMark: 0 },
+  );
   const response = new Response(body, { headers: { 'content-type': 'image/png' } });
 
   await assert.rejects(
@@ -200,8 +226,12 @@ test('bounds streamed response reads to 4 MiB and cancels overflow', async () =>
 test('rejects a known oversized response before reading it', async () => {
   let canceled = false;
   const body = new ReadableStream({
-    start(controller) { controller.enqueue(pngHeader()); },
-    cancel() { canceled = true; },
+    start(controller) {
+      controller.enqueue(pngHeader());
+    },
+    cancel() {
+      canceled = true;
+    },
   });
   const response = new Response(body, {
     headers: { 'content-type': 'image/png', 'content-length': String(MAX_PNG_BYTES + 1) },
@@ -216,7 +246,10 @@ test('rejects a known oversized response before reading it', async () => {
 
 test('rejects a PNG with unexpected dimensions', async () => {
   await assert.rejects(
-    captureThumbnail({ browser: binding(pngResponse(pngHeader(980, 551))), url: 'https://slides.example/deck/1' }),
+    captureThumbnail({
+      browser: binding(pngResponse(pngHeader(980, 551))),
+      url: 'https://slides.example/deck/1',
+    }),
     assertCode('BROWSER_FAILED'),
   );
 });
@@ -237,7 +270,9 @@ test('local thumbnail CLI prints usage before attempting external work', () => {
 
 test('local thumbnail CLI rejects an invalid revision before contacting its origin', () => {
   const script = fileURLToPath(new URL('./local-thumbnail.mjs', import.meta.url));
-  const result = spawnSync(process.execPath, [script, 'http://127.0.0.1:1', 'demo/deck', 'bad'], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [script, 'http://127.0.0.1:1', 'demo/deck', 'bad'], {
+    encoding: 'utf8',
+  });
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /revision must be/u);

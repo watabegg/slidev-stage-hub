@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true,
+    "types": [],
+    "paths": {
+      "/@lab/selection": ["./runtime/types/selection.d.ts"],
+      "/@lab/base-config": ["./runtime/types/base-config.d.ts"],
+      "/@lab/layouts": ["./runtime/types/layouts.d.ts"],
+      "@slidev/client/context.ts": ["./runtime/types/slidev-context.d.ts"],
+      "@slidev/client/main.ts": ["./runtime/types/slidev-main.d.ts"]
+    }
+  },
+  "vueCompilerOptions": {
+    "strictTemplates": true
+  },
+  "include": ["runtime/**/*.ts", "runtime/**/*.vue"]
+}

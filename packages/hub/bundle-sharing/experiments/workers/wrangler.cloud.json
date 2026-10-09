@@ -4,9 +4,7 @@
   "account_id": "23f5eafcd8c9e8750ac3737b433e1aad",
   "main": "worker.mjs",
   "compatibility_date": "2026-10-09",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": false,
   "assets": {
@@ -32,9 +30,7 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": [
-        "DeckVersions"
-      ]
+      "new_sqlite_classes": ["DeckVersions"]
     }
   ],
   "browser": {

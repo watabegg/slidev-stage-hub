@@ -33,58 +33,62 @@ function validDocument(headers = { Authorization: `Bearer ${canary}` }, fileOrig
 }
 
 test('reads a private regular auth file and normalizes its origin before comparing', async () => {
-  await withTempDir(async directory => {
-    const filePath = await createAuthFile(directory, validDocument({
-      Authorization: `Bearer ${canary}`,
-      'CF-Access-Client-Id': 'test-id',
-      'CF-Access-Client-Secret': 'test-secret',
-    }, 'HTTPS://SLIDES.EXAMPLE.COM:443/'));
+  await withTempDir(async (directory) => {
+    const filePath = await createAuthFile(
+      directory,
+      validDocument(
+        {
+          Authorization: `Bearer ${canary}`,
+          'CF-Access-Client-Id': 'test-id',
+          'CF-Access-Client-Secret': 'test-secret',
+        },
+        'HTTPS://SLIDES.EXAMPLE.COM:443/',
+      ),
+    );
 
     const result = await readAuthHeadersFile(filePath, origin, normalizeOrigin);
     assert.equal(result.absolutePath, filePath);
-    assert.deepEqual({ ...result.headers }, {
-      Authorization: `Bearer ${canary}`,
-      'CF-Access-Client-Id': 'test-id',
-      'CF-Access-Client-Secret': 'test-secret',
-    });
-  });
-});
-
-test('rejects group or other readable auth files without exposing a header value', async t => {
-  if (process.platform === 'win32') return t.skip('Unix permission bits are not available on Windows');
-  await withTempDir(async directory => {
-    const filePath = await createAuthFile(directory, validDocument(), { mode: 0o640 });
-    await assert.rejects(
-      readAuthHeadersFile(filePath, origin, normalizeOrigin),
-      error => {
-        assert.match(error.message, /must not grant group or other permissions/);
-        assert.equal(error.message.includes(canary), false);
-        return true;
+    assert.deepEqual(
+      { ...result.headers },
+      {
+        Authorization: `Bearer ${canary}`,
+        'CF-Access-Client-Id': 'test-id',
+        'CF-Access-Client-Secret': 'test-secret',
       },
     );
   });
 });
 
+test('rejects group or other readable auth files without exposing a header value', async (t) => {
+  if (process.platform === 'win32')
+    return t.skip('Unix permission bits are not available on Windows');
+  await withTempDir(async (directory) => {
+    const filePath = await createAuthFile(directory, validDocument(), { mode: 0o640 });
+    await assert.rejects(readAuthHeadersFile(filePath, origin, normalizeOrigin), (error) => {
+      assert.match(error.message, /must not grant group or other permissions/);
+      assert.equal(error.message.includes(canary), false);
+      return true;
+    });
+  });
+});
+
 test('rejects mismatched or non-root origins without exposing header values', async () => {
-  await withTempDir(async directory => {
+  await withTempDir(async (directory) => {
     for (const fileOrigin of ['https://other.example.com', 'https://slides.example.com/deck']) {
       const filePath = await createAuthFile(directory, validDocument(undefined, fileOrigin), {
         filename: `${path.basename(fileOrigin.replaceAll('/', '_'))}.json`,
       });
-      await assert.rejects(
-        readAuthHeadersFile(filePath, origin, normalizeOrigin),
-        error => {
-          assert.match(error.message, /origin/);
-          assert.equal(error.message.includes(canary), false);
-          return true;
-        },
-      );
+      await assert.rejects(readAuthHeadersFile(filePath, origin, normalizeOrigin), (error) => {
+        assert.match(error.message, /origin/);
+        assert.equal(error.message.includes(canary), false);
+        return true;
+      });
     }
   });
 });
 
 test('rejects invalid headers, duplicate names, and duplicate JSON keys without echoing values', async () => {
-  await withTempDir(async directory => {
+  await withTempDir(async (directory) => {
     const cases = [
       {
         name: 'case-insensitive duplicate names',
@@ -129,24 +133,24 @@ test('rejects invalid headers, duplicate names, and duplicate JSON keys without 
     ];
 
     for (const [index, item] of cases.entries()) {
-      const filePath = await createAuthFile(directory, item.document, { filename: `invalid-${index}.json` });
-      await assert.rejects(
-        readAuthHeadersFile(filePath, origin, normalizeOrigin),
-        error => {
-          assert.match(error.message, item.pattern, item.name);
-          assert.equal(error.message.includes(canary), false, item.name);
-          return true;
-        },
-      );
+      const filePath = await createAuthFile(directory, item.document, {
+        filename: `invalid-${index}.json`,
+      });
+      await assert.rejects(readAuthHeadersFile(filePath, origin, normalizeOrigin), (error) => {
+        assert.match(error.message, item.pattern, item.name);
+        assert.equal(error.message.includes(canary), false, item.name);
+        return true;
+      });
     }
 
-    const duplicateKeyPath = await createAuthFile(directory,
+    const duplicateKeyPath = await createAuthFile(
+      directory,
       `{"origin":"${origin}","headers":{"Authorization":"${canary}","Authorization":"second-secret"}}`,
       { filename: 'duplicate-json-key.json' },
     );
     await assert.rejects(
       readAuthHeadersFile(duplicateKeyPath, origin, normalizeOrigin),
-      error => {
+      (error) => {
         assert.match(error.message, /duplicate JSON keys/);
         assert.equal(error.message.includes(canary), false);
         return true;
@@ -156,19 +160,17 @@ test('rejects invalid headers, duplicate names, and duplicate JSON keys without 
 });
 
 test('enforces the 64 KiB and 64-header limits', async () => {
-  await withTempDir(async directory => {
-    const oversizedPath = await createAuthFile(directory,
+  await withTempDir(async (directory) => {
+    const oversizedPath = await createAuthFile(
+      directory,
       `{"origin":"${origin}","headers":{"Authorization":"${canary}${'A'.repeat(64 * 1024)}"}}`,
       { filename: 'oversized.json' },
     );
-    await assert.rejects(
-      readAuthHeadersFile(oversizedPath, origin, normalizeOrigin),
-      error => {
-        assert.match(error.message, /64 KiB/);
-        assert.equal(error.message.includes(canary), false);
-        return true;
-      },
-    );
+    await assert.rejects(readAuthHeadersFile(oversizedPath, origin, normalizeOrigin), (error) => {
+      assert.match(error.message, /64 KiB/);
+      assert.equal(error.message.includes(canary), false);
+      return true;
+    });
 
     const tooManyHeaders = Object.fromEntries(
       Array.from({ length: 65 }, (_, index) => [`X-Test-${index}`, 'value']),
@@ -176,7 +178,10 @@ test('enforces the 64 KiB and 64-header limits', async () => {
     const tooManyPath = await createAuthFile(directory, validDocument(tooManyHeaders), {
       filename: 'too-many-headers.json',
     });
-    await assert.rejects(readAuthHeadersFile(tooManyPath, origin, normalizeOrigin), /at most 64 headers/);
+    await assert.rejects(
+      readAuthHeadersFile(tooManyPath, origin, normalizeOrigin),
+      /at most 64 headers/,
+    );
 
     const exactly64 = Object.fromEntries(
       Array.from({ length: 64 }, (_, index) => [`X-Test-${index}`, 'value']),
@@ -190,34 +195,25 @@ test('enforces the 64 KiB and 64-header limits', async () => {
 });
 
 test('rejects non-JSON and non-regular files without including file contents', async () => {
-  await withTempDir(async directory => {
+  await withTempDir(async (directory) => {
     const malformedPath = await createAuthFile(directory, `{"token":"${canary}"`, {
       filename: 'malformed.json',
     });
-    await assert.rejects(
-      readAuthHeadersFile(malformedPath, origin, normalizeOrigin),
-      error => {
-        assert.match(error.message, /valid JSON/);
-        assert.equal(error.message.includes(canary), false);
-        return true;
-      },
-    );
+    await assert.rejects(readAuthHeadersFile(malformedPath, origin, normalizeOrigin), (error) => {
+      assert.match(error.message, /valid JSON/);
+      assert.equal(error.message.includes(canary), false);
+      return true;
+    });
 
-    await assert.rejects(
-      readAuthHeadersFile(directory, origin, normalizeOrigin),
-      /regular file/,
-    );
+    await assert.rejects(readAuthHeadersFile(directory, origin, normalizeOrigin), /regular file/);
   });
 });
 
-test('rejects Linux FIFOs before opening them', async t => {
+test('rejects Linux FIFOs before opening them', async (t) => {
   if (process.platform !== 'linux') return t.skip('FIFO preflight is covered on Linux');
-  await withTempDir(async directory => {
+  await withTempDir(async (directory) => {
     const fifoPath = path.join(directory, 'auth-fifo');
     execFileSync('mkfifo', [fifoPath]);
-    await assert.rejects(
-      readAuthHeadersFile(fifoPath, origin, normalizeOrigin),
-      /regular file/,
-    );
+    await assert.rejects(readAuthHeadersFile(fifoPath, origin, normalizeOrigin), /regular file/);
   });
 });

@@ -34,15 +34,21 @@ async function withTempDir(run) {
 
 test('CLI accepts named options and the legacy positional site', () => {
   const cwd = '/tmp/prepare-cli';
-  assert.deepEqual(parseArgs(['--fixtures-root', 'experiment/fixtures', '--site', 'experiment/site'], { cwd }), {
-    site: path.join(cwd, 'experiment/site'),
-    fixturesRoot: path.join(cwd, 'experiment/fixtures'),
-  });
+  assert.deepEqual(
+    parseArgs(['--fixtures-root', 'experiment/fixtures', '--site', 'experiment/site'], { cwd }),
+    {
+      site: path.join(cwd, 'experiment/site'),
+      fixturesRoot: path.join(cwd, 'experiment/fixtures'),
+    },
+  );
   assert.deepEqual(parseArgs(['legacy/site'], { cwd }), {
     site: path.join(cwd, 'legacy/site'),
     fixturesRoot: path.join(repoRoot, 'examples/fixtures'),
   });
-  assert.throws(() => parseArgs(['--site', 'one', 'two'], { cwd }), /either --site or a positional path/);
+  assert.throws(
+    () => parseArgs(['--site', 'one', 'two'], { cwd }),
+    /either --site or a positional path/,
+  );
   assert.throws(() => parseArgs(['--fixtures-root'], { cwd }), /requires a path/);
 });
 
@@ -54,20 +60,61 @@ test('manifest validation preserves its deck order and rejects unsafe or inconsi
       manifestDeck('theme-b/topic-two', 'fixtures/theme-b/topic-two/slides.md', revisionB, 5),
     ],
   };
-  assert.deepEqual(validateManifest(manifest).decks.map((deck) => [deck.id, deck.entry, deck.revision]), [
-    ['theme-a/topic-one', '/theme-a/topic-one/1', revisionA],
-    ['theme-b/topic-two', '/theme-b/topic-two/1', revisionB],
-  ]);
-  assert.throws(() => validateManifest({ ...manifest, decks: [{
-    id: '../outside', sourcePath: 'x.md', entry: '/../outside/1', revision: revisionA, pages: 1,
-  }] }), /unsupported native id/);
-  assert.throws(() => validateManifest({ ...manifest, decks: [{
-    id: 'unicode/資料', sourcePath: 'x.md', entry: '/unicode/%E8%B3%87%E6%96%99/1', revision: revisionA, pages: 1,
-  }] }), /unsupported native id/);
-  assert.throws(() => validateManifest({ ...manifest, decks: [{ ...manifest.decks[0], entry: '/wrong/1' }] }), /canonical route/);
-  assert.throws(() => validateManifest({ ...manifest, decks: [{ ...manifest.decks[0], pages: 0 }] }), /positive integer/);
-  assert.throws(() => validateManifest({ ...manifest, decks: [manifest.decks[0], manifest.decks[0]] }), /duplicate deck id/);
-  assert.throws(() => validateManifest({ schemaVersion: 2, decks: manifest.decks }), /schemaVersion must be 1/);
+  assert.deepEqual(
+    validateManifest(manifest).decks.map((deck) => [deck.id, deck.entry, deck.revision]),
+    [
+      ['theme-a/topic-one', '/theme-a/topic-one/1', revisionA],
+      ['theme-b/topic-two', '/theme-b/topic-two/1', revisionB],
+    ],
+  );
+  assert.throws(
+    () =>
+      validateManifest({
+        ...manifest,
+        decks: [
+          {
+            id: '../outside',
+            sourcePath: 'x.md',
+            entry: '/../outside/1',
+            revision: revisionA,
+            pages: 1,
+          },
+        ],
+      }),
+    /unsupported native id/,
+  );
+  assert.throws(
+    () =>
+      validateManifest({
+        ...manifest,
+        decks: [
+          {
+            id: 'unicode/資料',
+            sourcePath: 'x.md',
+            entry: '/unicode/%E8%B3%87%E6%96%99/1',
+            revision: revisionA,
+            pages: 1,
+          },
+        ],
+      }),
+    /unsupported native id/,
+  );
+  assert.throws(
+    () => validateManifest({ ...manifest, decks: [{ ...manifest.decks[0], entry: '/wrong/1' }] }),
+    /canonical route/,
+  );
+  assert.throws(
+    () => validateManifest({ ...manifest, decks: [{ ...manifest.decks[0], pages: 0 }] }),
+    /positive integer/,
+  );
+  assert.throws(
+    () => validateManifest({ ...manifest, decks: [manifest.decks[0], manifest.decks[0]] }),
+    /duplicate deck id/,
+  );
+  assert.throws(
+    () => validateManifest({ schemaVersion: 2, decks: manifest.decks }),
+    /schemaVersion must be 1/,
+  );
 });
 
 test('an existing malformed public manifest is an error, while an absent one selects fallback mode', async () => {
@@ -75,7 +122,10 @@ test('an existing malformed public manifest is an error, while an absent one sel
     assert.equal(await readManifestIfPresent(directory), null);
     await writeFile(path.join(directory, 'manifest.json'), '{ invalid json');
     await assert.rejects(readManifestIfPresent(directory), /invalid public manifest JSON/);
-    await writeFile(path.join(directory, 'manifest.json'), JSON.stringify({ schemaVersion: 1, decks: [] }));
+    await writeFile(
+      path.join(directory, 'manifest.json'),
+      JSON.stringify({ schemaVersion: 1, decks: [] }),
+    );
     await assert.rejects(readManifestIfPresent(directory), /non-empty decks array/);
   });
 });
@@ -92,18 +142,30 @@ test('source paths resolve from the Hub root and realpaths must remain inside th
     await writeFile(path.join(outsideDirectory, 'slides.md'), '# Outside\n');
     await symlink(path.join(outsideDirectory, 'slides.md'), path.join(deckDirectory, 'escape.md'));
 
-    const valid = await resolveManifestSources([
-      manifestDeck('theme-a/topic-one', '../../examples/fixtures/theme-a/topic-one/slides.md'),
-    ], hubRoot, fixturesRoot);
+    const valid = await resolveManifestSources(
+      [manifestDeck('theme-a/topic-one', '../../examples/fixtures/theme-a/topic-one/slides.md')],
+      hubRoot,
+      fixturesRoot,
+    );
     assert.equal(valid.approvedRoot, await realpath(fixturesRoot));
     assert.equal(valid.sources[0].source, await realpath(path.join(deckDirectory, 'slides.md')));
 
-    await assert.rejects(resolveManifestSources([
-      manifestDeck('theme-a/topic-one', '../../examples/fixtures/theme-a/topic-one/escape.md'),
-    ], hubRoot, fixturesRoot), /outside the approved fixtures root/);
-    await assert.rejects(resolveManifestSources([
-      manifestDeck('theme-a/topic-one', '../../examples/fixtures/theme-a/topic-one'),
-    ], hubRoot, fixturesRoot), /is not a file/);
+    await assert.rejects(
+      resolveManifestSources(
+        [manifestDeck('theme-a/topic-one', '../../examples/fixtures/theme-a/topic-one/escape.md')],
+        hubRoot,
+        fixturesRoot,
+      ),
+      /outside the approved fixtures root/,
+    );
+    await assert.rejects(
+      resolveManifestSources(
+        [manifestDeck('theme-a/topic-one', '../../examples/fixtures/theme-a/topic-one')],
+        hubRoot,
+        fixturesRoot,
+      ),
+      /is not a file/,
+    );
   });
 });
 
@@ -123,17 +185,46 @@ test('the installed Slidev parser supplies manifest-mode page, click, and note m
     '<!-- presenter note two -->',
     '',
   ].join('\n');
-  const inspected = inspectDeckSource({ id: 'theme-a/topic-one', source: 'topic-one.md', text, parseSync });
+  const inspected = inspectDeckSource({
+    id: 'theme-a/topic-one',
+    source: 'topic-one.md',
+    text,
+    parseSync,
+  });
   assert.equal(inspected.pages, 2);
   assert.deepEqual(inspected.clickTotals, [1, 1]);
-  assert.equal(Buffer.from(text).subarray(inspected.slots[0].start, inspected.slots[0].end).toString(), ' presenter note 一 ');
-  assert.equal(Buffer.from(text).subarray(inspected.slots[1].start, inspected.slots[1].end).toString(), ' presenter note two ');
-  assert.throws(() => inspectDeckSource({
-    id: 'theme-a/topic-one', source: 'topic-one.md', text: '<div v-click="2">step</div>', parseSync,
-  }), /unsupported click syntax/);
-  for (const syntax of ['<div v-click.hide>step</div>', '<div v-after>step</div>', '<v-clicks>step</v-clicks>']) {
-    assert.throws(() => inspectDeckSource({
-      id: 'theme-a/topic-one', source: 'topic-one.md', text: syntax, parseSync,
-    }), /unsupported click syntax/);
+  assert.equal(
+    Buffer.from(text).subarray(inspected.slots[0].start, inspected.slots[0].end).toString(),
+    ' presenter note 一 ',
+  );
+  assert.equal(
+    Buffer.from(text).subarray(inspected.slots[1].start, inspected.slots[1].end).toString(),
+    ' presenter note two ',
+  );
+  assert.throws(
+    () =>
+      inspectDeckSource({
+        id: 'theme-a/topic-one',
+        source: 'topic-one.md',
+        text: '<div v-click="2">step</div>',
+        parseSync,
+      }),
+    /unsupported click syntax/,
+  );
+  for (const syntax of [
+    '<div v-click.hide>step</div>',
+    '<div v-after>step</div>',
+    '<v-clicks>step</v-clicks>',
+  ]) {
+    assert.throws(
+      () =>
+        inspectDeckSource({
+          id: 'theme-a/topic-one',
+          source: 'topic-one.md',
+          text: syntax,
+          parseSync,
+        }),
+      /unsupported click syntax/,
+    );
   }
 });

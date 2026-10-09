@@ -1,10 +1,21 @@
 packages:
+  - examples/slidev52
   - apps/*
   - packages/*
   - packages/hub/bundle-sharing/experiments/workers
 allowBuilds:
+  playwright-chromium: false
   esbuild: true
   workerd: true
 minimumReleaseAgeExclude:
   - miniflare@5.20261006.1-alpha
   - wrangler@4.149.0
+  - slidev-theme-watabegg@1.2.1
+# Preserve the toolchain used by the migrated Slidev 53 adapter.
+overrides:
+  '@slidev/cli@53.0.0>vite': 8.3.2
+  postcss: 8.5.28
+  # Comark imports Markdown-it 14's private token module.
+  markdown-it: 14.3.2
+  # Shiki's Twoslash adapter expects the pre-5.4 VMenu component shape.
+  floating-vue: 5.2.2

@@ -10,7 +10,9 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-    "types": []
+    "types": [],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
   "vueCompilerOptions": {
     "strictTemplates": true

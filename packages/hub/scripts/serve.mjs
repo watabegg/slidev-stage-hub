@@ -6,14 +6,30 @@ import { fileURLToPath } from 'node:url';
 
 const DEFAULT_DECK_IDS = ['aaa/aaa1', 'aaa/aaa2', 'bbb/bbb1', 'bbb/bbb2'];
 const MIME_TYPES = new Map([
-  ['.avif', 'image/avif'], ['.bmp', 'image/bmp'], ['.css', 'text/css; charset=utf-8'],
-  ['.gif', 'image/gif'], ['.html', 'text/html; charset=utf-8'], ['.ico', 'image/x-icon'],
-  ['.jpeg', 'image/jpeg'], ['.jpg', 'image/jpeg'], ['.js', 'text/javascript; charset=utf-8'],
-  ['.json', 'application/json; charset=utf-8'], ['.map', 'application/json; charset=utf-8'],
-  ['.mjs', 'text/javascript; charset=utf-8'], ['.mp4', 'video/mp4'], ['.otf', 'font/otf'],
-  ['.pdf', 'application/pdf'], ['.png', 'image/png'], ['.svg', 'image/svg+xml'],
-  ['.ttf', 'font/ttf'], ['.txt', 'text/plain; charset=utf-8'], ['.wasm', 'application/wasm'],
-  ['.webm', 'video/webm'], ['.webp', 'image/webp'], ['.woff', 'font/woff'], ['.woff2', 'font/woff2'],
+  ['.avif', 'image/avif'],
+  ['.bmp', 'image/bmp'],
+  ['.css', 'text/css; charset=utf-8'],
+  ['.gif', 'image/gif'],
+  ['.html', 'text/html; charset=utf-8'],
+  ['.ico', 'image/x-icon'],
+  ['.jpeg', 'image/jpeg'],
+  ['.jpg', 'image/jpeg'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.json', 'application/json; charset=utf-8'],
+  ['.map', 'application/json; charset=utf-8'],
+  ['.mjs', 'text/javascript; charset=utf-8'],
+  ['.mp4', 'video/mp4'],
+  ['.otf', 'font/otf'],
+  ['.pdf', 'application/pdf'],
+  ['.png', 'image/png'],
+  ['.svg', 'image/svg+xml'],
+  ['.ttf', 'font/ttf'],
+  ['.txt', 'text/plain; charset=utf-8'],
+  ['.wasm', 'application/wasm'],
+  ['.webm', 'video/webm'],
+  ['.webp', 'image/webp'],
+  ['.woff', 'font/woff'],
+  ['.woff2', 'font/woff2'],
   ['.xml', 'application/xml; charset=utf-8'],
 ]);
 
@@ -23,7 +39,17 @@ function isInside(root, path) {
 }
 
 function validDeckId(id) {
-  return typeof id === 'string' && id.split('/').every(segment => segment && segment !== '.' && segment !== '..' && !/[\u0000-\u001f\u007f\\:?#[\]@!$&'()*+,;=%]/u.test(segment));
+  return (
+    typeof id === 'string' &&
+    id.split('/').every(
+      (segment) =>
+        segment &&
+        segment !== '.' &&
+        segment !== '..' &&
+        // oxlint-disable-next-line no-control-regex -- Reject control characters at the URL/path boundary.
+        !/[\u0000-\u001f\u007f\\:?#[\]@!$&'()*+,;=%]/u.test(segment),
+    )
+  );
 }
 
 function readDeckIds(root) {
@@ -50,8 +76,11 @@ function parsePath(rawUrl) {
   for (const rawSegment of rawSegments) {
     if (rawSegment === '') return null;
     let segment;
-    try { segment = decodeURIComponent(rawSegment); }
-    catch { return null; }
+    try {
+      segment = decodeURIComponent(rawSegment);
+    } catch {
+      return null;
+    }
     if (!segment || segment === '.' || segment === '..' || /[\\/\0]/.test(segment)) return null;
     segments.push(segment);
   }
@@ -62,7 +91,10 @@ function isDeckRouteSuffix(segments) {
   if (segments.length === 0) return true;
   if (segments.length === 2) return segments[0] === 'presenter' && /^\d+$/.test(segments[1]);
   if (segments.length !== 1) return false;
-  return /^\d+$/.test(segments[0]) || ['presenter', 'overview', 'notes', 'draw', 'record'].includes(segments[0]);
+  return (
+    /^\d+$/.test(segments[0]) ||
+    ['presenter', 'overview', 'notes', 'draw', 'record'].includes(segments[0])
+  );
 }
 
 function resolveFile(root, segments) {
@@ -82,7 +114,11 @@ function routeEntry(root, segments, deckIds) {
   if (segments.length === 0) return resolveFile(root, ['index.html']);
   for (const deckId of deckIds) {
     const idSegments = deckId.split('/');
-    if (idSegments.length > segments.length || !idSegments.every((segment, index) => segment === segments[index])) continue;
+    if (
+      idSegments.length > segments.length ||
+      !idSegments.every((segment, index) => segment === segments[index])
+    )
+      continue;
     const suffix = segments.slice(idSegments.length);
     if (!isDeckRouteSuffix(suffix)) continue;
     const deckIndex = resolveFile(root, [...idSegments, 'index.html']);
@@ -100,7 +136,10 @@ function cacheControlFor(filePath) {
 }
 
 function sendNotFound(response) {
-  response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+  response.writeHead(404, {
+    'content-type': 'text/plain; charset=utf-8',
+    'cache-control': 'no-store',
+  });
   response.end('Not Found\n');
 }
 
@@ -130,7 +169,8 @@ export function createServer(siteRoot) {
     try {
       const info = statSync(filePath);
       response.writeHead(200, {
-        'content-type': MIME_TYPES.get(extname(filePath).toLowerCase()) || 'application/octet-stream',
+        'content-type':
+          MIME_TYPES.get(extname(filePath).toLowerCase()) || 'application/octet-stream',
         'content-length': info.size,
         'last-modified': info.mtime.toUTCString(),
         'cache-control': cacheControlFor(filePath),
@@ -150,7 +190,8 @@ function main() {
   const siteRoot = resolve(siteRootArgument);
   if (!existsSync(siteRoot)) throw new Error(`site root does not exist: ${siteRoot}`);
   const port = portArgument === undefined ? 4173 : Number(portArgument);
-  if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`invalid port: ${portArgument}`);
+  if (!Number.isInteger(port) || port < 0 || port > 65535)
+    throw new Error(`invalid port: ${portArgument}`);
 
   const server = createServer(siteRoot);
   server.listen(port, '127.0.0.1', () => {
@@ -160,8 +201,9 @@ function main() {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { main(); }
-  catch (error) {
+  try {
+    main();
+  } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
   }

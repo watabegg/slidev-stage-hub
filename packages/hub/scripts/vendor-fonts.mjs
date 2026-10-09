@@ -16,7 +16,8 @@ const CSS_HOST = 'fonts.googleapis.com';
 const FONT_HOST = 'fonts.gstatic.com';
 const MAX_CONCURRENT_DOWNLOADS = 4;
 const REQUEST_TIMEOUT_MS = 30_000;
-const USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const USER_AGENT =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
@@ -25,7 +26,9 @@ function sha256(bytes) {
 function walkSiteFiles(root) {
   const files = [];
   function visit(directory) {
-    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
       const path = join(directory, entry.name);
       if (entry.isDirectory()) {
         if (entry.name !== '_fonts') visit(path);
@@ -56,7 +59,10 @@ function normalizeUrl(value, baseUrl) {
 
 function isGoogleCssUrl(value, baseUrl) {
   const url = normalizeUrl(value, baseUrl);
-  return url && url.protocol === 'https:' && url.hostname === CSS_HOST && /^\/css2?$/.test(url.pathname)
+  return url &&
+    url.protocol === 'https:' &&
+    url.hostname === CSS_HOST &&
+    /^\/css2?$/.test(url.pathname)
     ? url.href
     : null;
 }
@@ -145,12 +151,14 @@ function rewriteFontUrls(css, stylesheetUrl, fontFiles) {
   let previous = 0;
   for (const block of blocks) {
     output += css.slice(previous, block.start);
-    const text = css.slice(block.start, block.end).replace(CSS_URL_PATTERN, (whole, quote, quotedUrl, unquotedUrl) => {
-      const raw = (quotedUrl ?? unquotedUrl ?? '').trim();
-      const url = isGoogleFontUrl(raw, stylesheetUrl);
-      const file = url && fontFiles.get(url);
-      return file ? `url("${file.path}")` : whole;
-    });
+    const text = css
+      .slice(block.start, block.end)
+      .replace(CSS_URL_PATTERN, (whole, quote, quotedUrl, unquotedUrl) => {
+        const raw = (quotedUrl ?? unquotedUrl ?? '').trim();
+        const url = isGoogleFontUrl(raw, stylesheetUrl);
+        const file = url && fontFiles.get(url);
+        return file ? `url("${file.path}")` : whole;
+      });
     output += text;
     previous = block.end;
   }
@@ -172,7 +180,8 @@ function rewriteGoogleCssLinks(html, resolveStylesheet) {
     if (!attr) return tag;
     const url = isGoogleCssUrl(attr.value);
     if (!url) return tag;
-    if (/\bintegrity\s*=/i.test(tag)) throw new Error(`cannot rewrite Google Fonts link with integrity metadata: ${url}`);
+    if (/\bintegrity\s*=/i.test(tag))
+      throw new Error(`cannot rewrite Google Fonts link with integrity metadata: ${url}`);
     const local = resolveStylesheet(url);
     return tag.replace(attr.pattern, `${attr.prefix}${attr.quote}${local}${attr.quote}`);
   });
@@ -189,8 +198,10 @@ function rewriteCssImports(css, baseUrl, resolveStylesheet) {
 
 function rewriteHtml(html, resolveStylesheet) {
   let output = rewriteGoogleCssLinks(html, resolveStylesheet);
-  output = output.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style\s*>)/gi, (_whole, start, css, end) =>
-    `${start}${rewriteCssImports(css, undefined, resolveStylesheet)}${end}`,
+  output = output.replace(
+    /(<style\b[^>]*>)([\s\S]*?)(<\/style\s*>)/gi,
+    (_whole, start, css, end) =>
+      `${start}${rewriteCssImports(css, undefined, resolveStylesheet)}${end}`,
   );
   return output;
 }
@@ -223,15 +234,18 @@ function googleCssReferences(text, extension) {
 }
 
 async function mapWithConcurrency(items, limit, callback) {
-  const results = new Array(items.length);
+  const results = Array.from({ length: items.length });
   const errors = [];
   let next = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
     while (true) {
       const index = next++;
       if (index >= items.length) return;
-      try { results[index] = await callback(items[index]); }
-      catch (error) { errors.push(error); }
+      try {
+        results[index] = await callback(items[index]);
+      } catch (error) {
+        errors.push(error);
+      }
     }
   });
   await Promise.all(workers);
@@ -262,14 +276,24 @@ async function fetchRemote(url, type) {
   const finalUrl = new URL(response.url || url);
   if (finalUrl.protocol !== 'https:' || finalUrl.hostname !== expectedHost)
     throw new Error(`${type} download redirected to an unexpected origin: ${finalUrl.href}`);
-  const contentType = response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() ?? '';
+  const contentType =
+    response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() ?? '';
   const bytes = Buffer.from(await response.arrayBuffer());
   if (bytes.length === 0) throw new Error(`${type} download returned an empty body for ${url}`);
-  if (bytes.subarray(0, 32).toString('ascii').trimStart().toLowerCase().startsWith('<!doctype html')
-    || bytes.subarray(0, 32).toString('ascii').trimStart().toLowerCase().startsWith('<html'))
+  if (
+    bytes
+      .subarray(0, 32)
+      .toString('ascii')
+      .trimStart()
+      .toLowerCase()
+      .startsWith('<!doctype html') ||
+    bytes.subarray(0, 32).toString('ascii').trimStart().toLowerCase().startsWith('<html')
+  )
     throw new Error(`${type} download returned HTML instead of an asset for ${url}`);
   if (type === 'css' && contentType !== 'text/css')
-    throw new Error(`CSS download returned unexpected Content-Type ${contentType || '(missing)'} for ${url}`);
+    throw new Error(
+      `CSS download returned unexpected Content-Type ${contentType || '(missing)'} for ${url}`,
+    );
   if (type === 'css' && !/@font-face\b/i.test(bytes.toString('utf8')))
     throw new Error(`CSS response contains no @font-face rule: ${url}`);
   return { url, finalUrl: finalUrl.href, contentType, bytes };
@@ -310,7 +334,8 @@ function assetsInFontsDirectory(siteRoot) {
       const path = join(directory, entry.name);
       if (entry.isDirectory()) visit(path);
       else if (entry.isFile()) files.push(path);
-      else if (entry.isSymbolicLink()) throw new Error(`symbolic links are not accepted under _fonts: ${path}`);
+      else if (entry.isSymbolicLink())
+        throw new Error(`symbolic links are not accepted under _fonts: ${path}`);
     }
   }
   visit(root);
@@ -349,13 +374,22 @@ async function processSite(siteRoot, evidencePath) {
     }
   }
 
-  const downloadedCssList = await mapWithConcurrency([...stylesheetUrls], MAX_CONCURRENT_DOWNLOADS, (url) => fetchRemote(url, 'css'));
+  const downloadedCssList = await mapWithConcurrency(
+    [...stylesheetUrls],
+    MAX_CONCURRENT_DOWNLOADS,
+    (url) => fetchRemote(url, 'css'),
+  );
   const downloadedCss = new Map(downloadedCssList.map((item) => [item.url, item]));
   const fontUrlSet = new Set();
   for (const stylesheet of downloadedCss.values()) {
-    for (const url of fontUrlsFromCss(stylesheet.bytes.toString('utf8'), stylesheet.finalUrl)) fontUrlSet.add(url);
+    for (const url of fontUrlsFromCss(stylesheet.bytes.toString('utf8'), stylesheet.finalUrl))
+      fontUrlSet.add(url);
   }
-  const downloadedFontList = await mapWithConcurrency([...fontUrlSet], MAX_CONCURRENT_DOWNLOADS, (url) => fetchRemote(url, 'font'));
+  const downloadedFontList = await mapWithConcurrency(
+    [...fontUrlSet],
+    MAX_CONCURRENT_DOWNLOADS,
+    (url) => fetchRemote(url, 'font'),
+  );
   const downloadedFonts = new Map(downloadedFontList.map((item) => [item.url, item]));
 
   const generatedFontFiles = new Map();
@@ -366,7 +400,12 @@ async function processSite(siteRoot, evidencePath) {
     const path = `/_fonts/${digest}${extension}`;
     const localPath = join(root, path.slice(1));
     generatedFontFiles.set(localPath, download.bytes);
-    fontUrlToFile.set(download.url, { path, sha256: digest, bytes: download.bytes.length, extension });
+    fontUrlToFile.set(download.url, {
+      path,
+      sha256: digest,
+      bytes: download.bytes.length,
+      extension,
+    });
     return {
       sourceUrl: download.url,
       finalUrl: download.finalUrl,
@@ -408,9 +447,10 @@ async function processSite(siteRoot, evidencePath) {
   const rewrittenFiles = new Map();
   for (const [path, text] of sourceText) {
     const extension = extname(path).toLowerCase();
-    const rewritten = extension === '.css'
-      ? rewriteCssImports(text, undefined, resolveStylesheet)
-      : rewriteHtml(text, resolveStylesheet);
+    const rewritten =
+      extension === '.css'
+        ? rewriteCssImports(text, undefined, resolveStylesheet)
+        : rewriteHtml(text, resolveStylesheet);
     if (rewritten !== text) rewrittenFiles.set(path, Buffer.from(rewritten));
   }
 
@@ -419,10 +459,18 @@ async function processSite(siteRoot, evidencePath) {
   for (const [path, bytes] of generatedCssFiles) writeIfChanged(path, bytes);
   for (const [path, bytes] of rewrittenFiles) writeFileSync(path, bytes);
 
-  const fontAssets = assetsInFontsDirectory(root).map((path) => `/${relative(root, path).split(sep).join('/')}`);
+  const fontAssets = assetsInFontsDirectory(root).map(
+    (path) => `/${relative(root, path).split(sep).join('/')}`,
+  );
   const manifestUpdated = updateManifest(root, fontAssets);
-  const actualFontBytes = [...generatedFontFiles.values()].reduce((total, bytes) => total + bytes.length, 0);
-  const actualCssBytes = [...generatedCssFiles.values()].reduce((total, bytes) => total + bytes.length, 0);
+  const actualFontBytes = [...generatedFontFiles.values()].reduce(
+    (total, bytes) => total + bytes.length,
+    0,
+  );
+  const actualCssBytes = [...generatedCssFiles.values()].reduce(
+    (total, bytes) => total + bytes.length,
+    0,
+  );
   const report = {
     generatedAt: new Date().toISOString(),
     siteRoot: root,
@@ -432,8 +480,11 @@ async function processSite(siteRoot, evidencePath) {
       stylesheetReferences: referenceRecords.length,
       uniqueStylesheetsDownloaded: downloadedCss.size,
       uniqueFontFilesDownloaded: downloadedFonts.size,
-      fontFaceReferences: [...downloadedCss.values()].reduce((total, sheet) =>
-        total + fontUrlsFromCss(sheet.bytes.toString('utf8'), sheet.finalUrl).length, 0),
+      fontFaceReferences: [...downloadedCss.values()].reduce(
+        (total, sheet) =>
+          total + fontUrlsFromCss(sheet.bytes.toString('utf8'), sheet.finalUrl).length,
+        0,
+      ),
       stylesheetFilesGenerated: generatedCssFiles.size,
       fontFilesGenerated: generatedFontFiles.size,
       sourceFilesRewritten: rewrittenFiles.size,
@@ -441,12 +492,21 @@ async function processSite(siteRoot, evidencePath) {
       manifestUpdated,
     },
     bytes: {
-      downloadedCssBodyBytes: downloadedCssList.reduce((total, item) => total + item.bytes.length, 0),
-      downloadedFontBodyBytes: downloadedFontList.reduce((total, item) => total + item.bytes.length, 0),
+      downloadedCssBodyBytes: downloadedCssList.reduce(
+        (total, item) => total + item.bytes.length,
+        0,
+      ),
+      downloadedFontBodyBytes: downloadedFontList.reduce(
+        (total, item) => total + item.bytes.length,
+        0,
+      ),
       generatedCssBytes: actualCssBytes,
       generatedFontBytes: actualFontBytes,
       generatedAssetBytes: actualCssBytes + actualFontBytes,
-      fontDirectoryBytes: assetsInFontsDirectory(root).reduce((total, path) => total + statSync(path).size, 0),
+      fontDirectoryBytes: assetsInFontsDirectory(root).reduce(
+        (total, path) => total + statSync(path).size,
+        0,
+      ),
     },
     rewrittenStylesheets: referenceRecords,
     stylesheets: cssRecords,
@@ -464,17 +524,32 @@ async function processSite(siteRoot, evidencePath) {
 
 async function main() {
   const [siteRootArgument, evidenceArgument] = process.argv.slice(2);
-  if (!siteRootArgument) throw new Error('usage: node scripts/vendor-fonts.mjs <site-root> [evidence-json=artifacts/fonts/report.json]');
+  if (!siteRootArgument)
+    throw new Error(
+      'usage: node scripts/vendor-fonts.mjs <site-root> [evidence-json=artifacts/fonts/report.json]',
+    );
   const siteRoot = resolve(siteRootArgument);
   const evidencePath = resolve(REPO_ROOT, evidenceArgument || 'artifacts/fonts/report.json');
   const report = await processSite(siteRoot, evidencePath);
-  console.log(JSON.stringify({ siteRoot: report.siteRoot, evidence: relative(REPO_ROOT, evidencePath), counts: report.counts, bytes: report.bytes }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        siteRoot: report.siteRoot,
+        evidence: relative(REPO_ROOT, evidencePath),
+        counts: report.counts,
+        bytes: report.bytes,
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
     console.error(`font vendoring failed: ${error.message}`);
-    if (error instanceof AggregateError) for (const nested of error.errors) console.error(`- ${nested.message}`);
+    if (error instanceof AggregateError)
+      for (const nested of error.errors) console.error(`- ${nested.message}`);
     process.exitCode = 1;
   });
 }

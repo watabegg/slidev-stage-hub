@@ -1,6 +1,6 @@
 ---
 title: Workers compile PoC
-theme: watabegg
+theme: default
 layout: cover
 author: Slidev Lab
 ---
@@ -41,9 +41,9 @@ images:
     label: R2 asset
 ---
 
-# Theme component
+# Revision image
 
-<FigureGrid :images="$frontmatter.images" caption="Prebuilt FigureGrid" />
+![R2 asset](./diagram.svg)
 
 ---
 layout: default

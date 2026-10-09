@@ -2,17 +2,29 @@ function assertSupportedClickSyntax(content, id, page) {
   // Native clickTotals currently model only bare v-click attributes/wrappers.
   // Reject known alternatives rather than silently reporting incomplete totals;
   // this intentionally is not a general Slidev template parser.
-  const unsupported = /\bv-(?:after|clicks)\b|(?:^|\s)v-click(?=[.=:/[\]])|<v-click(?:\s[^>]*|\/)>/m;
+  const unsupported =
+    /\bv-(?:after|clicks)\b|(?:^|\s)v-click(?=[.=:/[\]])|<v-click(?:\s[^>]*|\/)>/m;
   if (unsupported.test(content))
-    throw new Error(`unsupported click syntax in ${id}:${page}; only bare v-click forms are supported`);
+    throw new Error(
+      `unsupported click syntax in ${id}:${page}; only bare v-click forms are supported`,
+    );
 }
 
-export function inspectDeckSource({ id, source, text, parseSync, expectedPages, legacyFallback = false }) {
+export function inspectDeckSource({
+  id,
+  source,
+  text,
+  parseSync,
+  expectedPages,
+  legacyFallback = false,
+}) {
   const parsed = parseSync(text, source, { preserveCR: true });
   if (!Array.isArray(parsed?.slides) || parsed.slides.length === 0)
     throw new Error(`parser returned no slides for ${id}`);
   if (expectedPages !== undefined && parsed.slides.length !== expectedPages)
-    throw new Error(`public artifact/source page count differs for ${id}: manifest=${expectedPages}, source=${parsed.slides.length}`);
+    throw new Error(
+      `public artifact/source page count differs for ${id}: manifest=${expectedPages}, source=${parsed.slides.length}`,
+    );
   if (legacyFallback && parsed.slides.length !== 3)
     throw new Error(`fixture bounds changed: ${id}`);
 
@@ -36,8 +48,9 @@ export function inspectDeckSource({ id, source, text, parseSync, expectedPages, 
       end: Buffer.byteLength(text.slice(0, start + match[1].length)),
     };
   });
-  const clickTotals = parsed.slides.map((slide) =>
-    [...slide.content.matchAll(/\sv-click(?=[\s>])/g)].length);
+  const clickTotals = parsed.slides.map(
+    (slide) => [...slide.content.matchAll(/\sv-click(?=[\s>])/g)].length,
+  );
   if (legacyFallback && JSON.stringify(clickTotals) !== '[0,2,0]')
     throw new Error(`fixture click bounds changed: ${id}`);
 

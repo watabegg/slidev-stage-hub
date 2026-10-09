@@ -80,10 +80,16 @@ function validateHeaderDocument(document, expectedOrigin, normalizeOrigin) {
     throw new Error('authentication header file must contain a JSON object');
 
   const documentKeys = Object.keys(document);
-  if (documentKeys.length !== 2 || !Object.hasOwn(document, 'origin') || !Object.hasOwn(document, 'headers'))
+  if (
+    documentKeys.length !== 2 ||
+    !Object.hasOwn(document, 'origin') ||
+    !Object.hasOwn(document, 'headers')
+  )
     throw new Error('authentication header file must contain only origin and headers');
   if (typeof document.origin !== 'string')
-    throw new Error('authentication header file origin must exactly match the normalized target origin');
+    throw new Error(
+      'authentication header file origin must exactly match the normalized target origin',
+    );
   let normalizedFileOrigin;
   try {
     normalizedFileOrigin = normalizeOrigin(document.origin);
@@ -91,7 +97,9 @@ function validateHeaderDocument(document, expectedOrigin, normalizeOrigin) {
     throw new Error('authentication header file origin must be a valid root origin');
   }
   if (normalizedFileOrigin !== expectedOrigin)
-    throw new Error('authentication header file origin must exactly match the normalized target origin');
+    throw new Error(
+      'authentication header file origin must exactly match the normalized target origin',
+    );
 
   const sourceHeaders = document.headers;
   if (sourceHeaders === null || typeof sourceHeaders !== 'object' || Array.isArray(sourceHeaders))
@@ -112,9 +120,11 @@ function validateHeaderDocument(document, expectedOrigin, normalizeOrigin) {
       throw new Error('authentication header names must be unique case-insensitively');
     seenNames.add(normalizedName);
 
-    if (FORBIDDEN_HEADERS.has(normalizedName)
-      || normalizedName.startsWith('proxy-')
-      || normalizedName.startsWith('sec-')) {
+    if (
+      FORBIDDEN_HEADERS.has(normalizedName) ||
+      normalizedName.startsWith('proxy-') ||
+      normalizedName.startsWith('sec-')
+    ) {
       throw new Error('authentication header file contains a forbidden header name');
     }
 
@@ -145,20 +155,25 @@ export async function readAuthHeadersFile(headersFile, expectedOrigin, normalize
   try {
     pathStat = await fs.lstat(absolutePath);
   } catch (error) {
-    throw new Error(`could not inspect authentication header file ${absolutePath} (${error.code ?? 'I/O error'})`);
+    throw new Error(
+      `could not inspect authentication header file ${absolutePath} (${error.code ?? 'I/O error'})`,
+    );
   }
   if (!pathStat.isFile()) throw new Error('authentication header file must be a regular file');
   if (process.platform !== 'win32' && (pathStat.mode & 0o077) !== 0)
     throw new Error('authentication header file must not grant group or other permissions');
 
-  const unixFlags = process.platform === 'win32'
-    ? 0
-    : (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0);
+  const unixFlags =
+    process.platform === 'win32'
+      ? 0
+      : (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0);
   let fileHandle;
   try {
     fileHandle = await fs.open(absolutePath, fsConstants.O_RDONLY | unixFlags);
   } catch (error) {
-    throw new Error(`could not open authentication header file ${absolutePath} (${error.code ?? 'I/O error'})`);
+    throw new Error(
+      `could not open authentication header file ${absolutePath} (${error.code ?? 'I/O error'})`,
+    );
   }
 
   let bytes;

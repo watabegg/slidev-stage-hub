@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "semi": true,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "sortImports": false,
+  "sortPackageJson": false,
+  "embeddedLanguageFormatting": "off",
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/artifacts/**",
+    "**/dist/**",
+    "**/target/**",
+    "**/generated/**",
+    "**/results/**",
+    "docs/legacy/**",
+    "docs/reports/**",
+    "docs/plans/**",
+    "examples/legacy-native-baseline/**",
+    "**/*.md",
+    "pnpm-lock.yaml",
+    "docs/migration/**",
+    "**/*.toml",
+    "**/Cargo.lock"
+  ]
+}

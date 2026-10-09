@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "vue"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ]
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/artifacts/**",
+    "**/dist/**",
+    "**/target/**",
+    "**/generated/**",
+    "**/results/**",
+    "docs/legacy/**",
+    "docs/reports/**",
+    "docs/plans/**",
+    "examples/legacy-native-baseline/**",
+    "docs/migration/**"
+  ]
+}

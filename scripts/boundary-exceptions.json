@@ -1,0 +1,157 @@
+{
+  "version": 1,
+  "exceptions": [
+    {
+      "file": "apps/stage/scripts/build-ui.mjs",
+      "specifier": "../../../packages/protocol/scripts/build.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Stage",
+      "reason": "The Stage UI build still calls the protocol package's internal build script; Step 2 will provide the supported protocol build boundary.",
+      "removeStep": 2
+    },
+    {
+      "file": "apps/stage/scripts/prepare.mjs",
+      "specifier": "../../../packages/protocol/src/inspect-deck.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Stage",
+      "reason": "Stage preparation still consumes the protocol inspection source directly; Step 2 will expose the supported contract entrypoint.",
+      "removeStep": 2
+    },
+    {
+      "file": "apps/stage/scripts/prepare.mjs",
+      "specifier": "../../../scripts/runtime-environment.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Stage",
+      "reason": "Stage preparation still reads the root migration-era environment helper; Step 4 will move this configuration behind Stage tools.",
+      "removeStep": 4
+    },
+    {
+      "file": "apps/stage/scripts/serve-auth-fixture.mjs",
+      "specifier": "../../../packages/hub/scripts/serve.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Stage",
+      "reason": "The Stage auth fixture reuses Hub's internal development server; Step 4 will give Stage verification an owned serving boundary.",
+      "removeStep": 4
+    },
+    {
+      "file": "apps/stage/scripts/serve-https.mjs",
+      "specifier": "../../../packages/hub/scripts/serve.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Stage",
+      "reason": "The Stage HTTPS fixture reuses Hub's internal development server; Step 4 will give Stage verification an owned serving boundary.",
+      "removeStep": 4
+    },
+    {
+      "file": "apps/stage/scripts/verify-remote.mjs",
+      "specifier": "../../../packages/hub/scripts/serve.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Stage",
+      "reason": "Remote Stage verification reuses Hub's internal development server; Step 4 will give Stage verification an owned serving boundary.",
+      "removeStep": 4
+    },
+    {
+      "file": "packages/hub/bundle-sharing/experiments/module-graph/build.mjs",
+      "specifier": "../../../../../scripts/runtime-environment.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Hub",
+      "reason": "The module-graph experiment still reads environment settings from root tooling; Step 3 will move Hub configuration behind the Hub service boundary.",
+      "removeStep": 3
+    },
+    {
+      "file": "packages/hub/bundle-sharing/experiments/module-graph/build.mjs",
+      "specifier": "../../../../../scripts/runtime-environment.mjs",
+      "rule": "workspace-cycle",
+      "owner": "Hub",
+      "reason": "Root example verification imports Hub's server while this Hub experiment imports root tooling; Step 8 will remove the remaining root-to-package cycle.",
+      "removeStep": 8
+    },
+    {
+      "file": "packages/hub/bundle-sharing/experiments/module-graph/build.mjs",
+      "specifier": "../../../../protocol/scripts/build.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Hub",
+      "reason": "Hub's module-graph build calls the protocol package's internal build script; Step 2 will provide the supported protocol build boundary.",
+      "removeStep": 2
+    },
+    {
+      "file": "packages/hub/bundle-sharing/experiments/module-graph/inspect.mjs",
+      "specifier": "../../../../../scripts/runtime-environment.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Hub",
+      "reason": "The module-graph inspection tool still reads environment settings from root tooling; Step 3 will move Hub configuration behind the Hub service boundary.",
+      "removeStep": 3
+    },
+    {
+      "file": "packages/hub/bundle-sharing/experiments/workers/build-runtime.mjs",
+      "specifier": "../../../../../scripts/runtime-environment.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Workers",
+      "reason": "The Workers runtime builder still reads root environment settings; Step 7 will establish the Workers package's owned runtime configuration.",
+      "removeStep": 7
+    },
+    {
+      "file": "packages/hub/bundle-sharing/experiments/workers/build-runtime.mjs",
+      "specifier": "../module-graph/profile-runtime.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Workers",
+      "reason": "The Workers builder currently calls Hub's private profile runtime; Step 7 will move the worker compiler behind its own package boundary.",
+      "removeStep": 7
+    },
+    {
+      "file": "packages/hub/bundle-sharing/experiments/workers/compatibility.mjs",
+      "specifier": "../../../../../scripts/runtime-environment.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Workers",
+      "reason": "Workers compatibility checks still read root environment settings; Step 7 will establish the Workers package's owned runtime configuration.",
+      "removeStep": 7
+    },
+    {
+      "file": "packages/hub/bundle-sharing/experiments/workers/runtime/routes.ts",
+      "specifier": "<non-literal>",
+      "rule": "production-nonliteral-import",
+      "owner": "Workers",
+      "reason": "Slide modules are intentionally loaded from immutable revision URLs in the validated manifest; Step 7 will settle and verify this Worker runtime loading contract.",
+      "removeStep": 7
+    },
+    {
+      "file": "packages/hub/bundle-sharing/experiments/workers/thumbnail-experiments.mjs",
+      "specifier": "../../../../../scripts/runtime-environment.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Workers",
+      "reason": "Workers thumbnail experiments still read root environment settings; Step 7 will establish the Workers package's owned runtime configuration.",
+      "removeStep": 7
+    },
+    {
+      "file": "packages/hub/scripts/baseline-build.mjs",
+      "specifier": "../../../scripts/runtime-environment.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Hub",
+      "reason": "Hub baseline builds still use the root migration-era environment helper; Step 3 will move this configuration behind the Hub service boundary.",
+      "removeStep": 3
+    },
+    {
+      "file": "packages/hub/scripts/environment.mjs",
+      "specifier": "../../../scripts/runtime-environment.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Hub",
+      "reason": "Hub environment resolution still delegates to root tooling; Step 3 will move this configuration behind the Hub service boundary.",
+      "removeStep": 3
+    },
+    {
+      "file": "packages/hub/scripts/native-player.test.mjs",
+      "specifier": "../../../scripts/runtime-environment.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Hub",
+      "reason": "The Hub native-player test still uses the root migration-era environment helper; Step 3 will move Hub test setup behind the Hub service boundary.",
+      "removeStep": 3
+    },
+    {
+      "file": "scripts/verify-watabegg-example.mjs",
+      "specifier": "../packages/hub/scripts/serve.mjs",
+      "rule": "cross-package-relative-import",
+      "owner": "Repository tooling",
+      "reason": "Example verification still imports Hub's internal development server; Step 3 will expose the supported Hub serving entrypoint.",
+      "removeStep": 3
+    }
+  ]
+}

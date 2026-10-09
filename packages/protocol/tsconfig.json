@@ -2,11 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "none",
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": [],
     "strict": true,
     "ignoreDeprecations": "6.0",
@@ -14,7 +10,5 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": [
-    "src/**/*.ts"
-  ]
+  "include": ["src/**/*.ts"]
 }

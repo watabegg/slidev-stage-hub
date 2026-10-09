@@ -8,3 +8,12 @@
 - Node依存はpnpm workspace、StageのRustはapps/stage/Cargo.tomlで管理する。
 - アーティファクト・認証ファイル・トークンをGitへ追加しない。外部公開とcloud deployはローカル変更とは別に扱う。
 - 長い技術文書は利用可能なagy-writer skillを使い、事実との照合を行う。
+
+## 実装と検証
+
+- codeはHow、testsはWhat、commitはWhy、commentはWhy notを記録する。コメント行数は機械判定しない。
+- 振る舞いをテストし、不要な抽象化を避ける。`any` と `@ts-ignore` には理由を添える。
+- 変更後はルートの `pnpm check` を使う。これは lint、format:check、typecheck、test、check:boundaries を順に実行する。
+- Oxlint は Vue の未使用変数検査や template 全般を保証しない。型検査には既存の `vue-tsc` を使う。
+- Formatter の対象と除外は現行の `.oxfmtrc.json` に従う。Markdown と `pnpm-lock.yaml` は対象外。
+- 境界例外は移行用に限り、`rule`、`file`、`specifier`、`owner`、`reason`、`removeStep` を記録する。例外ゼロは Step 8 まで主張しない。

@@ -21,14 +21,26 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const FIXTURES_ROOT = resolve(REPO_ROOT, '../../examples/fixtures');
 const DECKS = ['aaa/aaa1', 'aaa/aaa2', 'bbb/bbb1', 'bbb/bbb2'].map((id) => ({
   id,
-  sourcePath: relative(REPO_ROOT, join(FIXTURES_ROOT, id, 'slides.md')).split(sep).join('/'),
+  sourcePath: relative(REPO_ROOT, join(FIXTURES_ROOT, id, 'slides.md'))
+    .split(sep)
+    .join('/'),
 }));
 
 // These formats are self-contained leaf resources. SVG, CSS, JavaScript, HTML,
 // and other potentially dependency-bearing formats are deliberately excluded.
 const SAFE_LEAF_EXTENSIONS = new Set([
-  '.avif', '.bmp', '.gif', '.ico', '.jpeg', '.jpg', '.png', '.webp',
-  '.otf', '.ttf', '.woff', '.woff2',
+  '.avif',
+  '.bmp',
+  '.gif',
+  '.ico',
+  '.jpeg',
+  '.jpg',
+  '.png',
+  '.webp',
+  '.otf',
+  '.ttf',
+  '.woff',
+  '.woff2',
 ]);
 
 function sha256(bytes) {
@@ -56,7 +68,9 @@ function packageRuntimeVersion() {
     if (declared && /^\d+\.\d+\.\d+/.test(declared)) return declared;
   } catch {}
   try {
-    const pkg = JSON.parse(readFileSync(join(REPO_ROOT, 'node_modules/@slidev/cli/package.json'), 'utf8'));
+    const pkg = JSON.parse(
+      readFileSync(join(REPO_ROOT, 'node_modules/@slidev/cli/package.json'), 'utf8'),
+    );
     return pkg.version;
   } catch {}
   return 'unknown';
@@ -68,9 +82,15 @@ function baselineRootFromArgs(argument) {
     resolve(REPO_ROOT, 'artifacts/baseline'),
     resolve(REPO_ROOT, 'bundle-sharing/artifacts/baseline'),
   ];
-  return candidates.find((root) => DECKS.every((deck) => existsSync(join(root, deck.id, 'index.html'))))
-    ?? candidates.find((root) => DECKS.every((deck) => existsSync(join(root, deck.id.split('/').at(-1), 'index.html'))))
-    ?? candidates[0];
+  return (
+    candidates.find((root) =>
+      DECKS.every((deck) => existsSync(join(root, deck.id, 'index.html'))),
+    ) ??
+    candidates.find((root) =>
+      DECKS.every((deck) => existsSync(join(root, deck.id.split('/').at(-1), 'index.html'))),
+    ) ??
+    candidates[0]
+  );
 }
 
 function findBuildDir(baselineRoot, deck) {
@@ -81,20 +101,27 @@ function findBuildDir(baselineRoot, deck) {
 
 function assertExpectedBase(indexHtml, deck) {
   const expected = `/${deck.id}/`;
-  const localAssets = [...indexHtml.matchAll(/(?:src|href)=["'](\/[^"']*assets\/[^"']*)["']/g)].map((match) => match[1]);
+  const localAssets = [...indexHtml.matchAll(/(?:src|href)=["'](\/[^"']*assets\/[^"']*)["']/g)].map(
+    (match) => match[1],
+  );
   const mismatches = localAssets.filter((url) => !url.startsWith(expected));
   if (mismatches.length)
-    throw new Error(`${deck.id} was built with an incompatible base; expected ${expected}, saw ${mismatches[0]}`);
+    throw new Error(
+      `${deck.id} was built with an incompatible base; expected ${expected}, saw ${mismatches[0]}`,
+    );
 }
 
 function walkFiles(root) {
   const files = [];
   function visit(directory) {
-    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
       const path = join(directory, entry.name);
       if (entry.isDirectory()) visit(path);
       else if (entry.isFile()) files.push(path);
-      else if (entry.isSymbolicLink()) throw new Error(`symbolic links are not accepted in build inputs: ${path}`);
+      else if (entry.isSymbolicLink())
+        throw new Error(`symbolic links are not accepted in build inputs: ${path}`);
     }
   }
   visit(root);
@@ -109,7 +136,9 @@ function makeReadOnlyHardLink(source, destination) {
     unlinkSync(destination);
     renameSync(temporary, destination);
   } catch (error) {
-    try { unlinkSync(temporary); } catch {}
+    try {
+      unlinkSync(temporary);
+    } catch {}
     throw error;
   }
 }
@@ -144,7 +173,11 @@ function shareExactLeafFiles(siteRoot, deckFiles) {
         makeReadOnlyHardLink(prior.path, destination);
         if (prior.groupIndex === null) {
           prior.groupIndex = sharedGroups.length;
-          sharedGroups.push({ sha256: hash, bytes: bytes.length, paths: [relative(siteRoot, prior.path)] });
+          sharedGroups.push({
+            sha256: hash,
+            bytes: bytes.length,
+            paths: [relative(siteRoot, prior.path)],
+          });
         }
         sharedGroups[prior.groupIndex].paths.push(relative(siteRoot, destination));
       } catch (error) {
@@ -172,10 +205,14 @@ function exactDuplicateAudit(deckFiles) {
 
   const reasonFor = (path) => {
     const extension = extname(path).toLowerCase();
-    if (extension === '.css') return 'CSS was left separate because cascade order and scoped/global selector interaction are not proven safe.';
-    if (['.js', '.mjs'].includes(extension)) return 'JavaScript was left separate because relative imports, dynamic imports, and embedded asset URLs require dependency-aware analysis.';
-    if (extension === '.svg') return 'SVG was left separate because XML can reference external resources and is not classified as a self-contained leaf here.';
-    if (['.html', '.htm'].includes(extension)) return 'HTML entries were left separate because each document carries deck-specific routing and base paths.';
+    if (extension === '.css')
+      return 'CSS was left separate because cascade order and scoped/global selector interaction are not proven safe.';
+    if (['.js', '.mjs'].includes(extension))
+      return 'JavaScript was left separate because relative imports, dynamic imports, and embedded asset URLs require dependency-aware analysis.';
+    if (extension === '.svg')
+      return 'SVG was left separate because XML can reference external resources and is not classified as a self-contained leaf here.';
+    if (['.html', '.htm'].includes(extension))
+      return 'HTML entries were left separate because each document carries deck-specific routing and base paths.';
     return 'This resource type is outside the allowlist of self-contained leaf resources.';
   };
 
@@ -217,14 +254,21 @@ function measurePaths(paths) {
 }
 
 function escapeHtml(value) {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 function createCatalog(decks) {
-  const entries = decks.map((deck) =>
-    `      <li><a href="${deck.entry}">${escapeHtml(deck.title)}</a> <code>${escapeHtml(deck.id)}</code></li>`,
-  ).join('\n');
+  const entries = decks
+    .map(
+      (deck) =>
+        `      <li><a href="${deck.entry}">${escapeHtml(deck.title)}</a> <code>${escapeHtml(deck.id)}</code></li>`,
+    )
+    .join('\n');
   return `<!doctype html>
 <html lang="ja">
 <head>
@@ -257,7 +301,10 @@ function assertNoPrivateSentinels(siteRoot) {
   for (const path of walkFiles(siteRoot)) {
     const bytes = readFileSync(path);
     for (const sentinel of sentinels) {
-      if (bytes.includes(sentinel)) throw new Error(`private notes sentinel found in public output: ${relative(siteRoot, path)}`);
+      if (bytes.includes(sentinel))
+        throw new Error(
+          `private notes sentinel found in public output: ${relative(siteRoot, path)}`,
+        );
     }
   }
 }
@@ -331,7 +378,8 @@ function main() {
     method: {
       sharedFormats: [...SAFE_LEAF_EXTENSIONS].sort(),
       equality: 'SHA-256 match followed by exact byte comparison',
-      physicalAccounting: 'sum file content bytes by unique device/inode; excludes filesystem metadata and block allocation',
+      physicalAccounting:
+        'sum file content bytes by unique device/inode; excludes filesystem metadata and block allocation',
       gzip: 'Node zlib gzipSync default level per file path; path totals model separate URL responses, inode totals count each shared file once',
     },
     baseline,
@@ -340,36 +388,51 @@ function main() {
     sharedGroups: sharing.sharedGroups,
     rejectedExactDuplicates,
     hardlinkFailures: sharing.failures,
-    catalogAndManifestBytes: measurePaths([join(siteRoot, 'index.html'), join(siteRoot, 'manifest.json')]),
+    catalogAndManifestBytes: measurePaths([
+      join(siteRoot, 'index.html'),
+      join(siteRoot, 'manifest.json'),
+    ]),
   };
   mkdirSync(outputArtifactRoot, { recursive: true });
   writeFileSync(join(outputArtifactRoot, 'metrics.json'), `${JSON.stringify(metrics, null, 2)}\n`);
-  console.log(JSON.stringify({
-    baseline: {
-      files: baseline.fileCount,
-      pathRawBytes: baseline.pathBytes,
-      pathGzipBytes: baseline.pathGzipBytes,
-      uniquePhysicalRawBytes: baseline.uniqueInodeBytes,
-    },
-    candidateDecks: {
-      files: candidateDecks.fileCount,
-      pathRawBytes: candidateDecks.pathBytes,
-      pathGzipBytes: candidateDecks.pathGzipBytes,
-      uniquePhysicalRawBytes: candidateDecks.uniqueInodeBytes,
-      uniqueInodeRawSavings: baseline.uniqueInodeBytes - candidateDecks.uniqueInodeBytes,
-    },
-    candidateSite: {
-      pathRawBytes: candidateSite.pathBytes,
-      pathGzipBytes: candidateSite.pathGzipBytes,
-      uniquePhysicalRawBytes: candidateSite.uniqueInodeBytes,
-    },
-    sharedGroupCount: sharing.sharedGroups.length,
-    sharedAliasCount: sharing.sharedGroups.reduce((sum, group) => sum + group.paths.length - 1, 0),
-    sharedUniqueRawSavings: sharing.sharedGroups.reduce((sum, group) => sum + group.bytes * (group.paths.length - 1), 0),
-    rejectedExactDuplicateCount: rejectedExactDuplicates.length,
-    hardlinkFailures: sharing.failures.length,
-    siteRoot: relative(REPO_ROOT, siteRoot),
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        baseline: {
+          files: baseline.fileCount,
+          pathRawBytes: baseline.pathBytes,
+          pathGzipBytes: baseline.pathGzipBytes,
+          uniquePhysicalRawBytes: baseline.uniqueInodeBytes,
+        },
+        candidateDecks: {
+          files: candidateDecks.fileCount,
+          pathRawBytes: candidateDecks.pathBytes,
+          pathGzipBytes: candidateDecks.pathGzipBytes,
+          uniquePhysicalRawBytes: candidateDecks.uniqueInodeBytes,
+          uniqueInodeRawSavings: baseline.uniqueInodeBytes - candidateDecks.uniqueInodeBytes,
+        },
+        candidateSite: {
+          pathRawBytes: candidateSite.pathBytes,
+          pathGzipBytes: candidateSite.pathGzipBytes,
+          uniquePhysicalRawBytes: candidateSite.uniqueInodeBytes,
+        },
+        sharedGroupCount: sharing.sharedGroups.length,
+        sharedAliasCount: sharing.sharedGroups.reduce(
+          (sum, group) => sum + group.paths.length - 1,
+          0,
+        ),
+        sharedUniqueRawSavings: sharing.sharedGroups.reduce(
+          (sum, group) => sum + group.bytes * (group.paths.length - 1),
+          0,
+        ),
+        rejectedExactDuplicateCount: rejectedExactDuplicates.length,
+        hardlinkFailures: sharing.failures.length,
+        siteRoot: relative(REPO_ROOT, siteRoot),
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 try {

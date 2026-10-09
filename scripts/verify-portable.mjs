@@ -1,0 +1,36 @@
+import { spawnSync } from 'node:child_process';
+import { repositoryRoot } from './runtime-environment.mjs';
+
+// Run in a fresh checkout/container after install and browser:install.
+// No inherited theme/toolchain/browser override may mask a local dependency.
+const env = { ...process.env };
+for (const key of Object.keys(env)) {
+  if (key.startsWith('SLIDEV_') || key === 'CHROMIUM_EXECUTABLE' || key === 'NODE_PATH')
+    delete env[key];
+}
+const commands = [
+  ['pnpm', ['typecheck']],
+  ['pnpm', ['test']],
+  ['node', ['packages/hub/bundle-sharing/experiments/multi-profile/scripts/prepare.mjs']],
+  ['pnpm', ['build:hub']],
+  ['pnpm', ['verify:hub']],
+  ['pnpm', ['stage:prepare']],
+  ['pnpm', ['build:stage-ui']],
+  ['node', ['apps/stage/scripts/verify-remote.mjs']],
+  ['pnpm', ['build:example:watabegg']],
+  ['pnpm', ['verify:example:watabegg']],
+  ['pnpm', ['build:workers']],
+  ['pnpm', ['verify:workers']],
+  ['pnpm', ['--filter', '@slidev-stage-hub/workers', 'verify:fixtures']],
+];
+for (const [command, args] of commands) {
+  console.log(`\n> ${command} ${args.join(' ')}`);
+  const result = spawnSync(command, args, {
+    cwd: repositoryRoot,
+    env,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}

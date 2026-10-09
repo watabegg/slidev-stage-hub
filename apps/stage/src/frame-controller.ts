@@ -41,8 +41,13 @@ window.NativeFrameController = class implements NativeFrameControllerInstance {
 
   constructor(
     frame: HTMLIFrameElement,
-    { origin, onRendered = () => {}, onInput = () => {}, onDiagnostic = () => {}, onError = () => {} }:
-      { origin: string } & NativeFrameCallbacks,
+    {
+      origin,
+      onRendered = () => {},
+      onInput = () => {},
+      onDiagnostic = () => {},
+      onError = () => {},
+    }: { origin: string } & NativeFrameCallbacks,
   ) {
     this.origin = origin;
     this.callbacks = { onRendered, onInput, onDiagnostic, onError };
@@ -50,7 +55,13 @@ window.NativeFrameController = class implements NativeFrameControllerInstance {
     this.active = this.slot(frame);
     this.standby = null;
     this.latest = null;
-    this.stats = { documentLoads: 0, swaps: 0, acknowledgements: 0, documentTokens: [], readyLatenciesMs: [] };
+    this.stats = {
+      documentLoads: 0,
+      swaps: 0,
+      acknowledgements: 0,
+      documentTokens: [],
+      readyLatenciesMs: [],
+    };
   }
 
   slot(frame: HTMLIFrameElement): NativeFrameSlot {
@@ -118,7 +129,10 @@ window.NativeFrameController = class implements NativeFrameControllerInstance {
       nativeParentOrigin: location.origin,
     });
     if (this.preview) query.set('nativePreview', 'true');
-    target.timer = window.setTimeout(() => this.fail(target, 'スライドの描画確認がタイムアウトしました'), 15000);
+    target.timer = window.setTimeout(
+      () => this.fail(target, 'スライドの描画確認がタイムアウトしました'),
+      15000,
+    );
     target.frame.src = `${this.origin}/${state.deckId.split('/').map(encodeURIComponent).join('/')}/${state.page}?${query}`;
   }
 
@@ -140,7 +154,10 @@ window.NativeFrameController = class implements NativeFrameControllerInstance {
     if (slot.ready && slot.desired) {
       if (slot.sendingRevision !== slot.desired.sessionRevision) {
         if (slot.timer !== null) window.clearTimeout(slot.timer);
-        slot.timer = window.setTimeout(() => this.fail(slot, 'スライドの描画確認がタイムアウトしました'), 15000);
+        slot.timer = window.setTimeout(
+          () => this.fail(slot, 'スライドの描画確認がタイムアウトしました'),
+          15000,
+        );
         slot.sendingRevision = slot.desired.sessionRevision;
         if (slot === this.active && slot.ready) slot.sentAt = performance.now();
       }
@@ -152,10 +169,19 @@ window.NativeFrameController = class implements NativeFrameControllerInstance {
   }
 
   message(event: MessageEvent<unknown>): boolean {
-    const slot = [this.active, this.standby].find(candidate => candidate && event.source === candidate.frame.contentWindow);
+    const slot = [this.active, this.standby].find(
+      (candidate) => candidate && event.source === candidate.frame.contentWindow,
+    );
     // WebKit custom schemes can report null; the exact controlled WindowProxy
     // and its per-navigation mount token still gate every accepted report.
-    if (!slot || !(event.origin === this.origin || (!this.origin.startsWith('http') && event.origin === 'null'))) return false;
+    if (
+      !slot ||
+      !(
+        event.origin === this.origin ||
+        (!this.origin.startsWith('http') && event.origin === 'null')
+      )
+    )
+      return false;
     if (!event.data || typeof event.data !== 'object') return true;
     const data = event.data as NativeFrameMessage;
     if (data.nativeBridgeReady) {
@@ -174,30 +200,37 @@ window.NativeFrameController = class implements NativeFrameControllerInstance {
       this.send(slot);
     }
     if (data.nativeDiagnostic) this.callbacks.onDiagnostic(data.nativeDiagnostic, event.origin);
-    if (data.nativeFailure
-      && slot.desired?.sessionRevision === this.latest?.sessionRevision
-      && (data.nativeFailure.documentToken === slot.token || data.nativeFailure.mount === slot.mount)) {
+    if (
+      data.nativeFailure &&
+      slot.desired?.sessionRevision === this.latest?.sessionRevision &&
+      (data.nativeFailure.documentToken === slot.token || data.nativeFailure.mount === slot.mount)
+    ) {
       this.fail(slot, data.nativeFailure.message);
     }
-    if (data.nativeInput
-      && data.documentToken === slot.token
-      && slot === this.active
-      && !this.preview
-      && slot.ready
-      && slot.deckId === this.latest?.deckId) {
+    if (
+      data.nativeInput &&
+      data.documentToken === slot.token &&
+      slot === this.active &&
+      !this.preview &&
+      slot.ready &&
+      slot.deckId === this.latest?.deckId
+    ) {
       this.callbacks.onInput(data.nativeInput);
     }
     if (data.nativeRendered) {
       const report = data.nativeRendered;
       const desired = slot.desired;
-      if (!desired
-        || report.documentToken !== slot.token
-        || !report.loaded
-        || report.deckId !== desired.deckId
-        || report.page !== desired.page
-        || report.clickIndex !== desired.clickIndex
-        || report.sessionRevision !== desired.sessionRevision
-        || report.sessionRevision !== this.latest!.sessionRevision) return true;
+      if (
+        !desired ||
+        report.documentToken !== slot.token ||
+        !report.loaded ||
+        report.deckId !== desired.deckId ||
+        report.page !== desired.page ||
+        report.clickIndex !== desired.clickIndex ||
+        report.sessionRevision !== desired.sessionRevision ||
+        report.sessionRevision !== this.latest!.sessionRevision
+      )
+        return true;
       if (slot.timer !== null) window.clearTimeout(slot.timer);
       slot.timer = null;
       this.stats.acknowledgements++;

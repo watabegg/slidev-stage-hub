@@ -4,8 +4,8 @@
   "type": "module",
   "packageManager": "pnpm@12.3.4",
   "scripts": {
-    "typecheck": "pnpm --filter @slidev-stage-hub/protocol typecheck && pnpm --filter @slidev-stage-hub/hub typecheck && pnpm --filter @slidev-stage-hub/stage typecheck",
-    "test": "pnpm --filter @slidev-stage-hub/hub test && pnpm --filter @slidev-stage-hub/stage test && pnpm --filter @slidev-stage-hub/workers test",
+    "typecheck": "pnpm --filter @slidev-stage-hub/protocol typecheck && pnpm --filter @slidev-stage-hub/hub typecheck && pnpm --filter @slidev-stage-hub/stage typecheck && pnpm --filter @slidev-stage-hub/workers typecheck",
+    "test": "node --test scripts/*.test.mjs && pnpm --filter @slidev-stage-hub/hub test && pnpm --filter @slidev-stage-hub/stage test && pnpm --filter @slidev-stage-hub/workers test",
     "build:hub": "pnpm --filter @slidev-stage-hub/hub build",
     "dev:hub": "pnpm --filter @slidev-stage-hub/hub serve",
     "build:stage-ui": "pnpm --filter @slidev-stage-hub/stage build:ui",
@@ -15,14 +15,34 @@
     "dev:workers": "pnpm --filter @slidev-stage-hub/workers dev",
     "verify:workers": "pnpm --filter @slidev-stage-hub/workers verify",
     "thumbnails:hub": "pnpm --filter @slidev-stage-hub/hub thumbnails",
-    "verify:hub": "pnpm --filter @slidev-stage-hub/hub verify:library"
+    "verify:hub": "pnpm --filter @slidev-stage-hub/hub verify:library",
+    "browser:install": "playwright install chromium",
+    "verify:portable": "node scripts/verify-portable.mjs",
+    "build:example:watabegg": "node scripts/build-watabegg-example.mjs",
+    "dev:example:watabegg": "pnpm --filter @slidev-stage-hub/hub exec node scripts/serve.mjs artifacts/example-watabegg-offline/site 4175",
+    "verify:example:watabegg": "node scripts/verify-watabegg-example.mjs",
+    "lint": "oxlint --deny-warnings .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm check:boundaries"
   },
   "devDependencies": {
-    "@slidev/cli": "link:../slidev-watabegg/node_modules/@slidev/cli",
-    "slidev-theme-watabegg": "link:../slidev-watabegg",
+    "@slidev/cli": "53.0.0",
+    "@slidev/client": "53.0.0",
+    "@slidev/theme-default": "0.25.0",
+    "@vue/compiler-sfc": "3.5.43",
+    "oxfmt": "0.72.0",
+    "oxlint": "1.87.0",
+    "playwright-chromium": "1.63.0",
+    "postcss": "8.5.28",
+    "slidev-theme-watabegg": "1.2.1",
     "typescript": "6.0.3",
     "vue": "3.5.43",
     "vue-tsc": "3.3.12"
   },
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=22.12.0"
+  }
 }

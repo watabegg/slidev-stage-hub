@@ -1,23 +1,21 @@
 ---
-theme: slidev-theme-watabegg
+theme: default
 title: BBB 1 — bundle baseline
 subtitle: Independent Slidev fixture
 author: Slidev Lab
 date: '2026/10/08'
-themeConfig:
-  watabegg:
-    color: red
-    footer:
-      text: baseline bbb1
 transition: fade
 ---
+
+# BBB1 — bundle baseline
+
+Independent Slidev fixture
 
 ---
 layout: two-cols
 title: Same paths, independent content
 ---
 
-::left::
 ### Relative image
 
 ![Conflict fixture image](./assets/conflict.svg)
@@ -25,14 +23,11 @@ title: Same paths, independent content
 <div class="fixture-conflict">bbb1 scoped style</div>
 
 ::right::
-### Theme component
+### Deck content
 
-<QuestionList
-  :items="[
-    { text: 'Deck bbb1', items: ['Same relative image path', 'Different file bytes'] },
-    { text: 'Click state', items: ['First reveal', 'Second reveal'] }
-  ]"
-/>
+- Deck bbb1
+- Same relative image path, different file bytes
+- First reveal and second reveal
 
 <div v-click>First click step</div>
 <div v-click>Second click step</div>
@@ -52,12 +47,11 @@ PRIVATE_NOTE_bbb1: Keep this note in the private fixture source only.
 -->
 
 ---
-layout: section
-title: Theme setup, code, and math
-sectionNumber: 1
+layout: default
+title: Code, math, and diagram
 ---
 
-The theme setup enables Mermaid and code highlighting.
+# Code, math, and diagram
 
 $$
 E_{bbb1} = mc^2

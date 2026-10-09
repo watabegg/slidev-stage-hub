@@ -1,6 +1,7 @@
+import { themeDirectory } from '../../../../../scripts/runtime-environment.mjs';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { createRequire } from 'node:module';
+import { chromium } from 'playwright-chromium';
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
@@ -12,12 +13,9 @@ import { artifactRoot, startHarness } from './harness.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const RESULT_PATH = resolve(ROOT, 'results/thumbnail-experiments.json');
-const DEFAULT_THEME = '/home/watabegg/slidev-watabegg';
-const CHROMIUM_PATH = process.env.CHROMIUM_EXECUTABLE || '/usr/bin/google-chrome';
+const CHROMIUM_PATH = process.env.CHROMIUM_EXECUTABLE;
 const SLIDE_SELECTOR = '.slidev-page[data-slidev-no="1"]';
-const THEME_PATH = process.env.SLIDEV_THEME_PATH || DEFAULT_THEME;
-const THEME_REQUIRE = createRequire(resolve(THEME_PATH, 'package.json'));
-const chromium = THEME_REQUIRE('playwright-chromium').chromium;
+const THEME_PATH = themeDirectory();
 const execFileAsync = promisify(execFile);
 
 const runId = `${Date.now().toString(36)}-${process.pid.toString(36)}`;
@@ -45,7 +43,7 @@ function sha256(bytes) {
 }
 
 function delay(ms) {
-  return new Promise(resolveDelay => setTimeout(resolveDelay, ms));
+  return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
 }
 
 async function responseJson(response) {
@@ -60,7 +58,11 @@ async function publish(id, markdown, assets = {}) {
     body: JSON.stringify({ markdown, assets }),
   });
   const { status, body } = await responseJson(response);
-  assert.equal(response.ok, true, `publish failed for ${id}: HTTP ${status} ${JSON.stringify(body)}`);
+  assert.equal(
+    response.ok,
+    true,
+    `publish failed for ${id}: HTTP ${status} ${JSON.stringify(body)}`,
+  );
   return body;
 }
 
@@ -104,8 +106,11 @@ async function runLocalThumbnail(id, revision) {
   }
   let parsed = null;
   if (stdout.trim()) {
-    try { parsed = JSON.parse(stdout.trim()); }
-    catch { /* Preserve raw output as experimental evidence. */ }
+    try {
+      parsed = JSON.parse(stdout.trim());
+    } catch {
+      /* Preserve raw output as experimental evidence. */
+    }
   }
   return {
     command: `node local-thumbnail.mjs ${origin} ${id}${revision ? ` ${revision}` : ''}`,
@@ -122,8 +127,7 @@ function crc32(bytes) {
   let crc = 0xffffffff;
   for (const byte of bytes) {
     crc ^= byte;
-    for (let bit = 0; bit < 8; bit += 1)
-      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
   }
   return (crc ^ 0xffffffff) >>> 0;
 }
@@ -172,35 +176,52 @@ function parsePngDimensions(bytes) {
 async function fetchBytes(url) {
   const response = await fetch(new URL(url, origin));
   assert.equal(response.ok, true, `thumbnail fetch failed: HTTP ${response.status}`);
-  return { bytes: Buffer.from(await response.arrayBuffer()), cacheControl: response.headers.get('cache-control') };
+  return {
+    bytes: Buffer.from(await response.arrayBuffer()),
+    cacheControl: response.headers.get('cache-control'),
+  };
 }
 
-async function browserProbe(entry, { routeModulePath, routeDelayMs = 0, imagePath, expectedHeading } = {}) {
+async function browserProbe(
+  entry,
+  { routeModulePath, routeDelayMs = 0, imagePath, expectedHeading } = {},
+) {
   let browser;
   let context;
   const result = { routeModulePath: null, routeDelayMs: 0, imageDecode: null };
   try {
-    browser = await chromium.launch({ headless: true, executablePath: CHROMIUM_PATH });
+    browser = await chromium.launch({
+      channel: 'chromium',
+      headless: true,
+      executablePath: CHROMIUM_PATH,
+    });
     context = await browser.newContext({ viewport: { width: 1200, height: 675 } });
     const page = await context.newPage();
     const moduleObservations = [];
     if (routeModulePath) {
-      await page.route(url => new URL(url).pathname === routeModulePath, async route => {
-        const started = performance.now();
-        await delay(routeDelayMs);
-        await route.continue();
-        moduleObservations.push(Math.round(performance.now() - started));
-      });
+      await page.route(
+        (url) => new URL(url).pathname === routeModulePath,
+        async (route) => {
+          const started = performance.now();
+          await delay(routeDelayMs);
+          await route.continue();
+          moduleObservations.push(Math.round(performance.now() - started));
+        },
+      );
     }
     await page.goto(entry, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     await page.locator(SLIDE_SELECTOR).waitFor({ state: 'visible', timeout: 30_000 });
-    await page.locator(`${SLIDE_SELECTOR} .slidev-layout`).waitFor({ state: 'visible', timeout: 30_000 });
+    await page
+      .locator(`${SLIDE_SELECTOR} .slidev-layout`)
+      .waitFor({ state: 'visible', timeout: 30_000 });
     if (expectedHeading)
-      await page.getByText(expectedHeading, { exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      await page
+        .getByText(expectedHeading, { exact: true })
+        .waitFor({ state: 'visible', timeout: 20_000 });
     if (imagePath) {
       const image = page.locator(`${SLIDE_SELECTOR} img`).first();
       await image.waitFor({ state: 'attached', timeout: 10_000 });
-      result.imageDecode = await image.evaluate(async element => {
+      result.imageDecode = await image.evaluate(async (element) => {
         try {
           await element.decode();
           return {
@@ -215,15 +236,25 @@ async function browserProbe(entry, { routeModulePath, routeDelayMs = 0, imagePat
       });
     }
     if (routeModulePath) {
-      await page.getByText('Thumbnail experiment heading', { exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      await page
+        .getByText('Thumbnail experiment heading', { exact: true })
+        .waitFor({ state: 'visible', timeout: 20_000 });
       result.routeModulePath = routeModulePath;
       result.routeDelayMs = moduleObservations.at(-1) ?? 0;
       result.headingVisible = true;
     }
     return result;
   } finally {
-    try { await context?.close(); } catch { /* Keep the browser evidence. */ }
-    try { await browser?.close(); } catch { /* Keep the browser evidence. */ }
+    try {
+      await context?.close();
+    } catch {
+      /* Keep the browser evidence. */
+    }
+    try {
+      await browser?.close();
+    } catch {
+      /* Keep the browser evidence. */
+    }
   }
 }
 
@@ -241,7 +272,11 @@ async function runBrowserRunMocks() {
     },
     {
       name: 'upstream-thrown-failure',
-      browser: { quickAction: async () => { throw new Error('private upstream error'); } },
+      browser: {
+        quickAction: async () => {
+          throw new Error('private upstream error');
+        },
+      },
       expectedCode: 'BROWSER_FAILED',
     },
   ];
@@ -281,8 +316,9 @@ async function main() {
 
   const mainId = `experiments/thumb-cover-${runId}`;
   const heading = 'Thumbnail experiment heading';
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120"><rect width="240" height="120" rx="16" fill="#163a2c"/><circle cx="120" cy="60" r="34" fill="#7fe0bb"/></svg>';
-  const coverMarkdown = `---\ntitle: Thumbnail experiment heading\ntheme: watabegg\nlayout: default\n---\n\n# ${heading}\n\n![SVG cover](./cover.svg)\n\n---\n\n# Delayed module slide\n`;
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120"><rect width="240" height="120" rx="16" fill="#163a2c"/><circle cx="120" cy="60" r="34" fill="#7fe0bb"/></svg>';
+  const coverMarkdown = `---\ntitle: Thumbnail experiment heading\ntheme: default\nlayout: default\n---\n\n# ${heading}\n\n![SVG cover](./cover.svg)\n\n---\n\n# Delayed module slide\n`;
   const coverManifest = await publish(mainId, coverMarkdown, { 'cover.svg': svg });
   const coverCli = await runLocalThumbnail(mainId);
   const coverObservation = {
@@ -322,7 +358,10 @@ async function main() {
     headingRendered: routedProbe.headingVisible,
     svgDecoded: routedProbe.imageDecode?.resolved === true,
     svgNaturalDimensions: routedProbe.imageDecode
-      ? { width: routedProbe.imageDecode.naturalWidth, height: routedProbe.imageDecode.naturalHeight }
+      ? {
+          width: routedProbe.imageDecode.naturalWidth,
+          height: routedProbe.imageDecode.naturalHeight,
+        }
       : null,
   };
   const dynamicLoadObservation = {
@@ -338,7 +377,10 @@ async function main() {
   records.experiments.push(dynamicLoadObservation);
 
   const invalidId = `experiments/thumb-invalid-png-${runId}`;
-  const invalidManifest = await publish(invalidId, `---\ntitle: Invalid upload\ntheme: watabegg\nlayout: cover\n---\n\n# Invalid upload\n`);
+  const invalidManifest = await publish(
+    invalidId,
+    `---\ntitle: Invalid upload\ntheme: default\nlayout: cover\n---\n\n# Invalid upload\n`,
+  );
   const invalidEndpoint = new URL(`/api/thumbnail/${encodeURIComponent(invalidId)}`, origin);
   invalidEndpoint.searchParams.set('revision', invalidManifest.revision);
   const invalidResponse = await fetch(invalidEndpoint, {
@@ -347,7 +389,9 @@ async function main() {
     body: Buffer.from('not a PNG'),
   });
   const invalidBody = await invalidResponse.json().catch(() => null);
-  const invalidStored = await fetch(new URL(`/releases/${invalidId}/${invalidManifest.revision}/thumbnail.png`, origin));
+  const invalidStored = await fetch(
+    new URL(`/releases/${invalidId}/${invalidManifest.revision}/thumbnail.png`, origin),
+  );
   records.experiments.push({
     id: 'png-invalid-upload-rejected',
     deckId: invalidId,
@@ -359,8 +403,14 @@ async function main() {
   });
 
   const wrongDimensionId = `experiments/thumb-wrong-dim-${runId}`;
-  const wrongDimensionManifest = await publish(wrongDimensionId, `---\ntitle: Wrong dimension\ntheme: watabegg\nlayout: cover\n---\n\n# Wrong dimension\n`);
-  const wrongDimensionEndpoint = new URL(`/api/thumbnail/${encodeURIComponent(wrongDimensionId)}`, origin);
+  const wrongDimensionManifest = await publish(
+    wrongDimensionId,
+    `---\ntitle: Wrong dimension\ntheme: default\nlayout: cover\n---\n\n# Wrong dimension\n`,
+  );
+  const wrongDimensionEndpoint = new URL(
+    `/api/thumbnail/${encodeURIComponent(wrongDimensionId)}`,
+    origin,
+  );
   wrongDimensionEndpoint.searchParams.set('revision', wrongDimensionManifest.revision);
   const wrongDimensionPng = solidPng(980, 551, [10, 20, 30, 255]);
   const wrongDimensionResponse = await fetch(wrongDimensionEndpoint, {
@@ -369,7 +419,12 @@ async function main() {
     body: wrongDimensionPng,
   });
   const wrongDimensionBody = await wrongDimensionResponse.json().catch(() => null);
-  const wrongDimensionStored = await fetch(new URL(`/releases/${wrongDimensionId}/${wrongDimensionManifest.revision}/thumbnail.png`, origin));
+  const wrongDimensionStored = await fetch(
+    new URL(
+      `/releases/${wrongDimensionId}/${wrongDimensionManifest.revision}/thumbnail.png`,
+      origin,
+    ),
+  );
   records.experiments.push({
     id: 'valid-png-wrong-dimensions-rejected',
     deckId: wrongDimensionId,
@@ -383,8 +438,10 @@ async function main() {
 
   const badImageId = `experiments/thumb-bad-image-${runId}`;
   const badImageSvg = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100">';
-  const badImageMarkdown = `---\ntitle: Broken image decode\ntheme: watabegg\nlayout: default\n---\n\n# Broken image decode\n\n![broken](./broken.svg)\n`;
-  const badImageManifest = await publish(badImageId, badImageMarkdown, { 'broken.svg': badImageSvg });
+  const badImageMarkdown = `---\ntitle: Broken image decode\ntheme: default\nlayout: default\n---\n\n# Broken image decode\n\n![broken](./broken.svg)\n`;
+  const badImageManifest = await publish(badImageId, badImageMarkdown, {
+    'broken.svg': badImageSvg,
+  });
   const badEntry = new URL(badImageManifest.entry, origin);
   badEntry.searchParams.set('embedded', 'true');
   badEntry.searchParams.set('labThumbnail', 'true');
@@ -413,7 +470,7 @@ async function main() {
     rejectedWithoutUpload: badImageCli.status !== 0 && badImageThumbnail.status === 404,
   });
 
-  const updatedMarkdown = `---\ntitle: Thumbnail experiment updated\ntheme: watabegg\nlayout: cover\n---\n\n# Updated markdown revision\n`;
+  const updatedMarkdown = `---\ntitle: Thumbnail experiment updated\ntheme: default\nlayout: cover\n---\n\n# Updated markdown revision\n`;
   const updatedManifest = await publish(mainId, updatedMarkdown, {});
   const pinnedManifest = await getManifest(mainId, coverManifest.revision);
   const latestManifest = await getManifest(mainId);
@@ -451,14 +508,17 @@ async function main() {
       attemptedHash: sha256(alternatePng),
       cachedThumbnailHashAfterUpload: sha256(thumbAfterRepeat.bytes),
     },
-    oldRevisionRemainsPinned: pinnedManifest.revision === coverManifest.revision
-      && pinnedCli.parsed?.revision === coverManifest.revision,
-    newCurrentRevisionPublished: latestManifest.revision === updatedManifest.revision
-      && updatedManifest.revision !== coverManifest.revision,
+    oldRevisionRemainsPinned:
+      pinnedManifest.revision === coverManifest.revision &&
+      pinnedCli.parsed?.revision === coverManifest.revision,
+    newCurrentRevisionPublished:
+      latestManifest.revision === updatedManifest.revision &&
+      updatedManifest.revision !== coverManifest.revision,
     oldThumbnailSurvivedUpdate: sha256(oldThumbAfterUpdate.bytes) === firstThumbHash,
-    repeatedUploadDidNotOverwrite: repeatedBody?.status === 'cached'
-      && sha256(thumbAfterRepeat.bytes) === firstThumbHash
-      && sha256(alternatePng) !== firstThumbHash,
+    repeatedUploadDidNotOverwrite:
+      repeatedBody?.status === 'cached' &&
+      sha256(thumbAfterRepeat.bytes) === firstThumbHash &&
+      sha256(alternatePng) !== firstThumbHash,
     immutableCacheControl: firstThumb.cacheControl,
   };
   records.experiments.push(revisionObservation);

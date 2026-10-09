@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { createRequire } from 'node:module';
+import { slidevRequire } from '../../../scripts/runtime-environment.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -11,15 +11,17 @@ const repoRoot = path.resolve(root, '../..');
 const hubRoot = path.join(repoRoot, 'packages/hub');
 const defaultSite = path.join(hubRoot, 'artifacts/module-graph-offline/site');
 const defaultFixturesRoot = path.join(repoRoot, 'examples/fixtures');
-const theme = process.env.SLIDEV_THEME_DIR || '/home/watabegg/slidev-watabegg';
 const fallbackIds = ['aaa/aaa1', 'aaa/aaa2', 'bbb/bbb1', 'bbb/bbb2'];
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
-export function parseArgs(argv, {
-  cwd = process.cwd(),
-  defaultSitePath = defaultSite,
-  defaultFixturesRootPath = defaultFixturesRoot,
-} = {}) {
+export function parseArgs(
+  argv,
+  {
+    cwd = process.cwd(),
+    defaultSitePath = defaultSite,
+    defaultFixturesRootPath = defaultFixturesRoot,
+  } = {},
+) {
   let siteArgument;
   let fixturesRootArgument;
   let positionalSite;
@@ -33,13 +35,15 @@ export function parseArgs(argv, {
         if (siteArgument !== undefined) throw new Error('--site may only be provided once');
         siteArgument = value;
       } else {
-        if (fixturesRootArgument !== undefined) throw new Error('--fixtures-root may only be provided once');
+        if (fixturesRootArgument !== undefined)
+          throw new Error('--fixtures-root may only be provided once');
         fixturesRootArgument = value;
       }
     } else if (argument.startsWith('-')) {
       throw new Error(`unknown option: ${argument}`);
     } else {
-      if (positionalSite !== undefined) throw new Error('only one positional site path is supported');
+      if (positionalSite !== undefined)
+        throw new Error('only one positional site path is supported');
       positionalSite = argument;
     }
   }
@@ -58,9 +62,13 @@ function isSafeDeckId(id) {
   if (typeof id !== 'string' || id.length === 0) return false;
   const segments = id.split('/');
   // The current Rust viewer cannot route percent-encoded path segments.
-  return segments.every((segment) =>
-    segment.length > 0 && segment !== '.' && segment !== '..' &&
-    /^[A-Za-z0-9._~-]+$/.test(segment));
+  return segments.every(
+    (segment) =>
+      segment.length > 0 &&
+      segment !== '.' &&
+      segment !== '..' &&
+      /^[A-Za-z0-9._~-]+$/.test(segment),
+  );
 }
 
 function encodeDeckId(id) {
@@ -69,7 +77,9 @@ function encodeDeckId(id) {
 
 export function canonicalEntryForId(id) {
   if (!isSafeDeckId(id))
-    throw new Error(`unsafe native deck id ${JSON.stringify(id)}; use nested ASCII letters, numbers, dot, underscore, tilde, or hyphen segments`);
+    throw new Error(
+      `unsafe native deck id ${JSON.stringify(id)}; use nested ASCII letters, numbers, dot, underscore, tilde, or hyphen segments`,
+    );
   return `/${encodeDeckId(id)}/1`;
 }
 
@@ -83,12 +93,20 @@ export function validateManifest(manifest) {
   const seenIds = new Set();
   for (const [index, deck] of manifest.decks.entries()) {
     const label = `public manifest deck ${index + 1}`;
-    if (!deck || typeof deck !== 'object' || Array.isArray(deck)) throw new Error(`${label} must be an object`);
+    if (!deck || typeof deck !== 'object' || Array.isArray(deck))
+      throw new Error(`${label} must be an object`);
     if (!isSafeDeckId(deck.id))
-      throw new Error(`${label} has an unsupported native id ${JSON.stringify(deck.id)}; use nested ASCII letters, numbers, dot, underscore, tilde, or hyphen segments`);
-    if (seenIds.has(deck.id)) throw new Error(`public manifest contains duplicate deck id ${JSON.stringify(deck.id)}`);
+      throw new Error(
+        `${label} has an unsupported native id ${JSON.stringify(deck.id)}; use nested ASCII letters, numbers, dot, underscore, tilde, or hyphen segments`,
+      );
+    if (seenIds.has(deck.id))
+      throw new Error(`public manifest contains duplicate deck id ${JSON.stringify(deck.id)}`);
     seenIds.add(deck.id);
-    if (typeof deck.sourcePath !== 'string' || deck.sourcePath.length === 0 || deck.sourcePath.includes('\0'))
+    if (
+      typeof deck.sourcePath !== 'string' ||
+      deck.sourcePath.length === 0 ||
+      deck.sourcePath.includes('\0')
+    )
       throw new Error(`${label} must have a non-empty sourcePath`);
     if (!Number.isSafeInteger(deck.pages) || deck.pages <= 0)
       throw new Error(`${label} pages must be a positive integer`);
@@ -109,31 +127,37 @@ export async function readManifestIfPresent(site) {
     bytes = await fs.readFile(manifestPath);
   } catch (error) {
     if (error.code === 'ENOENT') return null;
-    throw new Error(`cannot read public manifest ${manifestPath}: ${error.message}`, { cause: error });
+    throw new Error(`cannot read public manifest ${manifestPath}: ${error.message}`, {
+      cause: error,
+    });
   }
 
   let manifest;
   try {
     manifest = JSON.parse(bytes.toString('utf8'));
   } catch (error) {
-    throw new Error(`invalid public manifest JSON at ${manifestPath}: ${error.message}`, { cause: error });
+    throw new Error(`invalid public manifest JSON at ${manifestPath}: ${error.message}`, {
+      cause: error,
+    });
   }
   return validateManifest(manifest);
 }
 
 function isInside(parent, child) {
   const relativePath = path.relative(parent, child);
-  return relativePath === '' || (
-    relativePath !== '..' &&
-    !relativePath.startsWith(`..${path.sep}`) &&
-    !path.isAbsolute(relativePath)
+  return (
+    relativePath === '' ||
+    (relativePath !== '..' &&
+      !relativePath.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relativePath))
   );
 }
 
 export async function resolveManifestSources(decks, hubRootPath, fixturesRootPath) {
   const approvedRoot = await fs.realpath(fixturesRootPath);
   const rootInfo = await fs.stat(approvedRoot);
-  if (!rootInfo.isDirectory()) throw new Error(`approved fixtures root is not a directory: ${approvedRoot}`);
+  if (!rootInfo.isDirectory())
+    throw new Error(`approved fixtures root is not a directory: ${approvedRoot}`);
 
   const sources = [];
   for (const deck of decks) {
@@ -142,10 +166,15 @@ export async function resolveManifestSources(decks, hubRootPath, fixturesRootPat
     try {
       source = await fs.realpath(declaredSource);
     } catch (error) {
-      throw new Error(`cannot resolve source for ${deck.id} (${declaredSource}): ${error.message}`, { cause: error });
+      throw new Error(
+        `cannot resolve source for ${deck.id} (${declaredSource}): ${error.message}`,
+        { cause: error },
+      );
     }
     if (!isInside(approvedRoot, source))
-      throw new Error(`source for ${deck.id} resolves outside the approved fixtures root: ${source}`);
+      throw new Error(
+        `source for ${deck.id} resolves outside the approved fixtures root: ${source}`,
+      );
     const sourceInfo = await fs.stat(source);
     if (!sourceInfo.isFile()) throw new Error(`source for ${deck.id} is not a file: ${source}`);
     sources.push({ ...deck, source });
@@ -153,9 +182,8 @@ export async function resolveManifestSources(decks, hubRootPath, fixturesRootPat
   return { approvedRoot, sources };
 }
 
-export async function loadSlidevParser(themeDirectory = theme) {
-  const requireTheme = createRequire(path.join(themeDirectory, 'package.json'));
-  const requireCli = createRequire(requireTheme.resolve('@slidev/cli/package.json'));
+export async function loadSlidevParser(dependencyRoot) {
+  const requireCli = slidevRequire(dependencyRoot);
   return import(pathToFileURL(requireCli.resolve('@slidev/parser/core')).href);
 }
 
@@ -188,12 +216,19 @@ async function prepare(argv = process.argv.slice(2)) {
   const declaredDecks = manifestMode
     ? manifest.decks
     : fallbackIds.map((id) => ({
-      id,
-      sourcePath: path.relative(hubRoot, path.join(args.fixturesRoot, ...id.split('/'), 'slides.md')),
-      entry: canonicalEntryForId(id),
-    }));
+        id,
+        sourcePath: path.relative(
+          hubRoot,
+          path.join(args.fixturesRoot, ...id.split('/'), 'slides.md'),
+        ),
+        entry: canonicalEntryForId(id),
+      }));
 
-  const { approvedRoot, sources } = await resolveManifestSources(declaredDecks, hubRoot, args.fixturesRoot);
+  const { approvedRoot, sources } = await resolveManifestSources(
+    declaredDecks,
+    hubRoot,
+    args.fixturesRoot,
+  );
   const { parseSync } = await loadSlidevParser();
   const decks = [];
   const notes = {};
@@ -229,22 +264,44 @@ async function prepare(argv = process.argv.slice(2)) {
   await fs.mkdir(artifacts, { recursive: true });
   await fs.rm(destination, { recursive: true, force: true });
   await fs.cp(args.site, destination, { recursive: true });
-  await fs.writeFile(path.join(artifacts, 'local-config.json'), JSON.stringify({
-    decks,
-    notes,
-    approvedSourceRoot: approvedRoot,
-  }, null, 2) + '\n');
-  await fs.writeFile(path.join(artifacts, 'site-provenance.json'), JSON.stringify({
-    sourceSite: args.site,
-    preparedAt: new Date().toISOString(),
-    decks,
-  }, null, 2) + '\n');
-  console.log(JSON.stringify({
-    site: args.site,
-    destination,
-    decks: decks.length,
-    notes: Object.fromEntries(Object.entries(notes).map(([id, map]) => [id, map.slots.map(Boolean)])),
-  }, null, 2));
+  await fs.writeFile(
+    path.join(artifacts, 'local-config.json'),
+    JSON.stringify(
+      {
+        decks,
+        notes,
+        approvedSourceRoot: approvedRoot,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  await fs.writeFile(
+    path.join(artifacts, 'site-provenance.json'),
+    JSON.stringify(
+      {
+        sourceSite: args.site,
+        preparedAt: new Date().toISOString(),
+        decks,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  console.log(
+    JSON.stringify(
+      {
+        site: args.site,
+        destination,
+        decks: decks.length,
+        notes: Object.fromEntries(
+          Object.entries(notes).map(([id, map]) => [id, map.slots.map(Boolean)]),
+        ),
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href)

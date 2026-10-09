@@ -40,7 +40,8 @@ type NativeAppElementMap = {
   const drafts = new Map<string, NativeDraft>();
   const noteKey = (id: string, page: number): string => `${id}:${page}`;
   const editing = (target: EventTarget | null): boolean =>
-    target instanceof Element && !!target.closest('input,textarea,select,[contenteditable=true],[contenteditable=""]');
+    target instanceof Element &&
+    !!target.closest('input,textarea,select,[contenteditable=true],[contenteditable=""]');
 
   async function action(kind: NativeActionKind, value?: string): Promise<void> {
     if (notesDirty && kind !== 'toggleBlackout') {
@@ -48,9 +49,7 @@ type NativeAppElementMap = {
       return;
     }
     try {
-      const actionValue: NativeAction = kind === 'selectDeck'
-        ? { kind, value: value! }
-        : { kind };
+      const actionValue: NativeAction = kind === 'selectDeck' ? { kind, value: value! } : { kind };
       const next = await invoke('transition', {
         input: { source: role, sequence: ++sequence, editing: false, action: actionValue },
       });
@@ -61,13 +60,18 @@ type NativeAppElementMap = {
   }
 
   function deckFor(deckId: string): NativeDeck {
-    return registry!.find(deck => deck.id === deckId)!;
+    return registry!.find((deck) => deck.id === deckId)!;
   }
 
   async function render(next: NativeSession): Promise<void> {
     if (state && next.sessionRevision < state.sessionRevision) return;
     const previous = state;
-    if (previous && notesDirty && noteView && (previous.deckId !== next.deckId || previous.page !== next.page)) {
+    if (
+      previous &&
+      notesDirty &&
+      noteView &&
+      (previous.deckId !== next.deckId || previous.page !== next.page)
+    ) {
       drafts.set(noteKey(previous.deckId, previous.page), {
         text: el('notes').value,
         view: { ...noteView },
@@ -81,19 +85,26 @@ type NativeAppElementMap = {
     if (role === 'presenter') {
       const pages = deckFor(state.deckId).clickTotals.length;
       el('next-preview').hidden = state.page >= pages;
-      el('next-heading').textContent = state.page >= pages ? '次のスライドはありません' : '次スライド · 操作無効';
-      if (state.page < pages) previewFrames!.update({ ...state, page: state.page + 1, clickIndex: 0 });
+      el('next-heading').textContent =
+        state.page >= pages ? '次のスライドはありません' : '次スライド · 操作無効';
+      if (state.page < pages)
+        previewFrames!.update({ ...state, page: state.page + 1, clickIndex: 0 });
     }
     el('revision').textContent = `session ${state.sessionRevision}`;
     el('decks').value = state.deckId;
-    if (role !== 'presenter' || (previous && previous.page === state.page && previous.deckId === state.deckId)) return;
+    if (
+      role !== 'presenter' ||
+      (previous && previous.page === state.page && previous.deckId === state.deckId)
+    )
+      return;
     noteView = undefined;
     notesDirty = false;
     el('notes').value = '';
     el('notes').disabled = true;
     el('save').disabled = true;
     if (!notesAvailable) {
-      el('note-status').textContent = 'ホストされた資料は閲覧専用です（ノート保存用のローカルソースがありません）';
+      el('note-status').textContent =
+        'ホストされた資料は閲覧専用です（ノート保存用のローカルソースがありません）';
       return;
     }
     const deckId = state.deckId;
@@ -128,21 +139,21 @@ type NativeAppElementMap = {
   notesMode = initial.notesMode || 'markdown';
   frames = new window.NativeFrameController(el('deck'), {
     origin: viewerOrigin,
-    onInput: kind => action(kind),
+    onInput: (kind) => action(kind),
     onRendered: (report, origin) => {
       rendered.set(report.url, report);
       invoke('viewer_ready', { report: { ...report, origin } }).catch(console.error);
     },
     onDiagnostic: (diagnostic, origin) =>
       invoke('viewer_ready', { report: { diagnostic, origin } }).catch(console.error),
-    onError: error => {
+    onError: (error) => {
       el('status').textContent = error;
     },
   });
   if (role === 'presenter') {
     previewFrames = new window.NativeFrameController(el('next-preview'), {
       origin: viewerOrigin,
-      onError: error => {
+      onError: (error) => {
         el('next-heading').textContent = error;
       },
     });
@@ -151,28 +162,43 @@ type NativeAppElementMap = {
   window.addEventListener('message', (event: MessageEvent<unknown>) => {
     if (!frames!.message(event)) previewFrames?.message(event);
   });
-  el('decks').replaceChildren(...registry.map(deck => Object.assign(document.createElement('option'), {
-    value: deck.id,
-    textContent: deck.id,
-  })));
-  await listen('session', event => render(event.payload));
+  el('decks').replaceChildren(
+    ...registry.map((deck) =>
+      Object.assign(document.createElement('option'), {
+        value: deck.id,
+        textContent: deck.id,
+      }),
+    ),
+  );
+  await listen('session', (event) => render(event.payload));
   await render(initial.session);
-  window.addEventListener('keydown', event => {
-    if (editing(event.target) || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
-    const kind: NativeActionKind | null = ['ArrowRight', 'ArrowDown', ' ', 'Enter', 'PageDown'].includes(event.key)
-      ? 'next'
-      : ['ArrowLeft', 'ArrowUp', 'Backspace', 'PageUp'].includes(event.key)
-        ? 'previous'
-        : ['b', 'B', '.'].includes(event.key)
-          ? 'toggleBlackout'
-          : null;
-    if (kind) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      action(kind);
-    }
-  }, true);
-  document.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button => {
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      if (editing(event.target) || event.repeat || event.ctrlKey || event.metaKey || event.altKey)
+        return;
+      const kind: NativeActionKind | null = [
+        'ArrowRight',
+        'ArrowDown',
+        ' ',
+        'Enter',
+        'PageDown',
+      ].includes(event.key)
+        ? 'next'
+        : ['ArrowLeft', 'ArrowUp', 'Backspace', 'PageUp'].includes(event.key)
+          ? 'previous'
+          : ['b', 'B', '.'].includes(event.key)
+            ? 'toggleBlackout'
+            : null;
+      if (kind) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        action(kind);
+      }
+    },
+    true,
+  );
+  document.querySelectorAll<HTMLButtonElement>('[data-action]').forEach((button) => {
     button.onclick = () => action(button.dataset.action as NativeActionKind);
   });
   el('decks').onchange = () => action('selectDeck', el('decks').value);
@@ -198,7 +224,8 @@ type NativeAppElementMap = {
         noteView.sourceChanged = false;
         notesDirty = false;
         el('save').disabled = true;
-        el('note-status').textContent = notesMode === 'sidecar' ? '端末内に保存しました' : '保存済み';
+        el('note-status').textContent =
+          notesMode === 'sidecar' ? '端末内に保存しました' : '保存済み';
       }
     } catch (error) {
       el('note-status').textContent = String(error);
@@ -206,11 +233,12 @@ type NativeAppElementMap = {
   };
   window.setInterval(() => {
     if (!state?.timer) return;
-    const elapsed = state.timer.elapsedMs + (state.timer.startedAt === null
-      ? 0
-      : Math.max(0, Date.now() - state.timer.startedAt));
+    const elapsed =
+      state.timer.elapsedMs +
+      (state.timer.startedAt === null ? 0 : Math.max(0, Date.now() - state.timer.startedAt));
     const secs = Math.floor(elapsed / 1000);
-    el('timer').textContent = `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
+    el('timer').textContent =
+      `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
   }, 200);
   window.__nativePoc = {
     action,
@@ -224,11 +252,16 @@ type NativeAppElementMap = {
   if (role === 'presenter') {
     try {
       const monitors = await invoke('displays');
-      el('displays').replaceChildren(...monitors.map(monitor => Object.assign(document.createElement('option'), {
-        value: String(monitor.index),
-        textContent: `${monitor.name || 'Display ' + monitor.index} · ${monitor.width}×${monitor.height}`,
-      })));
-      el('display-status').textContent = `${monitors.length} displays detected; OSによる移動制約は反映結果を確認`;
+      el('displays').replaceChildren(
+        ...monitors.map((monitor) =>
+          Object.assign(document.createElement('option'), {
+            value: String(monitor.index),
+            textContent: `${monitor.name || 'Display ' + monitor.index} · ${monitor.width}×${monitor.height}`,
+          }),
+        ),
+      );
+      el('display-status').textContent =
+        `${monitors.length} displays detected; OSによる移動制約は反映結果を確認`;
     } catch (error) {
       el('display-status').textContent = String(error);
     }

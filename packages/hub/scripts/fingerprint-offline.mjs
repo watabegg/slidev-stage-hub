@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const TEXT_EXTENSIONS = new Set(['.html', '.htm', '.js', '.css', '.json']);
 // Match complete URL/path tokens, including an external URL's scheme, so an
 // external /assets/ path cannot accidentally become a local reference.
-const ASSET_REFERENCE = /[^\s"'`<>(){}\[\],;\\=]+?\.(?:js|css)(?=[?#\s"'`<>(){}\[\],;\\=]|$)/gi;
+const ASSET_REFERENCE = /[^\s"'`<>(){}[\],;\\=]+?\.(?:js|css)(?=[?#\s"'`<>(){}[\],;\\=]|$)/gi;
 
 async function readSnapshot(root) {
   const paths = [];
@@ -20,7 +20,9 @@ async function readSnapshot(root) {
   }
   await visit(root);
   paths.sort();
-  return new Map(await Promise.all(paths.map(async path => [path, await readFile(join(root, path))])));
+  return new Map(
+    await Promise.all(paths.map(async (path) => [path, await readFile(join(root, path))])),
+  );
 }
 
 function isEmittedAsset(path) {
@@ -34,7 +36,7 @@ function rewriteReferences(text, sourcePath, assets) {
       ? [posix.normalize(reference.slice(1))]
       : [posix.join(posix.dirname(sourcePath), reference), posix.normalize(reference)];
     // Vite uses module-relative imports and site-relative preload-map entries.
-    const source = candidates.find(path => assets.has(path));
+    const source = candidates.find((path) => assets.has(path));
     if (!source) return reference;
     const destination = assets.get(source);
     return reference.slice(0, reference.lastIndexOf('/') + 1) + posix.basename(destination);
@@ -51,22 +53,31 @@ export async function fingerprintOfflineSite(siteRoot) {
   const root = resolve(siteRoot);
   const files = await readSnapshot(root);
   const emittedAssets = [...files.keys()].filter(isEmittedAsset);
-  if (emittedAssets.some(path => /-offline-[a-f0-9]{64}\.(?:js|css)$/i.test(path))) {
-    throw new Error('offline site is already fingerprinted; rebuild from the original site before postprocessing');
+  if (emittedAssets.some((path) => /-offline-[a-f0-9]{64}\.(?:js|css)$/i.test(path))) {
+    throw new Error(
+      'offline site is already fingerprinted; rebuild from the original site before postprocessing',
+    );
   }
 
   const hash = createHash('sha256');
   for (const [path, bytes] of files) {
     // Length prefixes make the path/byte boundaries unambiguous for binary files.
-    hash.update(`${Buffer.byteLength(path)}:`).update(path).update(`${bytes.length}:`).update(bytes);
+    hash
+      .update(`${Buffer.byteLength(path)}:`)
+      .update(path)
+      .update(`${bytes.length}:`)
+      .update(bytes);
   }
   const snapshotSha256 = hash.digest('hex');
-  const assets = new Map(emittedAssets.map(path => {
-    const extension = posix.extname(path);
-    return [path, `${path.slice(0, -extension.length)}-offline-${snapshotSha256}${extension}`];
-  }));
+  const assets = new Map(
+    emittedAssets.map((path) => {
+      const extension = posix.extname(path);
+      return [path, `${path.slice(0, -extension.length)}-offline-${snapshotSha256}${extension}`];
+    }),
+  );
   for (const destination of assets.values()) {
-    if (files.has(destination)) throw new Error(`offline fingerprint destination already exists: ${destination}`);
+    if (files.has(destination))
+      throw new Error(`offline fingerprint destination already exists: ${destination}`);
   }
 
   const rewritten = new Map();
@@ -77,7 +88,8 @@ export async function fingerprintOfflineSite(siteRoot) {
     if (output !== text) rewritten.set(path, output);
   }
   for (const [path, text] of rewritten) await writeFile(join(root, path), text);
-  for (const [source, destination] of assets) await rename(join(root, source), join(root, destination));
+  for (const [source, destination] of assets)
+    await rename(join(root, source), join(root, destination));
 
   return {
     snapshotSha256,

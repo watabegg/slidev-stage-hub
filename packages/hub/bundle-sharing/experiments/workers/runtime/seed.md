@@ -1,5 +1,5 @@
 ---
-theme: slidev-theme-watabegg
+theme: default
 title: Slidev Lab runtime
 ---
 

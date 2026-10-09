@@ -4,6 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@12.3.4",
   "scripts": {
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "build:runtime": "node build-runtime.mjs",
     "dev": "node serve.mjs",
     "test": "node --test compiler.test.mjs thumbnail.test.mjs",

@@ -1,0 +1,9 @@
+{
+  "name": "@slidev-stage-hub/fixture-slidev52",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@slidev/cli": "52.15.2",
+    "@slidev/client": "52.15.2"
+  }
+}

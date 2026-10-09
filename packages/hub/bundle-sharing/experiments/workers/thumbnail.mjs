@@ -55,11 +55,15 @@ async function readBoundedBody(body) {
     if (error?.code === 'BROWSER_FAILED') throw error;
     throw captureError('BROWSER_FAILED', 'Browser screenshot response could not be read.');
   } finally {
-    try { reader.releaseLock(); }
-    catch { /* A failed read may already have released the lock. */ }
+    try {
+      reader.releaseLock();
+    } catch {
+      /* A failed read may already have released the lock. */
+    }
   }
 
-  if (byteLength === 0) throw captureError('BROWSER_FAILED', 'Browser screenshot response was empty.');
+  if (byteLength === 0)
+    throw captureError('BROWSER_FAILED', 'Browser screenshot response was empty.');
   const bytes = new Uint8Array(byteLength);
   let offset = 0;
   for (const chunk of chunks) {
@@ -89,7 +93,10 @@ export function validatePng(bytes) {
   const width = header.getUint32(16, false);
   const height = header.getUint32(20, false);
   if (width !== VIEWPORT_WIDTH || height !== VIEWPORT_HEIGHT) {
-    throw captureError('BROWSER_FAILED', `Browser screenshot dimensions ${width}×${height} did not match 1200×675.`);
+    throw captureError(
+      'BROWSER_FAILED',
+      `Browser screenshot dimensions ${width}×${height} did not match 1200×675.`,
+    );
   }
 }
 
@@ -100,7 +107,12 @@ function makeScreenshotOptions(url) {
     waitForSelector: { selector: READY_SELECTOR, visible: true, timeout: WAIT_TIMEOUT_MS },
     gotoOptions: { waitUntil: 'networkidle0', timeout: WAIT_TIMEOUT_MS },
     actionTimeout: WAIT_TIMEOUT_MS,
-    screenshotOptions: { type: 'png', encoding: 'binary', fullPage: false, captureBeyondViewport: false },
+    screenshotOptions: {
+      type: 'png',
+      encoding: 'binary',
+      fullPage: false,
+      captureBeyondViewport: false,
+    },
   };
 }
 
@@ -132,14 +144,22 @@ export async function captureThumbnail({ browser, url } = {}) {
     throw captureError('BROWSER_FAILED', 'Cloudflare Browser Run screenshot failed.');
   }
 
-  const contentType = response.headers?.get?.('content-type')?.split(';', 1)[0].trim().toLowerCase();
+  const contentType = response.headers
+    ?.get?.('content-type')
+    ?.split(';', 1)[0]
+    .trim()
+    .toLowerCase();
   if (contentType !== 'image/png') {
     await cancelQuietly(response.body);
     throw captureError('BROWSER_FAILED', 'Cloudflare Browser Run did not return a PNG.');
   }
 
   const contentLength = response.headers?.get?.('content-length');
-  if (typeof contentLength === 'string' && /^\d+$/u.test(contentLength) && Number(contentLength) > MAX_PNG_BYTES) {
+  if (
+    typeof contentLength === 'string' &&
+    /^\d+$/u.test(contentLength) &&
+    Number(contentLength) > MAX_PNG_BYTES
+  ) {
     await cancelQuietly(response.body);
     throw captureError('BROWSER_FAILED', 'Browser screenshot exceeded the 4 MiB limit.');
   }
