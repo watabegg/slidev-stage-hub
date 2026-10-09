@@ -4,11 +4,24 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./native-player": "./src/native-player.mjs",
-    "./inspect-deck": "./src/inspect-deck.mjs"
+    ".": {
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js"
+    },
+    "./bridge": "./dist/deck-bridge.js",
+    "./build": "./scripts/build.mjs"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "pnpm build && node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "typescript": "6.0.3"
   }
 }

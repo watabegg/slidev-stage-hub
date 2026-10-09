@@ -1,0 +1,10 @@
+{
+  "name": "empty decks rejected by Controller bounds",
+  "accepted": false,
+  "document": {
+    "schemaVersion": 1,
+    "protocolVersion": 1,
+    "decks": [],
+    "unsupportedDecks": []
+  }
+}

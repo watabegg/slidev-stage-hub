@@ -6,5 +6,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build:ui": "node scripts/build-ui.mjs",
     "test": "node --test scripts/*.test.mjs"
+  },
+  "dependencies": {
+    "@slidev-stage-hub/protocol": "workspace:*",
+    "@slidev-stage-hub/slidev-adapter": "workspace:*"
   }
 }

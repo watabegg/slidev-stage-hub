@@ -1,0 +1,31 @@
+{
+  "name": "valid ordinary, Unicode revision, u32 maximum, and ignored extensions",
+  "accepted": true,
+  "document": {
+    "schemaVersion": 1,
+    "protocolVersion": 1,
+    "futureMetadata": { "producer": "fixture" },
+    "decks": [
+      {
+        "id": "course/ordinary",
+        "revision": "build-17",
+        "entry": "/course/ordinary/1",
+        "clickTotals": [0, 2, 4],
+        "futureDeckField": true
+      },
+      {
+        "id": "course/japanese",
+        "revision": "改訂-β",
+        "entry": "/course/japanese/1",
+        "clickTotals": [0, 0]
+      },
+      {
+        "id": "course/u32-max",
+        "revision": "u32-boundary",
+        "entry": "/course/u32-max/1",
+        "clickTotals": [4294967295]
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

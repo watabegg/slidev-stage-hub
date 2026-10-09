@@ -1,0 +1,17 @@
+{
+  "name": "clickTotals is not an array",
+  "accepted": false,
+  "document": {
+    "schemaVersion": 1,
+    "protocolVersion": 1,
+    "decks": [
+      {
+        "id": "course/clicks-type",
+        "revision": "build-17",
+        "entry": "/course/clicks-type/1",
+        "clickTotals": "0"
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

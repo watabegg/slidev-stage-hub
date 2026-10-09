@@ -1,7 +1,30 @@
-function assertSupportedClickSyntax(content, id, page) {
-  // Native clickTotals currently model only bare v-click attributes/wrappers.
-  // Reject known alternatives rather than silently reporting incomplete totals;
-  // this intentionally is not a general Slidev template parser.
+export type SlidevParseSync = (
+  text: string,
+  source: string,
+  options: { preserveCR: true },
+) => unknown;
+
+type ParsedSlide = {
+  content: string;
+  index: number;
+  start: number;
+  raw: string;
+  note?: string;
+};
+
+type ParsedDeck = { slides: ParsedSlide[] };
+
+export type NoteSlot = { start: number; end: number };
+
+export type DeckInspection = {
+  pages: number;
+  slots: Array<NoteSlot | null>;
+  clickTotals: number[];
+};
+
+function assertSupportedClickSyntax(content: string, id: string, page: number) {
+  // Native clickTotals model only bare v-click attributes/wrappers. Reject
+  // known alternatives instead of silently reporting incomplete totals.
   const unsupported =
     /\bv-(?:after|clicks)\b|(?:^|\s)v-click(?=[.=:/[\]])|<v-click(?:\s[^>]*|\/)>/m;
   if (unsupported.test(content))
@@ -17,8 +40,15 @@ export function inspectDeckSource({
   parseSync,
   expectedPages,
   legacyFallback = false,
-}) {
-  const parsed = parseSync(text, source, { preserveCR: true });
+}: {
+  id: string;
+  source: string;
+  text: string;
+  parseSync: SlidevParseSync;
+  expectedPages?: number;
+  legacyFallback?: boolean;
+}): DeckInspection {
+  const parsed = parseSync(text, source, { preserveCR: true }) as ParsedDeck | null | undefined;
   if (!Array.isArray(parsed?.slides) || parsed.slides.length === 0)
     throw new Error(`parser returned no slides for ${id}`);
   if (expectedPages !== undefined && parsed.slides.length !== expectedPages)

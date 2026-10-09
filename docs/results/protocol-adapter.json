@@ -1,0 +1,98 @@
+{
+  "date": "2026-10-09",
+  "baseCommit": "a7453e8",
+  "step": 2,
+  "tasks": [
+    "T04",
+    "T05",
+    "T06"
+  ],
+  "gate": "G2",
+  "status": "passed",
+  "command": "pnpm test:contracts && pnpm check",
+  "exitCode": 0,
+  "checks": {
+    "contracts": {
+      "protocolTests": 6,
+      "adapterTests": 11,
+      "sharedFixturesAndBundleTests": 15,
+      "rustIntegrationSuites": 1,
+      "sharedJsonFixtures": 11
+    },
+    "check": {
+      "tests": 115,
+      "boundaryViolations": 0,
+      "migrationExceptions": 16,
+      "exceptionsRemoved": 3
+    },
+    "hub": {
+      "buildExitCode": 0,
+      "browserChecks": 14,
+      "status": "pass"
+    },
+    "stageBridge": {
+      "http": {
+        "passed": true,
+        "checks": 33
+      },
+      "https": {
+        "passed": true,
+        "checks": 33
+      }
+    },
+    "workers": {
+      "buildExitCode": 0,
+      "localBrowserChecks": 34
+    },
+    "watabegg": {
+      "version": "1.2.1",
+      "buildExitCode": 0,
+      "browserChecks": 10,
+      "status": "passed"
+    },
+    "frozenLockfileInstall": {
+      "exitCode": 0,
+      "freshEnvironment": false
+    },
+    "markdownFixtures": {
+      "unchanged": 6,
+      "sha256": {
+        "examples/legacy-native-baseline/README.md": "bdfa078de8117f6a95cd9d44f02c23b6ccdd2ae6f46c85b4d8c3d39810dbbe06",
+        "examples/watabegg/demo/slides.md": "ba2624d43c8b0d4b6b0ed63839b2634812f7ecc7b25859a12e2368f0caba3cb8",
+        "examples/fixtures/bbb/bbb1/slides.md": "f96848718f414e44c16d21ad63f0f9c2c21e4aaef51834a4e2e9e92a58996be3",
+        "examples/fixtures/bbb/bbb2/slides.md": "73c99138d7ca21f532b10625f017da9d2df8d26dd8c78d6a1dec1840fac80038",
+        "examples/fixtures/aaa/aaa2/slides.md": "354d64ddfc7da72a85eb729623c7177a663c2330f130a45c85cfe4c119f39387",
+        "examples/fixtures/aaa/aaa1/slides.md": "9109272933f8f5e1a738975a553edfb93ceacbad8af972f9b405ab632d90093a"
+      }
+    }
+  },
+  "compatibility": [
+    "Discovery v1 versions, normalized return shape and extra-field tolerance preserved. No capabilities/schema2 contract introduced.",
+    "Old Node protocol exports removed together with internal caller migration to adapter workspace exports.",
+    "Classic bridge startup wait, monotonic revisions, origin/window/mount/token protections and QA hooks retained.",
+    "Stage session/Tauri/UI types remain private; Rust production code unchanged."
+  ],
+  "findingsResolved": [
+    "Browser regression caught premature bridge ready notification and missing revision filtering during extraction; restored original bridge body and reran HTTP/HTTPS regression with malformed/stale message cases.",
+    "Boundary checker now recognizes a package referencing its own public exports as a self-reference, not an inter-package cycle."
+  ],
+  "limitations": [
+    "Rust fixture parity covers actual Deck serde fields and Controller page bounds only; full Discovery version/ID/unsupported-deck policy is validated by TypeScript, not by Rust.",
+    "Browser/worker Node-free bundle proof covers public protocol contracts; classic bridge browser output is checked separately. Node-only ./build is build tooling.",
+    "Hub orchestration and Workers compiler remain in their existing locations for Steps 3 and 7.",
+    "No native GUI/WebKit/Windows/physical-display/cloud/hosted-CI revalidation. HTTPS browser fixtures use self-signed certificates.",
+    "No new full clean-container regression; existing workspace frozen-lockfile installation and package rebuilds passed."
+  ],
+  "logs": [
+    "artifacts/step2/contracts.log",
+    "artifacts/step2/check.log",
+    "artifacts/step2/build-hub.log",
+    "artifacts/step2/verify-hub.log",
+    "artifacts/step2/verify-remote.log",
+    "artifacts/step2/build-workers.log",
+    "artifacts/step2/verify-workers.log",
+    "artifacts/step2/build-watabegg.log",
+    "artifacts/step2/verify-watabegg.log",
+    "artifacts/step2/install-frozen.log"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "empty clickTotals rejected by Controller bounds",
+  "accepted": false,
+  "document": {
+    "schemaVersion": 1,
+    "protocolVersion": 1,
+    "decks": [
+      {
+        "id": "course/empty-clicks",
+        "revision": "build-17",
+        "entry": "/course/empty-clicks/1",
+        "clickTotals": []
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

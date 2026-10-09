@@ -1,4 +1,4 @@
-import { themeDirectory } from '../../../../../scripts/runtime-environment.mjs';
+import { themeDirectory } from '../../../scripts/runtime-environment.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

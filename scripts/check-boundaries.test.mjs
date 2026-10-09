@@ -55,6 +55,35 @@ function rules(result) {
   return result.violations.map((violation) => violation.rule);
 }
 
+test('a package can consume its own public exports without a workspace cycle', async (t) => {
+  const fixture = await makeFixture(t);
+  await fixture.package('packages/protocol', {
+    name: '@fixture/protocol',
+    exports: { '.': './src/contracts/index.ts' },
+  });
+  await fixture.file('packages/protocol/src/contracts/index.ts', 'export const version = 1;\n');
+  await fixture.file(
+    'packages/protocol/tests/public.mjs',
+    "import { version } from '@fixture/protocol'; void version;\n",
+  );
+  const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
+  assert.deepEqual(result.violations, []);
+});
+
+test('pure protocol contracts reject Node imports even without a current UI consumer', async (t) => {
+  const fixture = await makeFixture(t);
+  await fixture.package('packages/protocol', {
+    name: '@fixture/protocol',
+    exports: { '.': './src/contracts/index.ts' },
+  });
+  await fixture.file(
+    'packages/protocol/src/contracts/index.ts',
+    "import { readFile } from 'node:fs/promises'; export { readFile };\n",
+  );
+  const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
+  assert.ok(rules(result).includes('production-node-builtin'));
+});
+
 test('allows a declared workspace dependency through a public export', async (t) => {
   const fixture = await makeFixture(t);
   await fixture.package('packages/protocol', {

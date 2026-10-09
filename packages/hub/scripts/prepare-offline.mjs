@@ -1,86 +1,98 @@
-import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { resolve, relative, join } from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { gzipSync } from 'node:zlib';
+import { cp, lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fingerprintOfflineSite } from './fingerprint-offline.mjs';
+import { withBuildWorkspace, promoteBuild } from '../dist/node/artifacts.js';
+import { prepareOfflineSite } from '../dist/node/offline.js';
 
-const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const source = resolve(process.argv[2] || 'artifacts/module-graph/site');
-const target = resolve(process.argv[3] || 'artifacts/module-graph-offline/site');
-if (source === target || target.startsWith(source + '/') || source.startsWith(target + '/'))
-  throw new Error('source and output must be separate trees');
-if (!target.startsWith(join(root, 'artifacts') + '/'))
-  throw new Error('offline output must be under this repository artifacts/');
-await rm(target, { recursive: true, force: true });
-await mkdir(target, { recursive: true });
-await cp(source, target, { recursive: true });
-const vendor = spawnSync(
-  process.execPath,
-  [join(root, 'scripts/vendor-fonts.mjs'), target, resolve(target, '../font-vendor.json')],
-  { stdio: 'inherit' },
-);
-if (vendor.status !== 0) process.exit(vendor.status || 1);
-// Slidev's default favicon also appears in compiled head configuration. Replace
-// only this known default URL; arbitrary external deck embeds remain untouched.
-const favicon = 'https://cdn.jsdelivr.net/gh/slidevjs/slidev/assets/favicon.png';
-let changed = 0;
-const paths = [];
-async function walk(dir) {
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) await walk(path);
-    else if (entry.isFile()) paths.push(path);
+const HUB_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
+
+function isInside(root, path) {
+  const rel = relative(root, path);
+  return rel === '' || (!rel.startsWith('..' + sep) && rel !== '..' && !isAbsolute(rel));
+}
+
+async function exists(path) {
+  try {
+    await lstat(path);
+    return true;
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
   }
 }
-await walk(target);
-for (const path of paths.filter((path) => /\.(?:html|js|json)$/.test(path))) {
-  const text = await readFile(path, 'utf8');
-  if (text.includes(favicon)) {
-    await writeFile(path, text.replaceAll(favicon, '/favicon.svg'));
-    changed++;
-  }
+
+function record(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
 }
-await writeFile(
-  join(target, 'favicon.svg'),
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#2089eb"/><path d="M46 18H23v14h18v14H18" fill="none" stroke="white" stroke-width="7"/></svg>\n',
-);
-const manifestPath = join(target, 'manifest.json');
-const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-manifest.commonAssets = [...new Set([...(manifest.commonAssets || []), 'favicon.svg'])].sort();
-await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
-const fingerprint = await fingerprintOfflineSite(target);
-paths.length = 0;
-await walk(target);
-const files = await Promise.all(
-  paths.map(async (path) => {
-    const bytes = await readFile(path);
+
+async function prepareOffline(source, target) {
+  if (source === target || isInside(source, target) || isInside(target, source))
+    throw new Error('source and output must be separate trees');
+  const artifactsRoot = join(HUB_ROOT, 'artifacts');
+  if (target === artifactsRoot || !isInside(artifactsRoot, target))
+    throw new Error('offline output must be under this repository artifacts/');
+
+  return withBuildWorkspace(target, async (workDir) => {
+    const staging = join(workDir, 'site');
+    await mkdir(staging, { recursive: true });
+    await cp(source, staging, { recursive: true });
+
+    const sourceReceiptPath = source + '.receipt.json';
+    let stagedReceiptPath;
+    if (await exists(sourceReceiptPath)) {
+      const sourceReceipt = JSON.parse(await readFile(sourceReceiptPath, 'utf8'));
+      if (!record(sourceReceipt)) throw new Error('source receipt must be a JSON object');
+      const stagedReceipt = join(workDir, 'receipt.json');
+      await writeFile(
+        stagedReceipt,
+        JSON.stringify({ ...sourceReceipt, output: target }, null, 2) + '\n',
+        { mode: 0o600 },
+      );
+      stagedReceiptPath = stagedReceipt;
+    }
+
+    const offline = await prepareOfflineSite({ siteRoot: staging, workDir });
+    const metrics = JSON.parse(await readFile(join(workDir, 'offline-metrics.json'), 'utf8'));
+    const vendorReport = JSON.parse(await readFile(join(workDir, 'font-vendor.json'), 'utf8'));
+
+    const { siteRoot: _stagingRoot, workDir: _workDir, ...legacyMetrics } = metrics;
+    const outputMetrics = { source, target, ...legacyMetrics };
+    vendorReport.siteRoot = target;
+
+    await promoteBuild(staging, stagedReceiptPath, target, workDir);
+
+    await writeFile(
+      join(dirname(target), 'font-vendor.json'),
+      JSON.stringify(vendorReport, null, 2) + '\n',
+    );
+    await writeFile(
+      join(dirname(target), 'offline-metrics.json'),
+      JSON.stringify(outputMetrics, null, 2) + '\n',
+    );
+
     return {
-      path: relative(target, path),
-      rawBytes: bytes.length,
-      gzipBytes: gzipSync(bytes).length,
+      target,
+      fileCount: outputMetrics.fileCount,
+      rawBytes: outputMetrics.rawBytes,
+      gzipBytes: outputMetrics.gzipBytes,
+      changedFaviconFiles: outputMetrics.changedFaviconFiles,
+      snapshotSha256: offline.snapshotSha256,
+      renamedAssets: offline.renamedAssets,
     };
-  }),
-);
-const result = {
-  source,
-  target,
-  changedFaviconFiles: changed,
-  fingerprint,
-  fileCount: files.length,
-  rawBytes: files.reduce((n, f) => n + f.rawBytes, 0),
-  gzipBytes: files.reduce((n, f) => n + f.gzipBytes, 0),
-  files,
-};
-await writeFile(resolve(target, '../offline-metrics.json'), JSON.stringify(result, null, 2) + '\n');
-console.log(
-  JSON.stringify({
-    target,
-    fileCount: result.fileCount,
-    rawBytes: result.rawBytes,
-    gzipBytes: result.gzipBytes,
-    changedFaviconFiles: changed,
-    snapshotSha256: fingerprint.snapshotSha256,
-    renamedAssets: fingerprint.renamedAssets,
-  }),
-);
+  });
+}
+
+async function main() {
+  const [sourceArgument, targetArgument] = process.argv.slice(2);
+  const source = resolve(sourceArgument || 'artifacts/module-graph/site');
+  const target = resolve(targetArgument || 'artifacts/module-graph-offline/site');
+  const result = await prepareOffline(source, target);
+  console.log(JSON.stringify(result, null, 2));
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}

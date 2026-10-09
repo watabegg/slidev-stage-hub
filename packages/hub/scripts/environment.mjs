@@ -1,4 +1,4 @@
-import { themeDirectory } from '../../../scripts/runtime-environment.mjs';
+import { themeDirectory } from './runtime-environment.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';

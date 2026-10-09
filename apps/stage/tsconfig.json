@@ -1,15 +1,19 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "none",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": [],
     "strict": true,
     "ignoreDeprecations": "6.0",
-    "noEmitOnError": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
     "sourceMap": false,
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": ["src/**/*.ts", "../../packages/protocol/src/globals.d.ts"]
+  "include": ["src/**/*.ts", "src/types/**/*.d.ts"]
 }

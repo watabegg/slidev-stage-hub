@@ -620,7 +620,7 @@ function isProductionFile(root, fullPath) {
       'packages/hub/bundle-sharing/experiments/workers/compiler.mjs',
       'packages/hub/bundle-sharing/experiments/workers/thumbnail.mjs',
     ].includes(file) ||
-    file === 'packages/protocol/src/deck-bridge.ts'
+    file.startsWith('packages/protocol/src/')
   );
 }
 
@@ -751,7 +751,9 @@ export async function checkBoundaries({
         const targetPackage = workspaceTargetForSpecifier(packages, ref.specifier);
         if (targetPackage) {
           item.workspaceTarget = targetPackage;
-          graphEdges.push({ from: owner, to: targetPackage, file, specifier: ref.specifier });
+          // Package self-references through exports are not inter-package cycles.
+          if (owner !== targetPackage)
+            graphEdges.push({ from: owner, to: targetPackage, file, specifier: ref.specifier });
           if (owner !== targetPackage && !owner.dependencies.has(targetPackage.name)) {
             addViolation(violations, {
               file,

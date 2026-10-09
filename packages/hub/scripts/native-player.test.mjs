@@ -1,18 +1,17 @@
-import { slidevRequire } from '../../../scripts/runtime-environment.mjs';
+import { dependencyDirectory } from './runtime-environment.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { nativePlayerManifest } from './native-player.mjs';
+import { loadSlidevParser } from '@slidev-stage-hub/slidev-adapter/runtime';
 
-const cliRequire = slidevRequire();
-const parserPath = cliRequire.resolve('@slidev/parser');
+const { parseSync } = await loadSlidevParser(dependencyDirectory());
 
 test('public discovery has page/click bounds without sources or private notes', async () => {
   const root = await mkdtemp(join(tmpdir(), 'slidev-player-'));
   try {
-    const { parseSync } = await import(parserPath);
     await writeFile(
       join(root, 'deck.md'),
       '# Title\n\n<!-- PRIVATE_NOTE_NEVER_PUBLISH -->\n\n---\n\n# Next\n\n<div v-click>one</div>\n<div v-click>two</div>\n',

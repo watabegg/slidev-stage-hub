@@ -1,0 +1,17 @@
+{
+  "name": "negative click total",
+  "accepted": false,
+  "document": {
+    "schemaVersion": 1,
+    "protocolVersion": 1,
+    "decks": [
+      {
+        "id": "course/negative-click",
+        "revision": "build-17",
+        "entry": "/course/negative-click/1",
+        "clickTotals": [-1]
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

@@ -1,75 +1,22 @@
-import { readFile, writeFile, readdir, realpath } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
-import { dirname, join, relative } from 'node:path';
-import { compileContract, resolveRuntime, stableJson } from './profile-runtime.mjs';
+import { readFile, writeFile } from 'node:fs/promises';
+import { isAbsolute } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { probeProfile } from '../../../dist/node/internal/profile-probe.mjs';
 
-const job = JSON.parse(await readFile(process.argv[2], 'utf8'));
-const runtime = await resolveRuntime(job.profile.dependencyRoot);
-const options = await runtime.api.resolveOptions(
-  { entry: job.deck.entry, theme: job.profile.theme, withoutNotes: true, routerMode: 'history' },
-  'build',
-);
-if (options.addonRoots?.length)
-  throw new Error(`Deck ${job.deck.id}: addons are unsupported in the multi-profile PoC`);
-const rootPaths = new Set([options.userRoot]);
-let directory = dirname(job.deck.entry);
-while (
-  directory === job.fixturesRoot ||
-  (relative(job.fixturesRoot, directory) && !relative(job.fixturesRoot, directory).startsWith('..'))
-) {
-  rootPaths.add(directory);
-  if (directory === job.fixturesRoot) break;
-  directory = dirname(directory);
+export { probeProfile };
+
+async function runProbeFile(jobPath) {
+  if (!jobPath || !isAbsolute(jobPath))
+    throw new Error('profile probe requires an absolute job JSON path');
+  const job = JSON.parse(await readFile(jobPath, 'utf8'));
+  const sourceRoot = job.sourceRoot || job.fixturesRoot;
+  if (!sourceRoot || !isAbsolute(sourceRoot))
+    throw new Error('profile probe job requires an absolute sourceRoot or fixturesRoot');
+  if (!job.output || !isAbsolute(job.output))
+    throw new Error('profile probe job requires an absolute output path');
+  await writeFile(job.output, JSON.stringify(await probeProfile({ ...job, sourceRoot }), null, 2));
 }
-for (const localRoot of rootPaths) {
-  const entries = await readdir(localRoot, { withFileTypes: true });
-  const unsupported = entries.find(
-    (entry) =>
-      ['setup', 'components', 'layouts', 'styles'].includes(entry.name) ||
-      /^(?:global-(?:top|bottom)|custom-nav-controls)\.vue$|^(?:vite|uno)\.config\./.test(
-        entry.name,
-      ),
-  );
-  if (unsupported)
-    throw new Error(
-      `Deck ${job.deck.id}: local ${join(localRoot, unsupported.name)} is unsupported; shared setup/components/layouts must live in its declared theme`,
-    );
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  await runProbeFile(process.argv[2]);
 }
-async function contentRevision(root) {
-  const hash = createHash('sha256');
-  async function walk(directory) {
-    for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) =>
-      a.name < b.name ? -1 : 1,
-    )) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-      const file = join(directory, entry.name);
-      if (entry.isDirectory()) await walk(file);
-      else if (entry.isFile()) hash.update(relative(root, file)).update(await readFile(file));
-    }
-  }
-  await walk(root);
-  return hash.digest('hex');
-}
-const themeRoot = await realpath(job.profile.theme);
-const themePackage = JSON.parse(await readFile(join(themeRoot, 'package.json'), 'utf8'));
-const contract = {
-  cliVersion: runtime.cliVersion,
-  clientVersion: runtime.clientVersion,
-  cliEntry: runtime.cliEntry,
-  themeRoot,
-  themeRevision: await contentRevision(themeRoot),
-  compile: compileContract(options),
-};
-await writeFile(
-  job.output,
-  JSON.stringify(
-    {
-      runtimeVersion: runtime.cliVersion,
-      theme: `${themePackage.name}@${themePackage.version}`,
-      contract,
-      signature: createHash('sha256').update(stableJson(contract)).digest('hex'),
-    },
-    null,
-    2,
-  ),
-);

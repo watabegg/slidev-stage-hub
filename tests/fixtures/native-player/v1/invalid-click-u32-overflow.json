@@ -1,0 +1,17 @@
+{
+  "name": "click total exceeds u32 maximum",
+  "accepted": false,
+  "document": {
+    "schemaVersion": 1,
+    "protocolVersion": 1,
+    "decks": [
+      {
+        "id": "course/overflow-click",
+        "revision": "build-17",
+        "entry": "/course/overflow-click/1",
+        "clickTotals": [4294967296]
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

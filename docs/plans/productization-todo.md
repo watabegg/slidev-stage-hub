@@ -4,8 +4,8 @@
 
 - 計画書: `docs/plans/productization-plan.html`
 - goal prompt: `なし`
-- 計画検証日時: 2026-10-09（base: main@0885420 + working tree。鮮度チェックを実施したら更新する）
-- アクティブタスク: Step 1 / T01〜T03 完了。次は Step 2 / T04〜T06（共有契約と Slidev adapter、未着手）。
+- 計画検証日時: 2026-10-10（base: main@a7453e8 + Step 2〜3 working tree。鮮度チェックを実施したら更新する）
+- アクティブタスク: Step 3 / T07〜T09 完了（G3通過）。次はStep 4 / T10〜T12（未着手）。
 - ステータス凡例: `[ ]` 未着手 / `[x]` 完了 / `[!]` blocked（理由必須） / `[-]` cancelled（理由必須）
 - 完了条件: 全行が `[x]` または `[-]` に消し込まれていること。未消し込みのままの完了報告は禁止。
 - cancelled の扱い: `[-]` にはユーザー指示または計画改訂に紐づく理由が必要。`[-]` が1件でもあれば完了報告は「完了（一部取消あり）」とし、取消一覧を明記する。
@@ -17,8 +17,8 @@
 | 判定ゲート | 対応ステップ | 実行コマンド（新設/既存） | 合否判定条件 | 実行結果 |
 | :--- | :--- | :--- | :--- | :--- |
 | Gate G1 | Step 1 | `pnpm check` | exit 0、lint・format:check・typecheck・test・check:boundaries 通過、禁止 import の未登録違反 0 件（owner・解消 Step・理由付きの移行用 allowlist による期限付き例外を許容、例外 0 件必須は Step 8） | PASS 2026-10-09 / 81 tests、例外19件・未登録違反0件。`docs/results/development-foundation.json` |
-| Gate G2 | Step 2 | `pnpm test:contracts && pnpm check`（`test:contracts` 新設予定） | exit 0、positive / negative wire フィクスチャおよび Rust 対応テスト通過、Node 組み込み混入なし | 未実施 |
-| Gate G3 | Step 3 | `pnpm test:hub-service && pnpm verify:hub && pnpm verify:example:watabegg`（`test:hub-service` 新設予定、`verify:*` 既存） | exit 0、空 CWD / 絶対パス起動成功、失敗時旧成果物保持、watabegg / official テーマ等価性維持 | 未実施 |
+| Gate G2 | Step 2 | `pnpm test:contracts && pnpm check` | exit 0、positive / negative wire フィクスチャおよび Rust 対応テスト通過、Node 組み込み混入なし | PASS 2026-10-09 / Node 115 tests・Rust共通fixture通過、例外16件・未登録違反0件。`docs/results/protocol-adapter.json` |
+| Gate G3 | Step 3 | `pnpm test:hub-service && pnpm verify:hub && pnpm verify:example:watabegg`（`test:hub-service` 新設、`verify:*` 既存） | exit 0、空 CWD / 絶対パス起動成功、失敗時旧成果物保持、watabegg / official テーマ等価性維持 | PASS 2026-10-10 / service 7 tests、Hub 14・watabegg 10 checks、8 decks / 4 groups。`docs/results/hub-service.json` |
 | Gate G4 | Step 4 | `pnpm test:stage-tools && pnpm verify:stage`（両スクリプト新設予定、Rust core テスト含む） | exit 0、空 CWD 起動・アトミック切り替え成功、失敗時旧 config / site 保持、remote / auth 照合通過 | 未実施 |
 | Gate G5 | Step 5 | `pnpm test:cli && pnpm verify:packed-cli`（両スクリプト新設予定） | exit 0、引数解決順序・JSON 出力・終了コード整合、packed private tarball からの実行成功 | 未実施 |
 | Gate G6 | Step 6 | `pnpm test:web-client && pnpm verify:web-customization`（両スクリプト新設予定） | exit 0、default 表示維持、カスタム entry / style 差替え成功、headless client に副作用なし | 未実施 |
@@ -57,12 +57,12 @@ Gate の結果は実施後に in-place で更新する。失敗時は依存す�
 - [x] T01: `package.json`, `.oxlintrc.json`, `.oxfmtrc.json`, `scripts/check-boundaries.mjs` tooling/check: 静的検査基盤・スクリプトの整備（Gate: G1）
 - [x] T02: `AGENTS.md`, 各パッケージ `AGENTS.md` rules/AGENTS: 開発規約・AGENTSドキュメントの整備（Gate: G1）
 - [x] T03: `docs/DEVELOPMENT.md` feature台帳/baseline: 機能台帳の策定と既存ベースライン固定（Gate: G1）
-- [ ] T04: `packages/protocol/src/contracts/*`, `packages/protocol/src/bridge/*` purecontracts: 純粋なプロトコル・型契約の抽出（Gate: G2）
-- [ ] T05: `packages/slidev-adapter/src/{inspect-deck,native-manifest,static-runtime}.ts` Slidevadapter: Slidev内部APIの依存切り離しとアダプタ実装（Gate: G2）
-- [ ] T06: `tests/fixtures/`, `apps/stage/src/types/` Rust/TSfixtures: RustおよびTypeScript共通の検証用フィクスチャ整備（Gate: G2）
-- [ ] T07: `packages/hub/src/node/{build,config}.ts` hubservice/config: Hubコアサービスおよび設定読み込みの実装（Gate: G3）
-- [ ] T08: `packages/hub/src/node/{profiles,thumbnail,artifacts}.ts` profile/offline/thumbpipeline: プロファイル・オフライン・サムネイルパイプライン構築（Gate: G3）
-- [ ] T09: `packages/hub/` staticparity: 静的生成物の新旧等価性検証（Gate: G3）
+- [x] T04: `packages/protocol/src/contracts/*`, `packages/protocol/src/bridge/*` purecontracts: 純粋なプロトコル・型契約の抽出（Gate: G2）
+- [x] T05: `packages/slidev-adapter/src/{inspect-deck,native-manifest,static-runtime}.ts` Slidevadapter: Slidev内部APIの依存切り離しとアダプタ実装（Gate: G2）
+- [x] T06: `tests/fixtures/`, `apps/stage/src/types/` Rust/TSfixtures: RustおよびTypeScript共通の検証用フィクスチャ整備（Gate: G2）
+- [x] T07: `packages/hub/src/node/{build,config}.ts` hubservice/config: Hubコアサービスおよび設定読み込みの実装（Gate: G3）
+- [x] T08: `packages/hub/src/node/{offline,thumbnail,artifacts}.ts`, `src/node/internal/profiles.mjs` profile/offline/thumbpipeline: プロファイル・オフライン・サムネイルパイプライン構築（Gate: G3）
+- [x] T09: `packages/hub/` staticparity: 静的生成物の新旧等価性検証（Gate: G3）
 - [ ] T10: `packages/stage-tools/src/{prepare,connect,config}.ts` stageservices: Stage配信用コアサービス群の抽出（Gate: G4）
 - [ ] T11: `packages/stage-tools/src/`, `apps/stage/src-tauri/src/{commands,paths,config,server}.rs` hostpaths/atomicprepare: ホストパス解決とアトミックな準備処理（Gate: G4）
 - [ ] T12: `apps/stage/` stagecompatQA: Stage互換性確認およびQAシナリオ検証（Gate: G4）

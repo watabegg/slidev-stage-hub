@@ -17,7 +17,7 @@ test('default theme and CLI resolve inside this checkout regardless of cwd', () 
     process.chdir(elsewhere);
     assert.ok(themeDirectory({}).startsWith(repositoryRoot + '/'));
     assert.equal(slidevRequire(repositoryRoot)('@slidev/cli/package.json').version, '53.0.0');
-    assert.equal(dependencyDirectory({}), repositoryRoot);
+    assert.equal(dependencyDirectory({}), join(repositoryRoot, 'packages/hub'));
   } finally {
     process.chdir(cwd);
     rmSync(elsewhere, { recursive: true, force: true });
@@ -31,7 +31,10 @@ test('theme overrides preserve aliases without changing the toolchain', () => {
   );
   assert.equal(themeDirectory({ SLIDEV_LAB_THEME: './legacy' }), resolve('legacy'));
   assert.equal(themeDirectory({ SLIDEV_THEME_DIR: './stage-legacy' }), resolve('stage-legacy'));
-  assert.equal(dependencyDirectory({ SLIDEV_THEME_PATH: './custom-theme' }), repositoryRoot);
+  assert.equal(
+    dependencyDirectory({ SLIDEV_THEME_PATH: './custom-theme' }),
+    join(repositoryRoot, 'packages/hub'),
+  );
   assert.equal(
     dependencyDirectory({ SLIDEV_LAB_DEPENDENCY_ROOT: './examples/slidev52' }),
     resolve('examples/slidev52'),

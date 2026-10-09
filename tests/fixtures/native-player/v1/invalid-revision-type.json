@@ -1,0 +1,17 @@
+{
+  "name": "numeric deck revision",
+  "accepted": false,
+  "document": {
+    "schemaVersion": 1,
+    "protocolVersion": 1,
+    "decks": [
+      {
+        "id": "course/numeric-revision",
+        "revision": 17,
+        "entry": "/course/numeric-revision/1",
+        "clickTotals": [0]
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

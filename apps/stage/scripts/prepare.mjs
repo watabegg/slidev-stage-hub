@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-import { slidevRequire } from '../../../scripts/runtime-environment.mjs';
+import { dependencyDirectory } from '../../../scripts/runtime-environment.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { inspectDeckSource } from '../../../packages/protocol/src/inspect-deck.mjs';
+import { inspectDeckSource } from '@slidev-stage-hub/slidev-adapter/inspect-deck';
+import { loadSlidevParser as loadAdapterSlidevParser } from '@slidev-stage-hub/slidev-adapter/runtime';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const repoRoot = path.resolve(root, '../..');
@@ -120,8 +121,96 @@ export function validateManifest(manifest) {
   return manifest;
 }
 
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isAbsolutePath(value) {
+  return (
+    typeof value === 'string' && value.length > 0 && !value.includes('\0') && path.isAbsolute(value)
+  );
+}
+
+async function readSourceReceipt(site) {
+  const receiptPath = `${site}.receipt.json`;
+  let bytes;
+  try {
+    bytes = await fs.readFile(receiptPath);
+  } catch (error) {
+    if (error.code === 'ENOENT')
+      throw new Error(`private source receipt is required but missing: ${receiptPath}`, {
+        cause: error,
+      });
+    throw new Error(`cannot read private source receipt ${receiptPath}: ${error.message}`, {
+      cause: error,
+    });
+  }
+
+  try {
+    return JSON.parse(bytes.toString('utf8'));
+  } catch (error) {
+    throw new Error(`invalid private source receipt JSON at ${receiptPath}: ${error.message}`, {
+      cause: error,
+    });
+  }
+}
+
+function mergeReceiptSources(manifest, receipt, site) {
+  if (!isPlainObject(receipt)) throw new Error('private source receipt must be an object');
+  if (receipt.schemaVersion !== 1)
+    throw new Error('private source receipt schemaVersion must be 1');
+  if (!isAbsolutePath(receipt.output) || receipt.output !== site)
+    throw new Error('private source receipt output must match the resolved site path');
+  // These fields describe the Hub build but do not authorize source access.
+  if (!isAbsolutePath(receipt.sourceRoot))
+    throw new Error('private source receipt sourceRoot must be an absolute path');
+  if (!Array.isArray(receipt.decks))
+    throw new Error('private source receipt decks must be an array');
+
+  const receiptDecks = new Map();
+  for (const [index, deck] of receipt.decks.entries()) {
+    const label = `private source receipt deck ${index + 1}`;
+    if (!isPlainObject(deck)) throw new Error(`${label} must be an object`);
+    if (typeof deck.id !== 'string' || deck.id.length === 0)
+      throw new Error(`${label} id must be a non-empty string`);
+    if (receiptDecks.has(deck.id))
+      throw new Error(
+        `private source receipt contains duplicate deck id ${JSON.stringify(deck.id)}`,
+      );
+    if (typeof deck.revision !== 'string' || !/^[a-f\d]{64}$/i.test(deck.revision))
+      throw new Error(`${label} revision must be a SHA-256 hex string`);
+    if (!isAbsolutePath(deck.sourcePath))
+      throw new Error(`${label} sourcePath must be a non-empty absolute path`);
+    // Validate the recorded digest's shape only. Source edits are supported and
+    // the approved fixtures root remains the authority for resolving sources.
+    if (typeof deck.sourceRevision !== 'string' || !/^[a-f\d]{64}$/i.test(deck.sourceRevision))
+      throw new Error(`${label} sourceRevision must be a SHA-256 hex string`);
+    receiptDecks.set(deck.id, deck);
+  }
+
+  const matchedIds = new Set();
+  const decks = manifest.decks.map((deck) => {
+    if (typeof deck.id !== 'string' || deck.id.length === 0)
+      throw new Error('public manifest deck id must be a non-empty string');
+    if (matchedIds.has(deck.id))
+      throw new Error(`public manifest contains duplicate deck id ${JSON.stringify(deck.id)}`);
+    matchedIds.add(deck.id);
+
+    const source = receiptDecks.get(deck.id);
+    if (!source) throw new Error(`private source receipt is missing public deck ${deck.id}`);
+    if (source.revision !== deck.revision)
+      throw new Error(`private source receipt revision is stale for deck ${deck.id}`);
+    return { ...deck, sourcePath: source.sourcePath };
+  });
+
+  if (matchedIds.size !== receiptDecks.size)
+    throw new Error('private source receipt deck list does not match the public manifest');
+  return { ...manifest, decks };
+}
+
 export async function readManifestIfPresent(site) {
-  const manifestPath = path.join(site, 'manifest.json');
+  const resolvedSite = path.resolve(site);
+  const manifestPath = path.join(resolvedSite, 'manifest.json');
   let bytes;
   try {
     bytes = await fs.readFile(manifestPath);
@@ -140,7 +229,21 @@ export async function readManifestIfPresent(site) {
       cause: error,
     });
   }
-  return validateManifest(manifest);
+
+  if (
+    !isPlainObject(manifest) ||
+    manifest.schemaVersion !== 1 ||
+    !Array.isArray(manifest.decks) ||
+    manifest.decks.length === 0 ||
+    manifest.decks.some((deck) => !isPlainObject(deck))
+  )
+    return validateManifest(manifest);
+
+  if (manifest.decks.every((deck) => Object.hasOwn(deck, 'sourcePath')))
+    return validateManifest(manifest);
+
+  const receipt = await readSourceReceipt(resolvedSite);
+  return validateManifest(mergeReceiptSources(manifest, receipt, resolvedSite));
 }
 
 function isInside(parent, child) {
@@ -183,8 +286,7 @@ export async function resolveManifestSources(decks, hubRootPath, fixturesRootPat
 }
 
 export async function loadSlidevParser(dependencyRoot) {
-  const requireCli = slidevRequire(dependencyRoot);
-  return import(pathToFileURL(requireCli.resolve('@slidev/parser/core')).href);
+  return loadAdapterSlidevParser(dependencyRoot ?? dependencyDirectory());
 }
 
 export { inspectDeckSource };

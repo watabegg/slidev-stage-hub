@@ -3,15 +3,32 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
-    "build": "node bundle-sharing/experiments/module-graph/build.mjs && node scripts/prepare-offline.mjs",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "build": "pnpm --filter @slidev-stage-hub/protocol build && pnpm --filter @slidev-stage-hub/slidev-adapter build && pnpm build:node && node scripts/build.mjs",
     "serve": "node scripts/serve.mjs artifacts/module-graph-offline/site 4174",
-    "test": "node --test scripts/fingerprint-offline.test.mjs scripts/native-player.test.mjs bundle-sharing/experiments/module-graph/catalog.test.mjs",
+    "test": "node --test scripts/fingerprint-offline.test.mjs scripts/native-player.test.mjs bundle-sharing/experiments/module-graph/catalog.test.mjs tests/service.test.mjs",
     "baseline": "node scripts/baseline-build.mjs",
     "verify:library": "node scripts/verify-library.mjs artifacts/module-graph-offline/site",
-    "thumbnails": "node scripts/thumbnails.mjs artifacts/module-graph-offline/site"
+    "thumbnails": "node scripts/thumbnails.mjs artifacts/module-graph-offline/site",
+    "build:node": "tsc -p tsconfig.node.json"
   },
   "dependencies": {
-    "@slidev-stage-hub/protocol": "workspace:*"
+    "@slidev-stage-hub/protocol": "workspace:*",
+    "@slidev-stage-hub/slidev-adapter": "workspace:*",
+    "@slidev/cli": "53.0.0",
+    "@slidev/theme-default": "0.25.0",
+    "playwright-chromium": "1.63.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js"
+    },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js"
+    },
+    "./serve": "./dist/node/internal/serve.mjs",
+    "./legacy-environment": "./scripts/runtime-environment.mjs"
   }
 }

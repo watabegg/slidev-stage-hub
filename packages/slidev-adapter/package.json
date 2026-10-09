@@ -1,0 +1,32 @@
+{
+  "name": "@slidev-stage-hub/slidev-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./inspect-deck": {
+      "types": "./dist/inspect-deck.d.ts",
+      "import": "./dist/inspect-deck.js"
+    },
+    "./native-manifest": {
+      "types": "./dist/native-manifest.d.ts",
+      "import": "./dist/native-manifest.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "import": "./dist/runtime.js"
+    },
+    "./static-runtime": {
+      "types": "./dist/static-runtime.d.ts",
+      "import": "./dist/static-runtime.js"
+    }
+  },
+  "scripts": {
+    "build": "pnpm exec tsc -p tsconfig.json",
+    "typecheck": "pnpm exec tsc --noEmit -p tsconfig.json",
+    "test": "pnpm run build && node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@slidev-stage-hub/protocol": "workspace:*"
+  }
+}

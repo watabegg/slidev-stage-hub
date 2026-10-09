@@ -1,5 +1,7 @@
 # Shared protocol
 
-HubとStageの共有コード。`src/native-player.mjs` は公開discovery manifest、`src/inspect-deck.mjs` は資料・クリック・ノート位置の解析、`src/deck-bridge.ts` はNative専用bridge。`src/globals.d.ts` はIPC・表示状態・bridgeの型を保持する。
+`src/contracts/` はCatalog・Discovery v1・iframe bridgeの型とバリデータを提供する。公開入口は `@slidev-stage-hub/protocol` と `/contracts`。NodeやSlidevの実行時依存を持たない。
 
-`pnpm --filter @slidev-stage-hub/protocol build` でbridgeを `dist/deck-bridge.js` に生成する。Hub/Stageのビルドからも呼ばれる。Rustは不要。まだprivate packageで、公開API・型の粒度は今後整理する。
+`pnpm build:packages` でESM契約とclassic bridge（`dist/deck-bridge.js`、`/bridge`）を生成する。`/build` はNode専用のビルドツール。Stageの私有型は `apps/stage/src/types/`、資料解析とmanifest生成は `@slidev-stage-hub/slidev-adapter` に移動した。
+
+検証はルートの `pnpm test:contracts`。詳細は [開発ガイド](../../docs/DEVELOPMENT.md) を参照。

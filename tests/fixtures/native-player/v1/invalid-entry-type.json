@@ -1,0 +1,17 @@
+{
+  "name": "numeric deck entry",
+  "accepted": false,
+  "document": {
+    "schemaVersion": 1,
+    "protocolVersion": 1,
+    "decks": [
+      {
+        "id": "course/numeric-entry",
+        "revision": "build-17",
+        "entry": 1,
+        "clickTotals": [0]
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

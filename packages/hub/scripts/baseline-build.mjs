@@ -1,4 +1,4 @@
-import { themeDirectory, slidevRequire } from '../../../scripts/runtime-environment.mjs';
+import { themeDirectory, slidevRequire } from './runtime-environment.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';

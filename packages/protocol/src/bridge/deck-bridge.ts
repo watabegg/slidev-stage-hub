@@ -1,22 +1,6 @@
-function isNativeFrameState(value: unknown): value is NativeFrameState {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'deckId' in value &&
-    typeof value.deckId === 'string' &&
-    'page' in value &&
-    typeof value.page === 'number' &&
-    Number.isSafeInteger(value.page) &&
-    value.page > 0 &&
-    'clickIndex' in value &&
-    typeof value.clickIndex === 'number' &&
-    Number.isSafeInteger(value.clickIndex) &&
-    value.clickIndex >= 0 &&
-    'sessionRevision' in value &&
-    typeof value.sessionRevision === 'number' &&
-    Number.isSafeInteger(value.sessionRevision)
-  );
-}
+import { isNativeFrameState } from '../contracts/guards.js';
+import type { NativeFrameState, NativeNavigationAction } from '../contracts/wire.js';
+import type { NativeSlidevQueryValue, NativeSlidevRuntime } from './types.js';
 
 function isNativeMessageRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;

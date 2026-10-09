@@ -1,3 +1,11 @@
+import {
+  isNativeBridgeDiagnostic,
+  isNativeBridgeFailure,
+  isNativeBridgeReady,
+  isNativeNavigationAction,
+  isNativeRenderedReport,
+} from '@slidev-stage-hub/protocol/contracts';
+
 // At most two documents per viewport. Only Rust state may change their routes.
 interface NativeFrameSlot {
   frame: HTMLIFrameElement;
@@ -28,6 +36,19 @@ interface NativeFrameMessage {
   nativeInput?: NativeNavigationAction;
   documentToken?: string;
   nativeRendered?: NativeRenderedReport;
+}
+
+function isNativeFrameMessage(value: unknown): value is NativeFrameMessage {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return (
+    (!Object.hasOwn(data, 'nativeBridgeReady') || isNativeBridgeReady(data.nativeBridgeReady)) &&
+    (!Object.hasOwn(data, 'nativeFailure') || isNativeBridgeFailure(data.nativeFailure)) &&
+    (!Object.hasOwn(data, 'nativeDiagnostic') || isNativeBridgeDiagnostic(data.nativeDiagnostic)) &&
+    (!Object.hasOwn(data, 'nativeInput') || isNativeNavigationAction(data.nativeInput)) &&
+    (!Object.hasOwn(data, 'documentToken') || typeof data.documentToken === 'string') &&
+    (!Object.hasOwn(data, 'nativeRendered') || isNativeRenderedReport(data.nativeRendered))
+  );
 }
 
 window.NativeFrameController = class implements NativeFrameControllerInstance {
@@ -182,8 +203,8 @@ window.NativeFrameController = class implements NativeFrameControllerInstance {
       )
     )
       return false;
-    if (!event.data || typeof event.data !== 'object') return true;
-    const data = event.data as NativeFrameMessage;
+    if (!isNativeFrameMessage(event.data)) return true;
+    const data = event.data;
     if (data.nativeBridgeReady) {
       const ready = data.nativeBridgeReady;
       if (ready.deckId !== slot.deckId || ready.mount !== slot.mount) return true;

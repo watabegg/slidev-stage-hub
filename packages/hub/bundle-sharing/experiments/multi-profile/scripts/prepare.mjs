@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { resolveRuntime } from '../../module-graph/profile-runtime.mjs';
+import { resolveRuntime } from '@slidev-stage-hub/slidev-adapter/runtime';
 
 // Installed by the workspace lockfile; no dependency on another checkout's store.
 const dependencyRoot = fileURLToPath(

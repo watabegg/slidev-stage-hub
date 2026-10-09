@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from 'playwright-chromium';
-import { createServer } from '../packages/hub/scripts/serve.mjs';
+import { createServer } from '@slidev-stage-hub/hub/serve';
 import { repositoryRoot } from './runtime-environment.mjs';
 
 const site = join(repositoryRoot, 'packages/hub/artifacts/example-watabegg-offline/site');

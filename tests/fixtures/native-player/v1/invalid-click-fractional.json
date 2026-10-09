@@ -1,0 +1,17 @@
+{
+  "name": "fractional click total",
+  "accepted": false,
+  "document": {
+    "schemaVersion": 1,
+    "protocolVersion": 1,
+    "decks": [
+      {
+        "id": "course/fractional-click",
+        "revision": "build-17",
+        "entry": "/course/fractional-click/1",
+        "clickTotals": [1.5]
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

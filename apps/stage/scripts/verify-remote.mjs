@@ -267,6 +267,36 @@ async function verify(remoteOrigin, protocol, metadata) {
       !guards.forged && !guards.nullOrigin && !guards.wrongWindow && guards.unchanged,
       { ...guards, method: 'synthetic controller message guard calls' },
     );
+    const malformed = await page.evaluate((remoteOrigin) => {
+      const p = window.poc;
+      const c = p.controller;
+      const s = c.active;
+      const before = JSON.stringify({
+        inputs: p.inputs,
+        errors: p.errors,
+        stats: c.stats,
+        token: s.token,
+      });
+      for (const data of [
+        { nativeInput: 'eraseDeck', documentToken: s.token },
+        {
+          nativeBridgeReady: {
+            protocolVersion: 1,
+            deckId: s.deckId,
+            mount: s.mount,
+            documentToken: 7,
+          },
+        },
+        { nativeFailure: { documentToken: s.token, mount: s.mount, message: {} } },
+        { nativeRendered: { ...c.latest, documentToken: s.token, loaded: true } },
+      ])
+        c.message({ source: s.frame.contentWindow, origin: remoteOrigin, data });
+      return (
+        before ===
+        JSON.stringify({ inputs: p.inputs, errors: p.errors, stats: c.stats, token: s.token })
+      );
+    }, remoteOrigin);
+    check('controller ignores malformed reports and unknown navigation', malformed);
     const activeFrame = page
       .frames()
       .find(
@@ -293,6 +323,33 @@ async function verify(remoteOrigin, protocol, metadata) {
       'bridge rejects state with forged parent origin',
       (await activeFrame.evaluate(() => location.href)) === routeBefore,
       { method: 'synthetic bridge message guard call' },
+    );
+    await activeFrame.evaluate(
+      ({ state }) => {
+        const origin = new URL(location.href).searchParams.get('nativeParentOrigin');
+        for (const patch of [
+          { page: 0 },
+          { clickIndex: -1 },
+          { sessionRevision: -1 },
+          { page: state.page === 1 ? 2 : 1, sessionRevision: state.sessionRevision },
+        ]) {
+          window.dispatchEvent(
+            new MessageEvent('message', {
+              source: parent,
+              origin,
+              data: {
+                nativeState: { ...state, sessionRevision: state.sessionRevision + 1000, ...patch },
+              },
+            }),
+          );
+        }
+      },
+      { state },
+    );
+    await page.waitForTimeout(100);
+    check(
+      'bridge ignores malformed and stale state from the authorized parent',
+      (await activeFrame.evaluate(() => location.href)) === routeBefore,
     );
     const errorBefore = await page.evaluate(() => window.poc.errors.length);
     const mismatch = await page.evaluate(() => {

@@ -3,7 +3,7 @@
 ## 対象範囲と前提
 
 本リポジトリは、過去の概念実証を取り込んで構成された非公開モノレポです。本稿は開発環境セットアップガイド（`docs/DEVELOPMENT.md`）であり、設計文書ではないため新たなアーキテクチャや API の決定は含みません。標準テーマには公開済みの公式 `@slidev/theme-default` 0.25.0 を採用し、`@slidev/cli` およびクライアントは 53.0.0 をワークスペースのロックファイルで固定しています。別ディレクトリの `examples/slidev52` は、既存の複数プロファイル実験専用として CLI とクライアントを 52.15.2 に固定しています。
-追加サンプル用には公開済みの `slidev-theme-watabegg` 1.2.1 を明示的に指定して利用し、隣接リポジトリへのリンクや古い `slidev-lab`、`slidev-watabegg` の直接編集は行いません。環境依存の解消は完了しています。現在は再設計計画のStep 1（開発基盤）まで完了し、アーキテクチャ、プロトコル、APIの再設計はStep 2以降で進めます。npm への公開、リモートへの push、クラウドへの配備は実施していません。実際の検証結果は `docs/results/portability.json` に記録されており、クリーンなコンテナ環境での Node.js およびブラウザ検証と、ローカル環境でのネイティブ回帰試験を区別して管理しています（独立したネイティブ配布を保証するものではありません）。
+追加サンプル用には公開済みの `slidev-theme-watabegg` 1.2.1 を明示的に指定して利用し、隣接リポジトリへのリンクや古い `slidev-lab`、`slidev-watabegg` の直接編集は行いません。環境依存の解消は完了しています。現在は再設計計画のStep 2（共有契約とSlidev adapterの分離）まで完了し、次はStep 3でHubサービスを抽出します。npm への公開、リモートへの push、クラウドへの配備は実施していません。実際の検証結果は `docs/results/portability.json` に記録されており、クリーンなコンテナ環境での Node.js およびブラウザ検証と、ローカル環境でのネイティブ回帰試験を区別して管理しています（独立したネイティブ配布を保証するものではありません）。
 
 ## 環境構築と初期セットアップ
 
@@ -34,7 +34,7 @@ pnpm check
 - **ベースラインログ**: 実行ログはローカルの `artifacts/implementation/baseline-types.log` および `artifacts/implementation/baseline-tests.log` に出力されています。これらは生成された成果物であり、バージョン管理で追跡する文書資産には含めません。
 - **インストール検証**: レジストリのメタデータが利用可能な状態で、新規の一時的な `node_modules` と既存の pnpm ストア（`--store-dir`）を使用した frozen-lockfile でのインストールが通過することを確認しました。なお、`baseline-browser-mapping` のキャッシュメタデータが存在せずオフラインでの再試行は失敗したため、オフラインでのインストール成功は確認できていません。
 - **ゲート統合の状況**: 2026年10月9日にステップ 1 の検証ゲート G1 が確認され、`pnpm check` は終了コード 0 で通過しました。正式な根拠は `docs/results/development-foundation.json` に記録されています。Node.js のテストは合計 81 件（ルート 19、Hub 12、Stage 23、Workers 27）が通過し、境界検査では登録済みの移行例外が 19 件、未登録の境界違反は 0 件でした。なお、例外をゼロ件にすることが求められるのはステップ 8 です。
-- **計画の進捗**: 全体計画は `docs/plans/productization-plan.html` に記載されています。ステップ 1（T01〜T03）は完了しており、次はステップ 2（T04〜T06）の作業を進める予定です。後続の実装ステップ（ステップ 2〜8）はすべて保留中となっています。
+- **計画の進捗**: 全体計画は `docs/plans/productization-plan.html` に記載されています。ステップ 1〜2（T01〜T06）は完了し、次はステップ 3です。ステップ 3〜8は未着手です。
 
 ### 検証コマンドと対象範囲
 開発時の検証を迅速に行うため、ルートの `package.json` に `pnpm lint`、`pnpm format`、`pnpm format:check`、`pnpm check:boundaries`、`pnpm check` のスクリプトを追加しています。
@@ -95,6 +95,18 @@ pnpm check
 - 実験的なコードと本番コードは明確に区別します。
 - `/home/watabegg/slidev-lab` および `/home/watabegg/slidev-watabegg` を編集してはなりません。
 - 秘密情報、認証情報、トークン、生成された成果物は、バージョン管理の追跡対象に含めないでください。
+
+## 共有契約とSlidev adapter
+
+Step 2のG2は通過済みです（2026-10-09）。`pnpm check` 115件、Rust共通フィクスチャ、Hub/Stage HTTP・HTTPS連携66項目を確認しました。移行例外は16件です。詳細は [検証記録](results/protocol-adapter.json) を参照してください。
+
+アプリケーション内部の状態すべてを公開APIとせず責務を分離するため、共有契約と処理系を整理しています。`packages/protocol/src/contracts`（ESM公開: `.`および`./contracts`）はCatalog、Discovery v1、iframeブリッジ通信の型、純粋なTypeScriptランタイム検証器を担当し、Node API非依存でブラウザやWorker環境と互換性を持ちます。Stage固有のセッション、Tauri、ウィンドウ、UIの型は`apps/stage/src/types`へ移設されました。また、`src/bridge`からビルドされる独立したクラシックスクリプト`dist/deck-bridge.js`は`./bridge`から提供されますが、`./build`はNodeビルド専用ツールでありブラウザ向け契約APIではありません。
+
+Node専用の`packages/slidev-adapter`は`protocol`の型に一方向依存し、逆依存は持ちません。ここには`inspect-deck.ts`（パーサーとノートのバイトオフセット）、`native-manifest.ts`（ファイルシステムから読み込み、ソースパスや非公開ノートを除外する公開マニフェスト）、`runtime.ts`（CLIとクライアントの52.15.2および53.0.0完全一致バージョン解決）、`static-runtime.ts`（署名チェックで保護された非公開ソース向けパッチ適用）が配置されます。旧`protocol`の`./inspect-deck`と`./native-player`エクスポートは内部呼び出し元の移行に合わせて一括削除されたため、新アダプターのエクスポートを使用します。
+
+ビルド時は`pnpm build:packages`で`protocol`、アダプターの順にdistエクスポートを準備します。通常のルートビルドやテストラッパー、`pnpm check`で自動構築されますが、Nodeスクリプトを直接実行する場合はインストール後やソース変更後に一度本ビルドを実行する必要があります。`pnpm test:contracts`はJS検証器、アダプターテスト、ブラウザ・Worker向けバンドル、共有フィクスチャ、Rustコア連携フィクスチャを実行します（全体のゲートは`pnpm check`が担います）。`tests/fixtures/native-player/v1`の共有JSONはTypeScriptのDiscovery検証とRust実DeckのserdeおよびControllerページ境界の検証のみを対象とします。Rustは完全なDiscoveryドキュメントを受け取らないため、バージョンやID、非対応デッキの判定方針はNode側でテストされ、Rustとの同等性は保証されません。
+
+v1では未知の追加フィールドを許容し、capabilities契約やschema2は導入していません。オリジン、ウィンドウ、マウント、トークン、リビジョンの保護を維持しつつ、不正なブリッジフィールドや未対応ナビゲーションは拒否されます。なお、Hubのオーケストレーション移設はStep 3、Workersコンパイラ移設はStep 7で進められますが、既存Workersビルドに対応するためHubの`profile-runtime`ファサードは保持されており、実験的機能の全面撤去ではありません。
 
 ## Hub と Stage の実行と検証
 
@@ -162,7 +174,7 @@ pnpm dev:workers
 台帳の解釈と運用にあたっては、以下の原則を適用します。
 
 - **移行状況の定義**: `status` は本番向け移行作業自体の進捗を表し、現行コードでの動作可否を示すものではありません。移行が完了するまで、現行の移行元コードは現在の場所に維持します。
-- **計画ステップの保留**: ステップ 1（T01〜T03）は完了していますが、後続の製品化ステップ（ステップ 2〜8）は未着手であり、すべて保留（`pending`）として記録します。
+- **計画ステップの保留**: ステップ 1〜3は完了しています。後続のステップ 4〜8を未着手（`pending`）として記録します。
 - **検証資産の保持**: 過去のベンチマークや比較用資産は検証・再現用として保持し、本番の実行時環境（ランタイム）にはインポートしません。
 
 ### 機能移行一覧
@@ -171,11 +183,11 @@ pnpm dev:workers
 
 | feature | current source | test / verification | planned destination | status |
 | --- | --- | --- | --- | --- |
-| module-graph shared build | `packages/hub/bundle-sharing/experiments/module-graph/` | `packages/hub/bundle-sharing/experiments/module-graph/catalog.test.mjs`; `pnpm verify:hub` | `packages/hub/src/node/build.ts` and associated `packages/hub/src/node/` (Step 3) | Step 3 pending |
-| multi-profile resolution and process isolation | `packages/hub/bundle-sharing/experiments/module-graph/profiles.mjs`, `profile-probe.mjs`; `packages/hub/bundle-sharing/experiments/multi-profile/` | `packages/hub/bundle-sharing/experiments/multi-profile/scripts/browser.mjs`, `compare.mjs`; historical `packages/hub/bundle-sharing/experiments/multi-profile/results/experiment.md` | `packages/slidev-adapter/` isolation plus Hub profile service in `packages/hub/src/node/profiles.ts` (Steps 2–3) | Steps 2–3 pending |
-| offline output and fingerprint cache | `packages/hub/scripts/prepare-offline.mjs`, `fingerprint-offline.mjs`, `packages/hub/frontend/` | `packages/hub/scripts/fingerprint-offline.test.mjs`; `pnpm verify:hub` | Integrated Hub build pipeline in `packages/hub/src/node/` (Step 3) | Step 3 pending |
-| Hub thumbnail generation | `packages/hub/scripts/thumbnails.mjs` | `pnpm thumbnails:hub`; `pnpm verify:hub` | `packages/hub/src/node/thumbnail.ts` (Step 3) | Step 3 pending |
-| native bridge and shared wire types | `packages/protocol/src/deck-bridge.ts`, `globals.d.ts`, `native-player.mjs` | `apps/stage/scripts/verify-remote.mjs`; Stage tests | `packages/protocol/src/contracts/` and `src/bridge/` (Step 2) | Step 2 pending |
+| module-graph shared build | `packages/hub/src/node/build.ts`, `src/node/internal/graph.mjs` | `packages/hub/bundle-sharing/experiments/module-graph/catalog.test.mjs`; `pnpm verify:hub` | `packages/hub/src/node/build.ts` and associated `packages/hub/src/node/` (Step 3) | Step 3 complete |
+| multi-profile resolution and process isolation | `packages/hub/src/node/internal/profiles.mjs`, `profile-probe.mjs`; `packages/hub/bundle-sharing/experiments/multi-profile/` | `packages/hub/bundle-sharing/experiments/multi-profile/scripts/browser.mjs`, `compare.mjs`; historical `packages/hub/bundle-sharing/experiments/multi-profile/results/experiment.md` | `packages/slidev-adapter/` isolation plus Hub profile service in `packages/hub/src/node/internal/profiles.mjs` (Steps 2–3) | Step 2 adapter complete; Step 3 complete |
+| offline output and fingerprint cache | `packages/hub/src/node/offline.ts`, `src/node/internal/fingerprint-offline.mjs`, `packages/hub/frontend/` | `packages/hub/scripts/fingerprint-offline.test.mjs`; `pnpm verify:hub` | Integrated Hub build pipeline in `packages/hub/src/node/` (Step 3) | Step 3 complete |
+| Hub thumbnail generation | `packages/hub/src/node/thumbnail.ts` | `pnpm thumbnails:hub`; `pnpm verify:hub` | `packages/hub/src/node/thumbnail.ts` (Step 3) | Step 3 complete |
+| native bridge and shared wire types | `packages/protocol/src/contracts/`, `src/bridge/`; `packages/slidev-adapter/src/native-manifest.ts` | `apps/stage/scripts/verify-remote.mjs`; Stage tests | `packages/protocol/src/contracts/` and `src/bridge/` (Step 2) | Step 2 complete |
 | Stage state, frame control, notes, auth | `apps/stage/core/`, `apps/stage/src/`, `apps/stage/src-tauri/`, `apps/stage/scripts/` | `pnpm --filter @slidev-stage-hub/stage test`; `cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core`; `node apps/stage/scripts/verify-remote.mjs` | `packages/stage-tools/src/` for prepare/connect plus modular `apps/stage/src-tauri/` (Step 4); UI and Rust core stay in Stage | Step 4 pending |
 | Workers compile, publish, and revision lifecycle | `packages/hub/bundle-sharing/experiments/workers/{compiler.mjs,worker.mjs,publish.mjs,runtime/}` | `compiler.test.mjs`; `pnpm verify:workers` | `apps/hub-worker/src/{worker,compiler,storage,versions,native-player}.ts` and `apps/hub-worker/runtime/` (Step 7) | Step 7 pending |
 | Workers thumbnails | `packages/hub/bundle-sharing/experiments/workers/{thumbnail.mjs,local-thumbnail.mjs,verify-thumbnail.mjs}` | `thumbnail.test.mjs`; `verify-thumbnail.mjs`; `pnpm verify:workers` | `apps/hub-worker/` thumbnail/cache path, preserving current cached-response and uncached-503 behavior (Step 7) | Step 7 pending |
@@ -199,3 +211,5 @@ docker run --rm --init --shm-size=1g slidev-stage-hub:portable
 
 ホストのディレクトリはマウントせず、`.dockerignore` により `node_modules`、成果物、`target`、`dist`、`.git`、ローカル認証情報を除外します。セットアップとビルドにはネットワーク接続が必要です。
 `.github/workflows/checks.yml` では上記の Node.js およびブラウザ検証に加え、`cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core` を独立して実行します。リポジトリの push を行っていないため GitHub 上での CI 自体は未実行であり、手元の Docker による検証記録とは区別されます。コンテナ環境は独立したネイティブ GTK/WebKit アプリケーションとしての配布を保証するものではありません。ローカルのデスクトップ環境で回帰試験を実施した場合は別途記録します。
+
+Hubの公開Node API・設定・非公開receipt・通常失敗時の復元範囲は [Hubサービス開発ガイド](guides/hub-service.md)、Step 3の実測は [検証記録](results/hub-service.json) を参照。

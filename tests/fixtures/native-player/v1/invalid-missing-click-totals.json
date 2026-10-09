@@ -1,0 +1,16 @@
+{
+  "name": "missing required clickTotals field",
+  "accepted": false,
+  "document": {
+    "schemaVersion": 1,
+    "protocolVersion": 1,
+    "decks": [
+      {
+        "id": "course/missing-clicks",
+        "revision": "build-17",
+        "entry": "/course/missing-clicks/1"
+      }
+    ],
+    "unsupportedDecks": []
+  }
+}

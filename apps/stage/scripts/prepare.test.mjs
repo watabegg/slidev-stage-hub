@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +22,22 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 
 function manifestDeck(id, sourcePath, revision = revisionA, pages = 2) {
   return { id, sourcePath, entry: canonicalEntryForId(id), revision, pages };
+}
+
+function publicDeck(id = 'course/topic-one', revision = revisionA, pages = 2) {
+  return { id, entry: canonicalEntryForId(id), revision, pages };
+}
+
+function receiptDeck(deck, sourcePath, sourceRevision = revisionA) {
+  return { id: deck.id, sourcePath, revision: deck.revision, sourceRevision };
+}
+
+function publicManifest(decks) {
+  return { schemaVersion: 1, decks };
+}
+
+function privateReceipt(site, sourceRoot, decks) {
+  return { schemaVersion: 1, output: path.resolve(site), sourceRoot, decks };
 }
 
 async function withTempDir(run) {
@@ -127,6 +144,152 @@ test('an existing malformed public manifest is an error, while an absent one sel
       JSON.stringify({ schemaVersion: 1, decks: [] }),
     );
     await assert.rejects(readManifestIfPresent(directory), /non-empty decks array/);
+  });
+});
+
+test('joins a private source receipt in memory and leaves the public manifest unchanged', async () => {
+  await withTempDir(async (directory) => {
+    const site = path.join(directory, 'site');
+    const fixturesRoot = path.join(directory, 'approved-fixtures');
+    const source = path.join(fixturesRoot, 'course/topic-one/slides.md');
+    const hubRoot = path.join(directory, 'packages/hub');
+    const deck = publicDeck();
+    const oldSource = Buffer.from('# prior source\n');
+    await mkdir(path.dirname(source), { recursive: true });
+    await writeFile(source, '# edited source\n');
+    await mkdir(site, { recursive: true });
+
+    const publicBytes = `${JSON.stringify(publicManifest([deck]), null, 2)}\n`;
+    await writeFile(path.join(site, 'manifest.json'), publicBytes);
+    await writeFile(
+      `${site}.receipt.json`,
+      JSON.stringify(
+        privateReceipt(site, path.join(directory, 'untrusted-receipt-root'), [
+          receiptDeck(deck, source, createHash('sha256').update(oldSource).digest('hex')),
+        ]),
+      ),
+    );
+
+    const manifest = await readManifestIfPresent(site);
+    assert.deepEqual(manifest.decks, [{ ...deck, sourcePath: source }]);
+    assert.equal(await readFile(path.join(site, 'manifest.json'), 'utf8'), publicBytes);
+
+    const resolved = await resolveManifestSources(manifest.decks, hubRoot, fixturesRoot);
+    assert.equal(resolved.sources[0].source, await realpath(source));
+  });
+});
+
+test('legacy manifests with sourcePath do not require an adjacent receipt', async () => {
+  await withTempDir(async (directory) => {
+    const site = path.join(directory, 'legacy-site');
+    const manifest = publicManifest([
+      manifestDeck('course/legacy', '../../examples/fixtures/course/legacy/slides.md'),
+    ]);
+    await mkdir(site, { recursive: true });
+    await writeFile(path.join(site, 'manifest.json'), JSON.stringify(manifest));
+
+    assert.deepEqual(await readManifestIfPresent(site), manifest);
+  });
+});
+
+test('missing or invalid private receipts reject before modifying either input file', async () => {
+  const cases = [
+    {
+      name: 'missing receipt',
+      receipt: null,
+      error: /private source receipt is required but missing/,
+    },
+    {
+      name: 'output mismatch',
+      receipt: (site, root, decks) => ({
+        ...privateReceipt(site, root, decks),
+        output: `${site}-other`,
+      }),
+      error: /output must match the resolved site path/,
+    },
+    {
+      name: 'stale public deck revision',
+      receipt: (site, root, decks) =>
+        privateReceipt(site, root, [{ ...decks[0], revision: revisionB }]),
+      error: /revision is stale/,
+    },
+    {
+      name: 'duplicate receipt deck id',
+      receipt: (site, root, decks) => privateReceipt(site, root, [...decks, decks[0]]),
+      error: /duplicate deck id/,
+    },
+    {
+      name: 'receipt omits a public deck',
+      receipt: (site, root) => privateReceipt(site, root, []),
+      error: /missing public deck/,
+    },
+    {
+      name: 'receipt contains an unlisted deck',
+      receipt: (site, root, decks) =>
+        privateReceipt(site, root, [
+          ...decks,
+          {
+            ...decks[0],
+            id: 'course/unlisted',
+            sourcePath: path.join(root, 'unlisted.md'),
+          },
+        ]),
+      error: /deck list does not match/,
+    },
+    {
+      name: 'receipt sourcePath is not absolute',
+      receipt: (site, root, decks) =>
+        privateReceipt(site, root, [{ ...decks[0], sourcePath: 'relative/slides.md' }]),
+      error: /sourcePath must be a non-empty absolute path/,
+    },
+  ];
+
+  for (const item of cases) {
+    await withTempDir(async (directory) => {
+      const site = path.join(directory, 'site');
+      const sourceRoot = path.join(directory, 'source-root');
+      const deck = publicDeck();
+      const decks = [receiptDeck(deck, path.join(sourceRoot, 'slides.md'))];
+      const publicBytes = `${JSON.stringify(publicManifest([deck]), null, 2)}\n`;
+      const receipt = item.receipt?.(site, sourceRoot, decks);
+      await mkdir(site, { recursive: true });
+      await writeFile(path.join(site, 'manifest.json'), publicBytes);
+      if (receipt) await writeFile(`${site}.receipt.json`, JSON.stringify(receipt));
+      const receiptBytes = receipt && (await readFile(`${site}.receipt.json`, 'utf8'));
+
+      await assert.rejects(readManifestIfPresent(site), item.error, item.name);
+      assert.equal(await readFile(path.join(site, 'manifest.json'), 'utf8'), publicBytes);
+      if (receiptBytes) assert.equal(await readFile(`${site}.receipt.json`, 'utf8'), receiptBytes);
+    });
+  }
+});
+
+test('a receipt source outside --fixtures-root is still rejected even when its sourceRoot names it', async () => {
+  await withTempDir(async (directory) => {
+    const site = path.join(directory, 'site');
+    const fixturesRoot = path.join(directory, 'approved-fixtures');
+    const outsideRoot = path.join(directory, 'outside-fixtures');
+    const source = path.join(outsideRoot, 'course/topic-one/slides.md');
+    const deck = publicDeck();
+    await mkdir(path.dirname(source), { recursive: true });
+    await mkdir(fixturesRoot, { recursive: true });
+    await mkdir(site, { recursive: true });
+    await writeFile(source, '# Outside\n');
+    await writeFile(path.join(site, 'manifest.json'), JSON.stringify(publicManifest([deck])));
+    await writeFile(
+      `${site}.receipt.json`,
+      JSON.stringify(
+        privateReceipt(site, outsideRoot, [
+          receiptDeck(deck, source, createHash('sha256').update('# Outside\n').digest('hex')),
+        ]),
+      ),
+    );
+
+    const manifest = await readManifestIfPresent(site);
+    await assert.rejects(
+      resolveManifestSources(manifest.decks, path.join(directory, 'packages/hub'), fixturesRoot),
+      /outside the approved fixtures root/,
+    );
   });
 });
 
