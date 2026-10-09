@@ -2,7 +2,7 @@
 // Local HTTPS fixture using the same read-only routing as the ordinary server.
 import { createServer as createHttpsServer } from 'node:https';
 import { readFileSync } from 'node:fs';
-import { createServer } from '../../../packages/hub/scripts/serve.mjs';
+import { createServer } from '@slidev-stage-hub/hub/serve';
 
 const [site, certificate, key, portArgument = '4179'] = process.argv.slice(2);
 if (!site || !certificate || !key)

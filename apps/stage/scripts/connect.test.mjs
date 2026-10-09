@@ -91,9 +91,10 @@ test('connect fetches the public manifest from HTTP loopback and writes only pub
       const artifactsRoot = path.join(directory, 'artifacts');
       const result = await connect(`${origin}/`, { configPath, artifactsRoot });
       assert.deepEqual(result.config, {
+        schemaVersion: 1,
         decks: [validDeck],
         notes: {},
-        approvedSourceRoot: artifactsRoot,
+        approvedSourceRoot: directory,
         viewerOrigin: origin,
       });
       assert.deepEqual(result.unsupportedDecks, [
@@ -133,9 +134,10 @@ test('connect sends origin-bound auth headers only to the manifest request and s
         const result = await connect(origin, { headersFile, configPath, artifactsRoot });
 
         assert.deepEqual(result.config, {
+          schemaVersion: 1,
           decks: [validDeck],
           notes: {},
-          approvedSourceRoot: artifactsRoot,
+          approvedSourceRoot: directory,
           viewerOrigin: origin,
           authHeadersFile: headersFile,
         });
@@ -162,12 +164,20 @@ test('rejects malformed CLI argument layouts before connecting', () => {
   assert.deepEqual(parseConnectArgs(['https://slides.example.com']), {
     origin: 'https://slides.example.com',
     headersFile: undefined,
+    configPath: path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../artifacts/local-config.json',
+    ),
   });
   assert.deepEqual(
     parseConnectArgs(['https://slides.example.com', '--headers-file', './auth.json']),
     {
       origin: 'https://slides.example.com',
       headersFile: './auth.json',
+      configPath: path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        '../artifacts/local-config.json',
+      ),
     },
   );
   for (const args of [

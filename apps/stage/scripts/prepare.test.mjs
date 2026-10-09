@@ -56,12 +56,37 @@ test('CLI accepts named options and the legacy positional site', () => {
     {
       site: path.join(cwd, 'experiment/site'),
       fixturesRoot: path.join(cwd, 'experiment/fixtures'),
+      configPath: path.join(repoRoot, 'apps/stage/artifacts/local-config.json'),
+      receiptPath: undefined,
     },
   );
   assert.deepEqual(parseArgs(['legacy/site'], { cwd }), {
     site: path.join(cwd, 'legacy/site'),
     fixturesRoot: path.join(repoRoot, 'examples/fixtures'),
+    configPath: path.join(repoRoot, 'apps/stage/artifacts/local-config.json'),
+    receiptPath: undefined,
   });
+  assert.deepEqual(
+    parseArgs(
+      [
+        '--site',
+        'site',
+        '--fixtures-root',
+        'fixtures',
+        '--config',
+        '.stage/config.json',
+        '--receipt',
+        'private.json',
+      ],
+      { cwd },
+    ),
+    {
+      site: path.join(cwd, 'site'),
+      fixturesRoot: path.join(cwd, 'fixtures'),
+      configPath: path.join(cwd, '.stage/config.json'),
+      receiptPath: path.join(cwd, 'private.json'),
+    },
+  );
   assert.throws(
     () => parseArgs(['--site', 'one', 'two'], { cwd }),
     /either --site or a positional path/,

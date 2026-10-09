@@ -9,7 +9,12 @@ import { fileURLToPath } from 'node:url';
 buildNativeUi();
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const stageRoot = path.join(repoRoot, 'apps/stage');
-const site = path.resolve(process.argv[2] || path.join(stageRoot, 'artifacts/site'));
+const configuredSite =
+  process.argv[2] ||
+  JSON.parse(await readFile(path.join(stageRoot, 'artifacts/local-config.json'), 'utf8'))
+    .siteRoot ||
+  path.join(stageRoot, 'artifacts/site');
+const site = path.resolve(configuredSite);
 const output = path.resolve(process.argv[3] || path.join(stageRoot, 'artifacts/flicker'));
 const manifest = JSON.parse(await readFile(path.join(site, 'manifest.json'), 'utf8'));
 const browser = await chromium.launch({

@@ -172,6 +172,13 @@ importers:
       '@slidev-stage-hub/slidev-adapter':
         specifier: workspace:*
         version: link:../../packages/slidev-adapter
+      '@slidev-stage-hub/stage-tools':
+        specifier: workspace:*
+        version: link:../../packages/stage-tools
+    devDependencies:
+      '@slidev-stage-hub/hub':
+        specifier: workspace:*
+        version: link:../../packages/hub
 
   examples/slidev52:
     devDependencies:
@@ -242,6 +249,21 @@ importers:
       '@slidev-stage-hub/protocol':
         specifier: workspace:*
         version: link:../protocol
+
+  packages/stage-tools:
+    dependencies:
+      '@slidev-stage-hub/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@slidev-stage-hub/slidev-adapter':
+        specifier: workspace:*
+        version: link:../slidev-adapter
+      '@slidev/cli':
+        specifier: 53.0.0
+        version: 53.0.0(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@types/markdown-it@14.2.0)(@types/node@24.10.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(playwright-chromium@1.63.0)(postcss@8.5.28)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)
+      '@slidev/client':
+        specifier: 53.0.0
+        version: 53.0.0(@modelcontextprotocol/server@2.3.1)(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
 
 packages:
 

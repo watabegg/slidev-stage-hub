@@ -1,0 +1,210 @@
+{
+  "step": 4,
+  "date": "2026-10-10",
+  "baseCommit": "1ecc2f3",
+  "status": "passed",
+  "tasks": [
+    "T10",
+    "T11",
+    "T12"
+  ],
+  "commands": {
+    "pnpm check": {
+      "status": "passed",
+      "nodeTests": 135,
+      "boundaryViolations": 0,
+      "temporaryBoundaryExceptions": 5
+    },
+    "pnpm test:stage-tools": {
+      "status": "passed",
+      "nodeServiceTests": 10,
+      "rustTests": 41
+    },
+    "pnpm verify:stage": {
+      "status": "passed",
+      "checks": [
+        "prepare",
+        "desktop build",
+        "HTTP/HTTPS bridge",
+        "persistent iframe",
+        "native WebKit from empty cwd"
+      ]
+    },
+    "pnpm install --offline --frozen-lockfile": {
+      "status": "passed"
+    }
+  },
+  "native": {
+    "legacy": {
+      "complete": true,
+      "sourceRestored": true,
+      "error": null,
+      "assertions": [
+        {
+          "name": "wrapper Enter one transition",
+          "pass": true
+        },
+        {
+          "name": "frame Enter one transition with theme shortcut suppressed",
+          "pass": true
+        },
+        {
+          "name": "frame repeats and stock controls cannot bypass Rust",
+          "pass": true
+        },
+        {
+          "name": "actual rendered click-one visibility",
+          "pass": true
+        },
+        {
+          "name": "native third slide code and math loaded",
+          "pass": true
+        },
+        {
+          "name": "click sequence then page advance",
+          "pass": true
+        },
+        {
+          "name": "previous returns previous final click",
+          "pass": true
+        },
+        {
+          "name": "notes keyboard suppression",
+          "pass": true
+        },
+        {
+          "name": "notes native save",
+          "pass": true
+        },
+        {
+          "name": "saved private mapping survives new document instance",
+          "pass": true
+        },
+        {
+          "name": "notes restore roundtrip",
+          "pass": true
+        },
+        {
+          "name": "audience input reaches Rust and preserves editor draft",
+          "pass": true
+        },
+        {
+          "name": "draft restored after audience navigation",
+          "pass": true
+        },
+        {
+          "name": "next preview is read only",
+          "pass": true
+        },
+        {
+          "name": "Rust timer pause elapsed",
+          "pass": true
+        },
+        {
+          "name": "Rust timer reset",
+          "pass": true
+        },
+        {
+          "name": "blackout",
+          "pass": true
+        },
+        {
+          "name": "deck switch resets page/click/blackout",
+          "pass": true
+        }
+      ]
+    },
+    "versionedEmptyCwd": {
+      "complete": true,
+      "sourceRestored": true,
+      "error": null,
+      "assertions": [
+        {
+          "name": "wrapper Enter one transition",
+          "pass": true
+        },
+        {
+          "name": "frame Enter one transition with theme shortcut suppressed",
+          "pass": true
+        },
+        {
+          "name": "frame repeats and stock controls cannot bypass Rust",
+          "pass": true
+        },
+        {
+          "name": "actual rendered click-one visibility",
+          "pass": true
+        },
+        {
+          "name": "native third slide code and math loaded",
+          "pass": true
+        },
+        {
+          "name": "click sequence then page advance",
+          "pass": true
+        },
+        {
+          "name": "previous returns previous final click",
+          "pass": true
+        },
+        {
+          "name": "notes keyboard suppression",
+          "pass": true
+        },
+        {
+          "name": "notes native save",
+          "pass": true
+        },
+        {
+          "name": "saved private mapping survives new document instance",
+          "pass": true
+        },
+        {
+          "name": "notes restore roundtrip",
+          "pass": true
+        },
+        {
+          "name": "audience input reaches Rust and preserves editor draft",
+          "pass": true
+        },
+        {
+          "name": "draft restored after audience navigation",
+          "pass": true
+        },
+        {
+          "name": "next preview is read only",
+          "pass": true
+        },
+        {
+          "name": "Rust timer pause elapsed",
+          "pass": true
+        },
+        {
+          "name": "Rust timer reset",
+          "pass": true
+        },
+        {
+          "name": "blackout",
+          "pass": true
+        },
+        {
+          "name": "deck switch resets page/click/blackout",
+          "pass": true
+        }
+      ]
+    }
+  },
+  "design": [
+    "Private stage-tools prepare/connect APIs with explicit absolute inputs",
+    "Versioned site plus atomic config pointer; previous site/config retained on pre-commit failure",
+    "Shared config lock across prepare/connect and Rust note writes",
+    "Explicit --config and project-local config lookup; checkout fallback is debug-only",
+    "Rust core state and existing auth/source conflict checks retained"
+  ],
+  "limitations": [
+    "Linux desktop tested; Windows and physical multi-display unverified",
+    "Mock auth tests do not establish real Cloudflare Access acceptance",
+    "Previous site versions retained without automatic garbage collection",
+    "Atomic rename does not claim power-loss durability or universal network-filesystem support"
+  ]
+}

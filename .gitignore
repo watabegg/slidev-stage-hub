@@ -5,6 +5,7 @@ dist/
 .tauri/
 
 # Local configuration and credentials
+.slidev-stage/
 .env
 .env.*
 !.env.example

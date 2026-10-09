@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer } from '../../../packages/hub/scripts/serve.mjs';
+import { createServer } from '@slidev-stage-hub/hub/serve';
 
 buildNativeUi();
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');

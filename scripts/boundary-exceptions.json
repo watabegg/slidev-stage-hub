@@ -2,38 +2,6 @@
   "version": 1,
   "exceptions": [
     {
-      "file": "apps/stage/scripts/prepare.mjs",
-      "specifier": "../../../scripts/runtime-environment.mjs",
-      "rule": "cross-package-relative-import",
-      "owner": "Stage",
-      "reason": "Stage preparation still reads the root migration-era environment helper; Step 4 will move this configuration behind Stage tools.",
-      "removeStep": 4
-    },
-    {
-      "file": "apps/stage/scripts/serve-auth-fixture.mjs",
-      "specifier": "../../../packages/hub/scripts/serve.mjs",
-      "rule": "cross-package-relative-import",
-      "owner": "Stage",
-      "reason": "The Stage auth fixture reuses Hub's internal development server; Step 4 will give Stage verification an owned serving boundary.",
-      "removeStep": 4
-    },
-    {
-      "file": "apps/stage/scripts/serve-https.mjs",
-      "specifier": "../../../packages/hub/scripts/serve.mjs",
-      "rule": "cross-package-relative-import",
-      "owner": "Stage",
-      "reason": "The Stage HTTPS fixture reuses Hub's internal development server; Step 4 will give Stage verification an owned serving boundary.",
-      "removeStep": 4
-    },
-    {
-      "file": "apps/stage/scripts/verify-remote.mjs",
-      "specifier": "../../../packages/hub/scripts/serve.mjs",
-      "rule": "cross-package-relative-import",
-      "owner": "Stage",
-      "reason": "Remote Stage verification reuses Hub's internal development server; Step 4 will give Stage verification an owned serving boundary.",
-      "removeStep": 4
-    },
-    {
       "file": "packages/hub/bundle-sharing/experiments/workers/build-runtime.mjs",
       "specifier": "../../../../../scripts/runtime-environment.mjs",
       "rule": "cross-package-relative-import",

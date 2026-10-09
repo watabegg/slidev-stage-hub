@@ -20,7 +20,7 @@ cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core
 
 `NO_AT_BRIDGE=1` はこの PC の AT-SPI 起動クラッシュを避ける実験条件で、アクセシビリティ対応の合格を意味しない。Windows と物理 2 画面は未検証。
 
-資料は `apps/stage/artifacts/site/` へコピーし、`127.0.0.1` の一時ポートから読み取り専用で配信する。`NATIVE_POC_TRANSPORT=protocol` で比較用 `deck://localhost` 経路を使える。IPC はローカルのラッパー画面で受け、資料フレームへファイル操作権限を渡さない。
+資料は 設定ファイルの隣の `versions/<id>/site/` へコピーし、設定の `siteRoot` で参照して、`127.0.0.1` の一時ポートから読み取り専用で配信する。`NATIVE_POC_TRANSPORT=protocol` で比較用 `deck://localhost` 経路を使える。IPC はローカルのラッパー画面で受け、資料フレームへファイル操作権限を渡さない。
 
 進行は `next / previous / toggleBlackout / selectDeck / toggleTimer / resetTimer`。入力元ごとの連番で重複を拒否し、状態イベントを入力へ再変換しない。ノート編集中はキー送りを抑制する。次スライドは操作不可。
 
@@ -49,3 +49,5 @@ pnpm --filter @slidev-stage-hub/stage typecheck
 pnpm --filter @slidev-stage-hub/stage build:ui
 pnpm --filter @slidev-stage-hub/stage test
 ```
+
+準備・接続サービス、`--config`、旧設定との互換性は [Stageツール開発ガイド](../../docs/guides/stage-tools.md) を参照。

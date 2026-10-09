@@ -9,6 +9,10 @@
   },
   "dependencies": {
     "@slidev-stage-hub/protocol": "workspace:*",
-    "@slidev-stage-hub/slidev-adapter": "workspace:*"
+    "@slidev-stage-hub/slidev-adapter": "workspace:*",
+    "@slidev-stage-hub/stage-tools": "workspace:*"
+  },
+  "devDependencies": {
+    "@slidev-stage-hub/hub": "workspace:*"
   }
 }

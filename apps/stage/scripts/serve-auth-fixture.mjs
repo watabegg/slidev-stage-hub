@@ -5,7 +5,7 @@ import { createServer as https } from 'node:https';
 import { mkdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { resolve, join } from 'node:path';
-import { createServer } from '../../../packages/hub/scripts/serve.mjs';
+import { createServer } from '@slidev-stage-hub/hub/serve';
 const [siteArgument, outArgument, portArgument = '4180', certArgument, keyArgument] =
   process.argv.slice(2);
 if (!siteArgument || !outArgument || !!certArgument !== !!keyArgument)

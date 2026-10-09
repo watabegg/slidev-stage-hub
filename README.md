@@ -6,7 +6,7 @@
 
 App/Webの機能・コード構成・CLI・導入方法・今後の設計論点は、[現状アーキテクチャレポート（HTML）](docs/reports/architecture-overview.html) にまとめています。
 
-実験機能の集約、パッケージ境界、CLI・Webの拡張性、開発基盤の整備は、[実装計画（HTML）](docs/plans/productization-plan.html) と [進捗台帳](docs/plans/productization-todo.md) を参照してください。Step 2（共有契約とSlidev adapterの分離）まで完了し、Step 3〜8は未着手です。日常の検証は `pnpm check`、結果は [Step 2検証記録](docs/results/protocol-adapter.json) を参照してください。
+実験機能の集約、パッケージ境界、CLI・Webの拡張性、開発基盤の整備は、[実装計画（HTML）](docs/plans/productization-plan.html) と [進捗台帳](docs/plans/productization-todo.md) を参照してください。Step 4（Stageサービスとhost path）まで完了し、Step 5〜8は未着手です。日常の検証は `pnpm check`、結果は [Step 4検証記録](docs/results/stage-tools.json) を参照してください。
 
 ```sh
 pnpm install --frozen-lockfile
@@ -32,3 +32,5 @@ Stageは `pnpm stage:prepare` の後、`NO_AT_BRIDGE=1 pnpm stage` で起動し�
 クリーン環境の検証は `scripts/portable.Dockerfile`、実行結果は [portability.json](docs/results/portability.json) を参照。旧リポジトリとテーマ開発ディレクトリは変更しません。GitHubへの公開、npm公開、Cloudflareへの再デプロイは行っていません。
 
 Hub Node APIの使い方は [Hubサービス開発ガイド](docs/guides/hub-service.md)、Step 3の検証結果は [hub-service.json](docs/results/hub-service.json) を参照。
+
+Stageの準備・接続APIと設定パスは [Stageツール開発ガイド](docs/guides/stage-tools.md) を参照。

@@ -4,8 +4,8 @@
   "type": "module",
   "packageManager": "pnpm@12.3.4",
   "scripts": {
-    "typecheck": "pnpm build:packages && pnpm --filter @slidev-stage-hub/protocol typecheck && pnpm --filter @slidev-stage-hub/hub typecheck && pnpm --filter @slidev-stage-hub/stage typecheck && pnpm --filter @slidev-stage-hub/workers typecheck && pnpm --filter @slidev-stage-hub/slidev-adapter typecheck",
-    "test": "pnpm build:packages && node --test scripts/*.test.mjs && pnpm --filter @slidev-stage-hub/hub test && pnpm --filter @slidev-stage-hub/stage test && pnpm --filter @slidev-stage-hub/workers test && pnpm --filter @slidev-stage-hub/protocol test && pnpm --filter @slidev-stage-hub/slidev-adapter test",
+    "typecheck": "pnpm build:packages && pnpm --filter @slidev-stage-hub/protocol typecheck && pnpm --filter @slidev-stage-hub/hub typecheck && pnpm --filter @slidev-stage-hub/stage typecheck && pnpm --filter @slidev-stage-hub/workers typecheck && pnpm --filter @slidev-stage-hub/slidev-adapter typecheck && pnpm --filter @slidev-stage-hub/stage-tools typecheck",
+    "test": "pnpm build:packages && node --test scripts/*.test.mjs && pnpm --filter @slidev-stage-hub/hub test && pnpm --filter @slidev-stage-hub/stage test && pnpm --filter @slidev-stage-hub/workers test && pnpm --filter @slidev-stage-hub/protocol test && pnpm --filter @slidev-stage-hub/slidev-adapter test && pnpm --filter @slidev-stage-hub/stage-tools test",
     "build:hub": "pnpm --filter @slidev-stage-hub/hub build",
     "dev:hub": "pnpm --filter @slidev-stage-hub/hub serve",
     "build:stage-ui": "pnpm --filter @slidev-stage-hub/stage build:ui",
@@ -26,9 +26,11 @@
     "format:check": "oxfmt --check .",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm check:boundaries",
-    "build:packages": "pnpm --filter @slidev-stage-hub/protocol build && pnpm --filter @slidev-stage-hub/slidev-adapter build && pnpm --filter @slidev-stage-hub/hub build:node",
+    "build:packages": "pnpm --filter @slidev-stage-hub/protocol build && pnpm --filter @slidev-stage-hub/slidev-adapter build && pnpm --filter @slidev-stage-hub/hub build:node && pnpm --filter @slidev-stage-hub/stage-tools build",
     "test:contracts": "node scripts/test-contracts.mjs",
-    "test:hub-service": "pnpm build:packages && node --test packages/hub/tests/*.test.mjs"
+    "test:hub-service": "pnpm build:packages && node --test packages/hub/tests/*.test.mjs",
+    "test:stage-tools": "pnpm build:packages && pnpm --filter @slidev-stage-hub/stage-tools test && cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core -p slidev-native-poc",
+    "verify:stage": "pnpm build:packages && node scripts/verify-stage.mjs"
   },
   "devDependencies": {
     "@slidev/cli": "53.0.0",
