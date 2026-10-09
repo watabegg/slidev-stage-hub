@@ -4,8 +4,8 @@
 
 - 計画書: `docs/plans/productization-plan.html`
 - goal prompt: `なし`
-- 計画検証日時: 2026-10-10（base: main@1ecc2f3。鮮度チェックを実施したら更新する）
-- アクティブタスク: Step 4 / T10〜T12 完了。次は Step 5 / T13〜T15（CLIの整理とパッケージ化、未着手）。
+- 計画検証日時: 2026-10-10（base: main@7198259。鮮度チェックを実施したら更新する）
+- アクティブタスク: Step 5 / T13〜T15 完了。次は Step 6 / T16〜T18（Web clientと表示のカスタマイズ、未着手）。
 - ステータス凡例: `[ ]` 未着手 / `[x]` 完了 / `[!]` blocked（理由必須） / `[-]` cancelled（理由必須）
 - 完了条件: 全行が `[x]` または `[-]` に消し込まれていること。未消し込みのままの完了報告は禁止。
 - cancelled の扱い: `[-]` にはユーザー指示または計画改訂に紐づく理由が必要。`[-]` が1件でもあれば完了報告は「完了（一部取消あり）」とし、取消一覧を明記する。
@@ -20,7 +20,7 @@
 | Gate G2 | Step 2 | `pnpm test:contracts && pnpm check` | exit 0、positive / negative wire フィクスチャおよび Rust 対応テスト通過、Node 組み込み混入なし | PASS 2026-10-09 / Node 115 tests・Rust共通fixture通過、例外16件・未登録違反0件。`docs/results/protocol-adapter.json` |
 | Gate G3 | Step 3 | `pnpm test:hub-service && pnpm verify:hub && pnpm verify:example:watabegg`（`test:hub-service` 新設、`verify:*` 既存） | exit 0、空 CWD / 絶対パス起動成功、失敗時旧成果物保持、watabegg / official テーマ等価性維持 | PASS 2026-10-10 / service 7 tests、Hub 14・watabegg 10 checks、8 decks / 4 groups。`docs/results/hub-service.json` |
 | Gate G4 | Step 4 | `pnpm test:stage-tools && pnpm verify:stage`（両スクリプト新設済み、Rust core テスト含む） | exit 0、空 CWD 起動・アトミック切り替え成功、失敗時旧 config / site 保持、remote / auth 照合通過 | PASS 2026-10-10 / Node service 10・Rust 41 tests、空CWDの実WebKit・HTTP/HTTPS・iframe維持を確認。`docs/results/stage-tools.json` |
-| Gate G5 | Step 5 | `pnpm test:cli && pnpm verify:packed-cli`（両スクリプト新設予定） | exit 0、引数解決順序・JSON 出力・終了コード整合、packed private tarball からの実行成功 | 未実施 |
+| Gate G5 | Step 5 | `pnpm test:cli && pnpm verify:packed-cli`（両スクリプト新設済み） | exit 0、引数解決順序・JSON 出力・終了コード整合、packed private tarball からの実行成功 | PASS 2026-10-10 / CLI 13 tests、外部tarball導入から実ビルド・サムネイル・prepare/connect/doctor・HTTP配信まで13 checks。`docs/results/cli.json` |
 | Gate G6 | Step 6 | `pnpm test:web-client && pnpm verify:web-customization`（両スクリプト新設予定） | exit 0、default 表示維持、カスタム entry / style 差替え成功、headless client に副作用なし | 未実施 |
 | Gate G7 | Step 7 | `pnpm verify:workers && pnpm verify:workers-stage`（前者は既存名を新パッケージへ接続、後者新設予定） | exit 0、ローカル workerd での publish・catalog ページネーション全件取得・Stage 接続・セッション固定確認 | 未実施 |
 | Gate G8 | Step 8 | `pnpm check && pnpm verify:portable && pnpm verify:packed-cli && pnpm verify:workers-stage && pnpm verify:stage`（`verify:portable` 既存、他 Step 新設） | exit 0、クリーン環境での全量回帰通過、パッケージ循環 0、禁止 import 0、allowlist 例外 0 | 未実施 |
@@ -66,9 +66,9 @@ Gate の結果は実施後に in-place で更新する。失敗時は依存す�
 - [x] T10: `packages/stage-tools/src/{prepare,connect,config}.ts` stageservices: Stage配信用コアサービス群の抽出（Gate: G4）
 - [x] T11: `packages/stage-tools/src/`, `apps/stage/src-tauri/src/{commands,paths,config,server}.rs` hostpaths/atomicprepare: ホストパス解決とアトミックな準備処理（Gate: G4）
 - [x] T12: `apps/stage/` stagecompatQA: Stage互換性確認およびQAシナリオ検証（Gate: G4）
-- [ ] T13: `packages/cli/src/bin/{hub,stage}.ts` CLIcommands: CLIサブコマンド群の実装（Gate: G5）
-- [ ] T14: `packages/cli/src/{args,output,errors}.ts` CLIinterfaceerrors: CLI入出力インターフェースおよびエラーハンドリング（Gate: G5）
-- [ ] T15: `packages/cli/` packed導入: パッケージング成果物の導入と実行検証（Gate: G5）
+- [x] T13: `packages/cli/src/bin/{hub,stage}.ts` CLIcommands: CLIサブコマンド群の実装（Gate: G5）
+- [x] T14: `packages/cli/src/{args,output,errors}.ts` CLIinterfaceerrors: CLI入出力インターフェースおよびエラーハンドリング（Gate: G5）
+- [x] T15: `packages/cli/` packed導入: パッケージング成果物の導入と実行検証（Gate: G5）
 - [ ] T16: `packages/hub/src/client/` client/source: クライアント向けソース同期インターフェース実装（Gate: G6）
 - [ ] T17: `packages/hub/src/frontend/` frontendstylesentry: フロントエンド表示スタイルおよびエントリーポイント整備（Gate: G6）
 - [ ] T18: `examples/custom-frontend/` customwebQA: カスタムWeb表示のQA検証（Gate: G6）

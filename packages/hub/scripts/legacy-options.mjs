@@ -74,7 +74,7 @@ async function convertProfileConfig(config, configPath, env) {
   return options;
 }
 
-export async function legacyOptions(env = process.env) {
+export async function legacyOptions(env = process.env, warn = console.warn) {
   const configValue = env.SLIDEV_LAB_CONFIG;
   if (!configValue) return { ...legacyEnvironmentOptions(env), sourceRoot: fixtureDirectory(env) };
 
@@ -92,6 +92,25 @@ export async function legacyOptions(env = process.env) {
   if (env.SLIDEV_LAB_BOOTSTRAP !== undefined) options.bootstrap = overrides.bootstrap;
   if (env.SLIDEV_LAB_ISOLATE_DECKS !== undefined) options.isolateDecks = overrides.isolateDecks;
   if (env.CHROMIUM_EXECUTABLE) options.chromiumExecutable = overrides.chromiumExecutable;
+  for (const key of [
+    'sourceRoot',
+    'dependencyRoot',
+    'theme',
+    'bootstrap',
+    'isolateDecks',
+    'chromiumExecutable',
+  ]) {
+    if (options[key] !== undefined && config[key] !== undefined) {
+      const configured =
+        typeof config[key] === 'string' && !['bootstrap'].includes(key)
+          ? resolve(dirname(configPath), config[key])
+          : config[key];
+      if (options[key] !== configured)
+        warn(
+          `Legacy environment overrides config field ${key}; migrate to hub --config with explicit CLI flags.`,
+        );
+    }
+  }
   const outDir = configuredOutput(config, dirname(configPath));
   if (outDir) options.outDir = outDir;
   return options;

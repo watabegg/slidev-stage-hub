@@ -3,7 +3,7 @@
 ## 対象範囲と前提
 
 本リポジトリは、過去の概念実証を取り込んで構成された非公開モノレポです。本稿は開発環境セットアップガイド（`docs/DEVELOPMENT.md`）であり、設計文書ではないため新たなアーキテクチャや API の決定は含みません。標準テーマには公開済みの公式 `@slidev/theme-default` 0.25.0 を採用し、`@slidev/cli` およびクライアントは 53.0.0 をワークスペースのロックファイルで固定しています。別ディレクトリの `examples/slidev52` は、既存の複数プロファイル実験専用として CLI とクライアントを 52.15.2 に固定しています。
-追加サンプル用には公開済みの `slidev-theme-watabegg` 1.2.1 を明示的に指定して利用し、隣接リポジトリへのリンクや古い `slidev-lab`、`slidev-watabegg` の直接編集は行いません。環境依存の解消は完了しています。現在は再設計計画のStep 4（Stageサービスとhost path）まで完了し、次はStep 5でCLIを整理します。npm への公開、リモートへの push、クラウドへの配備は実施していません。実際の検証結果は `docs/results/portability.json` に記録されており、クリーンなコンテナ環境での Node.js およびブラウザ検証と、ローカル環境でのネイティブ回帰試験を区別して管理しています（独立したネイティブ配布を保証するものではありません）。
+追加サンプル用には公開済みの `slidev-theme-watabegg` 1.2.1 を明示的に指定して利用し、隣接リポジトリへのリンクや古い `slidev-lab`、`slidev-watabegg` の直接編集は行いません。環境依存の解消は完了しています。現在は再設計計画のStep 5（CLIの整理とパッケージ化）まで完了し、次はStep 6でWeb clientと表示のカスタマイズを整えます。npm への公開、リモートへの push、クラウドへの配備は実施していません。実際の検証結果は `docs/results/portability.json` に記録されており、クリーンなコンテナ環境での Node.js およびブラウザ検証と、ローカル環境でのネイティブ回帰試験を区別して管理しています（独立したネイティブ配布を保証するものではありません）。
 
 ## 環境構築と初期セットアップ
 
@@ -189,6 +189,7 @@ pnpm dev:workers
 | Hub thumbnail generation | `packages/hub/src/node/thumbnail.ts` | `pnpm thumbnails:hub`; `pnpm verify:hub` | `packages/hub/src/node/thumbnail.ts` (Step 3) | Step 3 complete |
 | native bridge and shared wire types | `packages/protocol/src/contracts/`, `src/bridge/`; `packages/slidev-adapter/src/native-manifest.ts` | `apps/stage/scripts/verify-remote.mjs`; Stage tests | `packages/protocol/src/contracts/` and `src/bridge/` (Step 2) | Step 2 complete |
 | Stage state, frame control, notes, auth | `apps/stage/core/`, `apps/stage/src/`, `apps/stage/src-tauri/`, `apps/stage/scripts/` | `pnpm --filter @slidev-stage-hub/stage test`; `cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core`; `node apps/stage/scripts/verify-remote.mjs` | `packages/stage-tools/src/` for prepare/connect plus modular `apps/stage/src-tauri/` (Step 4); UI and Rust core stay in Stage | Step 4 complete |
+| CLI commands and private installation | `packages/cli/`, `scripts/pack-cli.mjs` | `pnpm test:cli`; `pnpm verify:packed-cli` | thin adapters over Hub / Stage tools (Step 5) | Step 5 complete |
 | Workers compile, publish, and revision lifecycle | `packages/hub/bundle-sharing/experiments/workers/{compiler.mjs,worker.mjs,publish.mjs,runtime/}` | `compiler.test.mjs`; `pnpm verify:workers` | `apps/hub-worker/src/{worker,compiler,storage,versions,native-player}.ts` and `apps/hub-worker/runtime/` (Step 7) | Step 7 pending |
 | Workers thumbnails | `packages/hub/bundle-sharing/experiments/workers/{thumbnail.mjs,local-thumbnail.mjs,verify-thumbnail.mjs}` | `thumbnail.test.mjs`; `verify-thumbnail.mjs`; `pnpm verify:workers` | `apps/hub-worker/` thumbnail/cache path, preserving current cached-response and uncached-503 behavior (Step 7) | Step 7 pending |
 | Historical benchmark and comparison assets | `packages/hub/bundle-sharing/experiments/`, package `results/`, `docs/results/` | Existing result files and documented reproduction commands | Preserve as test/verification assets; never import into production runtime | Retained; no migration |
@@ -215,3 +216,5 @@ docker run --rm --init --shm-size=1g slidev-stage-hub:portable
 Hubの公開Node API・設定・非公開receipt・通常失敗時の復元範囲は [Hubサービス開発ガイド](guides/hub-service.md)、Step 3の実測は [検証記録](results/hub-service.json) を参照。
 
 Stageの準備・接続API、設定探索、共有ロックは [Stageツール開発ガイド](guides/stage-tools.md)、Step 4の実測は [検証記録](results/stage-tools.json) を参照。
+
+新CLIのコマンド、設定優先順位、非公開tarball導入手順は [CLI利用ガイド](guides/cli.md) を参照。旧環境変数は互換ラッパーでのみ使用します。

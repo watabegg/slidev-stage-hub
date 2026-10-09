@@ -240,3 +240,31 @@ test('concurrent builds targeting the same output are rejected by the output loc
     assert.equal(await first, 'first build completed');
   });
 });
+
+test('legacy environment conflicts warn without exposing values', async () => {
+  const { legacyOptions } = await import('../scripts/legacy-options.mjs');
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'hub-legacy-warning-'));
+  try {
+    const configPath = path.join(directory, 'hub.json');
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        sourceRoot: './slides',
+        outDir: './site',
+        theme: './configured-theme',
+      }),
+    );
+    const warnings = [];
+    const options = await legacyOptions(
+      { SLIDEV_LAB_CONFIG: configPath, SLIDEV_LAB_THEME: '/private-override' },
+      (message) => warnings.push(message),
+    );
+    assert.equal(options.theme, '/private-override');
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /theme/);
+    assert.ok(!warnings[0].includes('/private-override'));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

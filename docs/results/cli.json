@@ -1,0 +1,122 @@
+{
+  "step": 5,
+  "date": "2026-10-10",
+  "baseCommit": "7198259",
+  "status": "passed",
+  "tasks": [
+    "T13",
+    "T14",
+    "T15"
+  ],
+  "contracts": {
+    "scope": "T13-T15",
+    "bins": [
+      "hub",
+      "stage"
+    ],
+    "commands": [
+      "hub build",
+      "hub check",
+      "hub serve",
+      "hub thumbnail",
+      "stage prepare",
+      "stage connect",
+      "stage doctor"
+    ],
+    "reserved": {
+      "hub publish": {
+        "exitCode": 2,
+        "reason": "Step 7"
+      }
+    },
+    "configPriority": [
+      "CLI flags",
+      "config file",
+      "defaults"
+    ],
+    "configPathBase": {
+      "flags": "caller cwd",
+      "file": "config directory"
+    },
+    "stageConfigDistinction": {
+      "--config": "input CLI settings",
+      "--output-config": "runtime config path"
+    },
+    "json": "one result envelope on stdout; progress on stderr",
+    "exitCodes": {
+      "success": 0,
+      "runtimeFailure": 1,
+      "invalidInput": 2
+    },
+    "legacy": "existing development scripts retained; only compatibility wrappers read legacy environment variables",
+    "privateDistribution": "five local tarballs plus installation manifest and pinned overrides; native desktop binary excluded"
+  },
+  "verification": {
+    "pnpm test:cli": {
+      "status": "passed",
+      "tests": 13
+    },
+    "pnpm check": {
+      "status": "passed",
+      "nodeTests": 149,
+      "boundaryViolations": 0,
+      "temporaryBoundaryExceptions": 5
+    },
+    "pnpm verify:packed-cli": {
+      "status": "passed",
+      "checks": [
+        "five private tarballs installed outside workspace without repository symlinks",
+        "hub --help (exit 0)",
+        "stage --version (exit 0)",
+        "hub publish (exit 2)",
+        "stage prepare (exit 2)",
+        "hub check (exit 0)",
+        "hub build (exit 0)",
+        "hub thumbnail (exit 0)",
+        "stage prepare (exit 0)",
+        "stage doctor (exit 0)",
+        "packed hub serve returns site over HTTP",
+        "stage connect (exit 0)",
+        "stage doctor (exit 0)"
+      ]
+    },
+    "dockerManifestInstall": {
+      "status": "passed",
+      "command": "pnpm install --frozen-lockfile --lockfile-only",
+      "copiedManifests": 9,
+      "fullContainerRebuild": false
+    },
+    "pnpm pack:cli": {
+      "status": "passed",
+      "privateTarballs": 5
+    },
+    "pnpm install --frozen-lockfile": {
+      "status": "passed",
+      "workspaceProjects": 9
+    }
+  },
+  "packaging": {
+    "destination": "artifacts/cli-package",
+    "contents": [
+      "package.json",
+      "pnpm-workspace.yaml",
+      "tarballs/"
+    ],
+    "nativeDesktopBinaryIncluded": false,
+    "publicRegistryPublish": false
+  },
+  "compatibilityFinding": {
+    "symptom": "Standalone install emits duplicated UnoCSS directives before CSS minification, while workspace compiles the same fixture",
+    "evidence": "Identical code.css and UnoCSS transformer bytes; standalone emitted 3989 bytes versus workspace 3654 bytes after directive transformation",
+    "fix": "Pin magic-string >=1.0.0 <2.0.0 to tested 1.4.2; retain separate 0.30.x consumers",
+    "validated": "Full private tarball installation builds the official default theme, renders thumbnails and prepares Stage successfully",
+    "notClaimed": "No complete upstream root-cause attribution or universal MagicString incompatibility claim"
+  },
+  "limitations": [
+    "Linux and local Chromium tested; fresh native desktop distribution and Windows unverified",
+    "Real Cloudflare Access and cloud deployment unverified",
+    "Full container/browser/Workers regression remains Step 8",
+    "publish deliberately exits 2 until Step 7",
+    "Standalone installation still needs third-party packages from registry/cache and Chromium installation"
+  ]
+}

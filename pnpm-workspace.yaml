@@ -19,3 +19,6 @@ overrides:
   markdown-it: 14.3.2
   # Shiki's Twoslash adapter expects the pre-5.4 VMenu component shape.
   floating-vue: 5.2.2
+  # Standalone UnoCSS builds emitted duplicate edits with the 1.4.3 resolution.
+  # Preserve the working 1.x editor; leave the separate 0.30.x consumers intact.
+  'magic-string@>=1.0.0 <2.0.0': 1.4.2

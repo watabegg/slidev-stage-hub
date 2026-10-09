@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "sourceRoot": "../fixtures",
+  "outDir": "../../artifacts/example-hub-site",
+  "offline": true,
+  "bootstrap": "sync",
+  "isolateDecks": false
+}

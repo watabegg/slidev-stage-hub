@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "site": "../../artifacts/example-hub-site",
+  "fixturesRoot": "../fixtures",
+  "outputConfig": "../../.slidev-stage/local-config.json",
+  "receiptPath": "../../artifacts/example-hub-site.receipt.json"
+}

@@ -27,5 +27,11 @@
     "@slidev-stage-hub/slidev-adapter": "workspace:*",
     "@slidev/cli": "53.0.0",
     "@slidev/client": "53.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24.15.0"
   }
 }

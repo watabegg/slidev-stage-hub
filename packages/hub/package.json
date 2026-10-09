@@ -17,7 +17,8 @@
     "@slidev-stage-hub/slidev-adapter": "workspace:*",
     "@slidev/cli": "53.0.0",
     "@slidev/theme-default": "0.25.0",
-    "playwright-chromium": "1.63.0"
+    "playwright-chromium": "1.63.0",
+    "vue": "3.5.43"
   },
   "exports": {
     ".": {
@@ -28,7 +29,21 @@
       "types": "./dist/node/index.d.ts",
       "import": "./dist/node/index.js"
     },
-    "./serve": "./dist/node/internal/serve.mjs",
+    "./serve": {
+      "types": "./dist/node/internal/serve.d.mts",
+      "import": "./dist/node/internal/serve.mjs"
+    },
     "./legacy-environment": "./scripts/runtime-environment.mjs"
+  },
+  "version": "0.1.0",
+  "files": [
+    "dist",
+    "frontend/*.ts",
+    "frontend/*.vue",
+    "frontend/*.css",
+    "scripts/runtime-environment.mjs"
+  ],
+  "engines": {
+    "node": ">=24.15.0"
   }
 }

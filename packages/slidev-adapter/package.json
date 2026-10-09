@@ -28,5 +28,11 @@
   },
   "dependencies": {
     "@slidev-stage-hub/protocol": "workspace:*"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24.15.0"
   }
 }
