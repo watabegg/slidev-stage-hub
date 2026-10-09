@@ -1,10 +1,11 @@
 # ネイティブ発表 PoC
 
-Rust を進行状態の正本とする Tauri 2 のローカル実験。4 資料の固定レジストリから発表者・聴講者の 2 ウィンドウを生成する。実測と制約は [結果メモ](results/2026-10-08-native-poc.md) を参照。
+Rust を進行状態の正本とする Tauri 2 のローカル実験。manifestから準備した資料のレジストリから発表者・聴講者の 2 ウィンドウを生成する。実測と制約は [結果メモ](results/2026-10-08-native-poc.md) を参照。
 
 ```bash
 # monorepo root から。OS へのインストールは行わない。
 pnpm install --frozen-lockfile
+pnpm browser:install
 # Optional local GTK/WebKit SDK extraction; this does not install OS packages.
 python3 apps/stage/scripts/prepare-sdk.py
 pnpm build:hub

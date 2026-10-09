@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-09T12:45:32.974Z",
+  "status": "passed",
+  "scope": "HTML documentation only; no product architecture changes or product test rerun.",
+  "report": "docs/reports/architecture-overview.html",
+  "reportSha256": "832af56cd420719a19442fe8f5164b81ad722f1583bf7aa26be2816086253672",
+  "contentReview": {
+    "method": "Local source inspection, Gemini chapter writing/editing via agy-writer, same-session semantic review and targeted repairs",
+    "chapters": [
+      "AppとWebで今できること",
+      "コードとデータのアーキテクチャ",
+      "CLIと導入の現状",
+      "検証済みの範囲と次の設計論点"
+    ],
+    "sourceGroups": 23,
+    "rootCommands": 17,
+    "embeddedDiagrams": 3,
+    "productValidationEvidence": "docs/results/portability.json"
+  },
+  "browserQA": {
+    "engine": "Playwright Chromium",
+    "urlScheme": "file",
+    "viewports": [
+      "1440x1080",
+      "390x844"
+    ],
+    "checks": {
+      "localFileLoads": true,
+      "internalAnchors": true,
+      "uniqueIds": true,
+      "desktopNoPageOverflow": true,
+      "mobileNoPageOverflow": true,
+      "commandCategoryFilter": true,
+      "commandSearchEmptyState": true,
+      "commandImplementationExpansion": true,
+      "clipboardMatchesCode": true,
+      "noBrowserExceptions": true,
+      "noExternalRequests": true
+    },
+    "printPDFGenerated": true
+  },
+  "localEvidence": {
+    "qa": "artifacts/architecture-report/qa.json",
+    "desktop": "artifacts/architecture-report/desktop.png",
+    "mobile": "artifacts/architecture-report/mobile.png",
+    "commands": "artifacts/architecture-report/commands.png",
+    "print": "artifacts/architecture-report/print-check.pdf"
+  },
+  "reproduce": [
+    "Open docs/reports/architecture-overview.html in Chromium directly as a local file.",
+    "Follow chapter/source anchors; filter CLI by Stage and search an unmatched term; expand an implementation; copy a shell example.",
+    "Inspect at 1440x1080 and 390x844; check console/network and print preview."
+  ],
+  "externalMutations": {
+    "published": false,
+    "pushed": false,
+    "deployed": false
+  }
+}

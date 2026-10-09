@@ -3,12 +3,12 @@
 ```sh
 node bundle-sharing/experiments/module-graph/build.mjs
 node bundle-sharing/experiments/module-graph/serve.mjs
-CHROMIUM_EXECUTABLE=/usr/bin/google-chrome node bundle-sharing/scripts/browser-experiment.mjs http://127.0.0.1:4310 artifacts/module-graph/browser
+node bundle-sharing/scripts/browser-experiment.mjs http://127.0.0.1:4310 artifacts/module-graph/browser
 node bundle-sharing/experiments/module-graph/inspect.mjs artifacts/module-graph/browser/result.json
 ```
 
 出力はリポジトリ直下の `artifacts/module-graph/site/`。serve は別ターミナルで起動する。サーバーは `http://127.0.0.1:4310` で site 全体を配信し、deck パスを `index.html` にフォールバックする。
-依存の既定参照先は読み取り専用のローカルテーマ。比較環境を揃える場合は `SLIDEV_LAB_DEPENDENCY_ROOT=/home/watabegg/slidev-stage-hub` を指定する。テーマ参照先は `SLIDEV_LAB_THEME` で変更できる。
+ツールチェーンの既定参照先はworkspaceルート。実験用の切り替えは `SLIDEV_LAB_DEPENDENCY_ROOT`、テーマの切り替えは `SLIDEV_THEME_PATH`（旧名 `SLIDEV_LAB_THEME` も可）で指定する。
 
 `manifest.json` は schemaVersion 1。`commonAssets` は共有ファイル、各 deck の `assets` はその資料の JS・CSS・画像（すべて site からの相対パス）。`runtimeVersion` は 53.0.0、`entry` は `/aaa/aaa1/1` 等の閲覧 URL。`revision` は公開用にノートを除いた内容・frontmatter の SHA256、`sourcePath` は元資料のリポジトリ相対パスである。
 

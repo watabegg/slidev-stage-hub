@@ -13,7 +13,7 @@
 
 `categories` は各階層の `id`、`name`、`path`、`parentId` を持つ。ノートやテーマ設定は公開メタデータに含めない。
 
-サムネイルはビルド時にChromiumで実際の先頭ページを描画する。単独再生成は `node scripts/thumbnails.mjs artifacts/module-graph/site`。このPCでは `/usr/bin/google-chrome` を使い、`CHROMIUM_EXECUTABLE` で変更できる。
+サムネイルはビルド時にChromiumで実際の先頭ページを描画する。単独再生成は `node scripts/thumbnails.mjs artifacts/module-graph/site`。`pnpm browser:install` で取得したChromiumを使い、`CHROMIUM_EXECUTABLE` で変更できる。
 
 `navigation.ts` がブラウザ閲覧中の常設ホームリンクを追加する。操作パネル内はテーマ既存の `themeConfig.watabegg.navigation` を利用する。iframeと `?embedded=true` ではホスト側の操作を使うため両方を非表示にする。
 

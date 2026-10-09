@@ -1,5 +1,7 @@
 # Workersでの資料生成PoC
 
+現在の既定ランタイムは公式defaultテーマです。開発環境は [開発ガイド](../../../../../docs/DEVELOPMENT.md) を参照。以下のresultsは過去のwatabegg固定ランタイムによる記録を含みます。
+
 実クラウドの公開先・測定結果・再現手順は [Cloudflare検証](results/cloud.md) を参照。
 
 対応構文・失敗例は [追加実験](results/expansion.md)、初回の構成と手順は [初回PoC](results/poc.md) を参照。

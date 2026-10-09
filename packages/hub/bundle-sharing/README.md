@@ -10,6 +10,6 @@
 pnpm --filter @slidev-stage-hub/hub baseline
 ```
 
-公開成果物は `packages/hub/bundle-sharing/artifacts/baseline/{aaa/aaa1,aaa/aaa2,bbb/bbb1,bbb/bbb2}/`、計測は `packages/hub/bundle-sharing/results/` に出力する。入力資料は `examples/fixtures/`、テーマは既定で `/home/watabegg/slidev-watabegg` を使い、`SLIDEV_THEME_PATH` で切り替えられる。
+公開成果物は `packages/hub/bundle-sharing/artifacts/baseline/{aaa/aaa1,aaa/aaa2,bbb/bbb1,bbb/bbb2}/`、計測は `packages/hub/bundle-sharing/results/` に出力する。入力資料は `examples/fixtures/`、テーマは既定でworkspaceにインストールした公式defaultを使い、`SLIDEV_THEME_PATH` で切り替えられる。
 
 各資料は3ページ、クリック段階は `[0, 2, 0]`。`--without-notes` を使い、ビルド後に各資料の `PRIVATE_NOTE_<id>` が出力に残っていないことを確認する。
