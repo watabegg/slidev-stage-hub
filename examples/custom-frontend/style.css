@@ -1,0 +1,11 @@
+body {
+  margin: 2rem;
+  color: #233047;
+  background: #fff8ee;
+  font:
+    18px/1.6 system-ui,
+    sans-serif;
+}
+a {
+  color: #944a11;
+}

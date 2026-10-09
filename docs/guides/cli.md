@@ -110,3 +110,5 @@
 - 本番の Cloudflare 認証環境での動作は未検証です。
 - 既存のデスクトップ UI は変更されていません。
 - Step 6 で予定されている Web カスタマイズ機能は未実装（今後の課題）です。
+
+Web entry は `--frontend-entry PATH` または設定ファイルの `frontendEntry` で指定します。CSS とナビゲーションの設定例は [Web カスタマイズガイド](web-customization.md) を参照してください。

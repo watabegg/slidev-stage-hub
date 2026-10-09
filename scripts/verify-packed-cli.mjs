@@ -133,6 +133,44 @@ try {
   checks.push('packed hub serve returns site over HTTP');
   await cli('stage', ['connect', origin, '--output-config', join(project, 'remote.json')]);
   await cli('stage', ['doctor', '--output-config', join(project, 'remote.json')]);
+  const headless = await runProcess(
+    process.execPath,
+    [
+      '--input-type=module',
+      '--eval',
+      `
+    delete globalThis.window; delete globalThis.document; delete globalThis.fetch;
+    const { getCatalog } = await import('@slidev-stage-hub/hub/client');
+    const value = await getCatalog({ load: async () => ({ schemaVersion: 1, decks: [], categories: [] }) });
+    if (value.decks.length !== 0) throw new Error('Unexpected catalog');
+  `,
+    ],
+    { cwd: install },
+  );
+  assert.equal(headless.code, 0, headless.stderr);
+  checks.push('packed client runs without browser globals');
+  const customEntry = join(install, 'custom.ts');
+  await writeFile(
+    customEntry,
+    `import { mountHub } from '@slidev-stage-hub/hub/frontend';
+import '@slidev-stage-hub/hub/frontend/style.css';
+await mountHub('#app', { navigation: { homeLabel: 'Packed custom frontend' } });
+`,
+  );
+  await cli('hub', [
+    'build',
+    '--config',
+    join(project, 'hub.config.json'),
+    '--frontend-entry',
+    customEntry,
+    '--out-dir',
+    join(project, 'custom-site'),
+  ]);
+  assert.deepEqual(
+    JSON.parse(await readFile(join(project, 'custom-site/catalog.json'), 'utf8')),
+    catalog,
+  );
+  checks.push('packed frontend and stylesheet exports build outside repository');
   await writeFile(
     join(evidence, 'gate.json'),
     JSON.stringify({ status: 'passed', checks }, null, 2) + '\n',

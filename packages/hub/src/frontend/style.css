@@ -1,7 +1,15 @@
 :root {
-  font-family: 'M PLUS 2', system-ui, sans-serif;
-  color: #1d3044;
-  background: #f8fafc;
+  --hub-font-family: 'M PLUS 2', system-ui, sans-serif;
+  --hub-background: #f8fafc;
+  --hub-text: #1d3044;
+  --hub-accent: #2089eb;
+  --hub-content-max-width: 1480px;
+  --hub-layout-gap: 48px;
+  --hub-card-row-gap: 36px;
+  --hub-card-column-gap: 28px;
+  font-family: var(--hub-font-family);
+  color: var(--hub-text);
+  background: var(--hub-background);
   font-synthesis: none;
 }
 * {
@@ -18,11 +26,11 @@ button {
 }
 a:focus-visible,
 button:focus-visible {
-  outline: 3px solid #2089eb;
+  outline: 3px solid var(--hub-accent);
   outline-offset: 5px;
 }
 .library {
-  max-width: 1480px;
+  max-width: var(--hub-content-max-width);
   margin: auto;
   padding: 0 56px;
 }
@@ -54,7 +62,7 @@ button:focus-visible {
 .library-layout {
   display: grid;
   grid-template-columns: 192px minmax(0, 1fr);
-  gap: 48px;
+  gap: var(--hub-layout-gap);
   padding: 52px 0 72px;
 }
 .eyebrow {
@@ -111,7 +119,7 @@ button:focus-visible {
 .deck-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 36px 28px;
+  gap: var(--hub-card-row-gap) var(--hub-card-column-gap);
 }
 .deck-card {
   text-decoration: none;
@@ -155,7 +163,7 @@ button:focus-visible {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #2089eb;
+  color: var(--hub-accent);
   margin: 0 0 7px;
 }
 .deck-info h2 {

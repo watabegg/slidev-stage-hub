@@ -419,3 +419,32 @@ test('Stage settings resolve runtime paths from the settings file and allow call
     await assert.rejects(readFile(path.join(cwd, 'runtime.json')));
   });
 });
+
+test('hub check resolves frontendEntry flags from caller and config paths from config directory', async () => {
+  await withTempDir(async (cwd) => {
+    const configDir = path.join(cwd, 'config');
+    await mkdir(path.join(configDir, 'slides'), { recursive: true });
+    await writeFile(path.join(configDir, 'slides', 'deck.md'), '# Deck');
+    await writeFile(path.join(configDir, 'entry.ts'), 'export {};');
+    await writeFile(path.join(cwd, 'override.ts'), 'export {};');
+    const config = {
+      schemaVersion: 1,
+      sourceRoot: './slides',
+      outDir: './site',
+      frontendEntry: './entry.ts',
+      navigation: { enabled: false },
+    };
+    await writeFile(path.join(configDir, 'hub.config.json'), JSON.stringify(config));
+    const args = ['check', '--config', './config/hub.config.json', '--json'];
+    const fromFile = run(hubBin, args, cwd);
+    assert.equal(fromFile.status, 0, fromFile.stderr);
+    assert.equal(jsonOutput(fromFile).data.frontendEntry, path.join(configDir, 'entry.ts'));
+    assert.deepEqual(jsonOutput(fromFile).data.navigation, { enabled: false });
+    const override = run(hubBin, [...args, '--frontend-entry', './override.ts'], cwd);
+    assert.equal(override.status, 0, override.stderr);
+    assert.equal(jsonOutput(override).data.frontendEntry, path.join(cwd, 'override.ts'));
+    const invalid = run(hubBin, [...args, '--frontend-entry', './absent.ts'], cwd);
+    assert.equal(invalid.status, 2);
+    assert.equal(jsonOutput(invalid).error.code, 'INVALID_CONFIG');
+  });
+});

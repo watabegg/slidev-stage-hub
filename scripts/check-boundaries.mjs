@@ -614,6 +614,8 @@ function isProductionFile(root, fullPath) {
   return (
     file.startsWith('apps/stage/src/') ||
     file.startsWith('packages/hub/frontend/') ||
+    file.startsWith('packages/hub/src/frontend/') ||
+    file.startsWith('packages/hub/src/client/') ||
     file.startsWith('packages/hub/bundle-sharing/experiments/workers/runtime/') ||
     [
       'packages/hub/bundle-sharing/experiments/workers/worker.mjs',

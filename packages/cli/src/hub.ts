@@ -28,6 +28,8 @@ type NormalizedHubConfig = Awaited<ReturnType<typeof normalizeHubConfig>>;
 
 const HUB_CONFIG_KEYS = new Set([
   'schemaVersion',
+  'frontendEntry',
+  'navigation',
   'sourceRoot',
   'outDir',
   'dependencyRoot',
@@ -39,7 +41,14 @@ const HUB_CONFIG_KEYS = new Set([
   'bootstrap',
   'isolateDecks',
 ]);
-const HUB_PATH_KEYS = ['sourceRoot', 'outDir', 'dependencyRoot', 'theme', 'chromiumExecutable'];
+const HUB_PATH_KEYS = [
+  'sourceRoot',
+  'outDir',
+  'dependencyRoot',
+  'theme',
+  'chromiumExecutable',
+  'frontendEntry',
+];
 
 function ensureKnownKeys(value: JsonRecord, allowed: Set<string>, label: string): void {
   if (Object.keys(value).some((key) => !allowed.has(key)))
@@ -60,6 +69,20 @@ function validateHubConfig(value: unknown): JsonRecord {
       failInput(`Hub config ${key} must be boolean`, 'INVALID_CONFIG');
   if (value.bootstrap !== undefined && value.bootstrap !== 'sync' && value.bootstrap !== 'tla')
     failInput('Hub config bootstrap must be sync or tla', 'INVALID_CONFIG');
+  if (value.navigation !== undefined) {
+    if (!isRecord(value.navigation))
+      failInput('Hub navigation must be an object', 'INVALID_CONFIG');
+    ensureKnownKeys(
+      value.navigation,
+      new Set(['enabled', 'homeHref', 'homeLabel']),
+      'Hub navigation',
+    );
+    if (value.navigation.enabled !== undefined && typeof value.navigation.enabled !== 'boolean')
+      failInput('Hub navigation.enabled must be boolean', 'INVALID_CONFIG');
+    for (const key of ['homeHref', 'homeLabel'])
+      if (value.navigation[key] !== undefined)
+        requireString(value.navigation[key], `Hub navigation.${key}`);
+  }
   if (value.decks !== undefined) {
     if (!Array.isArray(value.decks) || value.decks.length === 0)
       failInput('Hub config decks must be a non-empty array', 'INVALID_CONFIG');
@@ -91,6 +114,8 @@ function normalizedToOptions(config: NormalizedHubConfig): HubBuildOptions {
     outDir: config.outDir,
     dependencyRoot: config.dependencyRoot,
     theme: config.theme,
+    frontendEntry: config.frontendEntry,
+    navigation: config.navigation,
     decks: config.decks.map(({ id, entry, profile }) => ({
       id,
       entry,
@@ -124,6 +149,7 @@ async function loadHubOptions(
     ['out-dir', 'outDir'],
     ['dependency-root', 'dependencyRoot'],
     ['theme', 'theme'],
+    ['frontend-entry', 'frontendEntry'],
     ['chromium-executable', 'chromiumExecutable'],
   ];
   for (const [flag, key] of pathFlags) {
@@ -157,6 +183,7 @@ function hubBuildOptions(): ParseArgsOptionsConfig {
     'out-dir': { type: 'string' },
     'dependency-root': { type: 'string' },
     theme: { type: 'string' },
+    'frontend-entry': { type: 'string' },
     'chromium-executable': { type: 'string' },
     offline: { type: 'boolean' },
     'no-offline': { type: 'boolean' },
@@ -196,6 +223,8 @@ async function runHubBuildOrCheck(
         outDir: normalized.outDir,
         dependencyRoot: normalized.dependencyRoot,
         theme: normalized.theme,
+        frontendEntry: normalized.frontendEntry,
+        navigation: normalized.navigation,
         ...(normalized.chromiumExecutable === undefined
           ? {}
           : { chromiumExecutable: normalized.chromiumExecutable }),
@@ -399,7 +428,7 @@ function hubHelp(): string {
     'Common options: --config PATH, --json, --help (-h), --version',
     'build/check: --source-root PATH --out-dir PATH --theme PATH --dependency-root PATH',
     '             --chromium-executable PATH --offline | --no-offline',
-    '             --bootstrap sync|tla --isolate-decks',
+    '             --bootstrap sync|tla --isolate-decks --frontend-entry PATH',
     'serve:       --site PATH --host HOST --port PORT (0 selects an available port)',
     'thumbnail:   --site PATH --chromium-executable PATH',
     'Settings: ./hub.config.json; defaults: ./slides -> ./dist',

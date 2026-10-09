@@ -23,7 +23,14 @@ export interface HubDeck {
   entry: string;
   profile?: string;
 }
+export interface HubNavigationOptions {
+  enabled?: boolean;
+  homeHref?: string;
+  homeLabel?: string;
+}
 export interface HubBuildOptions {
+  frontendEntry?: string;
+  navigation?: HubNavigationOptions;
   configPath?: string;
   baseDir?: string;
   sourceRoot?: string;
@@ -44,6 +51,8 @@ export interface NormalizedHubConfig {
   dependencyRoot: string;
   theme: string;
   frontendRoot: string;
+  frontendEntry: string;
+  navigation: HubNavigationOptions;
   decks: Array<HubDeck & { categoryPath: string[] }>;
   profiles?: Record<string, HubProfile>;
   offline: boolean;
@@ -70,6 +79,8 @@ function record(value: unknown): value is Record<string, unknown> {
 // oxlint-disable-next-line no-control-regex -- Match the existing catalog URL boundary.
 const reservedId = /[\u0000-\u001f\u007f\\:?#[\]@!$&'()*+,;=%]/u;
 const keys = new Set([
+  'frontendEntry',
+  'navigation',
   'sourceRoot',
   'outDir',
   'dependencyRoot',
@@ -124,7 +135,14 @@ export async function normalizeHubConfig(options: HubBuildOptions): Promise<Norm
       configured = fields;
       // Paths in the file always belong to its directory, even with API overrides.
       const fileBase = dirname(path);
-      for (const key of ['sourceRoot', 'outDir', 'dependencyRoot', 'theme', 'chromiumExecutable'])
+      for (const key of [
+        'sourceRoot',
+        'outDir',
+        'dependencyRoot',
+        'theme',
+        'chromiumExecutable',
+        'frontendEntry',
+      ])
         if (configured[key] !== undefined)
           configured[key] = absolute(configured[key], fileBase, key);
       if (Array.isArray(configured.decks))
@@ -167,6 +185,23 @@ export async function normalizeHubConfig(options: HubBuildOptions): Promise<Norm
         throw new HubBuildError('CONFIG', `${flag} must be boolean`);
     if (input.bootstrap !== undefined && input.bootstrap !== 'sync' && input.bootstrap !== 'tla')
       throw new HubBuildError('CONFIG', 'bootstrap must be sync or tla');
+    const frontendRoot = resolve(hubRoot, 'src/frontend');
+    const frontendEntry = await realpath(
+      absolute(input.frontendEntry ?? resolve(frontendRoot, 'home.ts'), base, 'frontendEntry'),
+    );
+    if (!(await stat(frontendEntry)).isFile() || isInside(outDir, frontendEntry))
+      throw new HubBuildError('CONFIG', 'frontendEntry must be a file outside outDir');
+    const navigation = input.navigation === undefined ? {} : input.navigation;
+    if (!record(navigation)) throw new HubBuildError('CONFIG', 'navigation must be an object');
+    knownKeys(navigation, new Set(['enabled', 'homeHref', 'homeLabel']), 'navigation');
+    if (navigation.enabled !== undefined && typeof navigation.enabled !== 'boolean')
+      throw new HubBuildError('CONFIG', 'navigation.enabled must be boolean');
+    for (const key of ['homeHref', 'homeLabel'])
+      if (
+        navigation[key] !== undefined &&
+        (typeof navigation[key] !== 'string' || !navigation[key])
+      )
+        throw new HubBuildError('CONFIG', `navigation.${key} must be a nonempty string`);
     let profiles: Record<string, HubProfile> | undefined;
     if (input.profiles !== undefined) {
       if (!record(input.profiles) || !Object.keys(input.profiles).length)
@@ -227,7 +262,9 @@ export async function normalizeHubConfig(options: HubBuildOptions): Promise<Norm
       outDir,
       dependencyRoot,
       theme,
-      frontendRoot: resolve(hubRoot, 'frontend'),
+      frontendRoot,
+      frontendEntry,
+      navigation: navigation as HubNavigationOptions,
       decks,
       profiles,
       offline: input.offline !== false,

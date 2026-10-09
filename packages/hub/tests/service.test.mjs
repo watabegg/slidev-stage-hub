@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -267,4 +267,53 @@ test('legacy environment conflicts warn without exposing values', async () => {
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('trusted frontend entry resolves from config, preserves navigation and rejects invalid files', async () => {
+  await withTempDir(async (directory) => {
+    const workspace = await createConfigWorkspace(directory);
+    const entry = path.join(workspace.base, 'custom.ts');
+    await writeFile(entry, 'export {};');
+    const configured = {
+      ...workspace.config,
+      frontendEntry: './custom.ts',
+      navigation: { enabled: false, homeHref: '/library', homeLabel: 'Library' },
+    };
+    await writeFile(workspace.configPath, JSON.stringify(configured));
+    const normalized = await normalizeHubConfig({ configPath: workspace.configPath });
+    assert.equal(normalized.frontendEntry, entry);
+    assert.deepEqual(normalized.navigation, configured.navigation);
+    await assert.rejects(
+      normalizeHubConfig({
+        configPath: workspace.configPath,
+        frontendEntry: 'https://example.com/a.js',
+      }),
+      isConfigError(/local path/),
+    );
+    await assert.rejects(
+      normalizeHubConfig({ configPath: workspace.configPath, frontendEntry: workspace.base }),
+      isConfigError(/must be a file/),
+    );
+    await assert.rejects(
+      normalizeHubConfig({ configPath: workspace.configPath, frontendEntry: './missing.ts' }),
+      isConfigError(/ENOENT/),
+    );
+    await mkdir(path.join(workspace.base, 'output/site'), { recursive: true });
+    const generatedEntry = path.join(workspace.base, 'output/site/entry.ts');
+    await writeFile(generatedEntry, 'export {};');
+    const link = path.join(workspace.base, 'entry-link.ts');
+    await symlink(generatedEntry, link);
+    await assert.rejects(
+      normalizeHubConfig({ configPath: workspace.configPath, frontendEntry: link }),
+      isConfigError(/outside outDir/),
+    );
+    await assert.rejects(
+      normalizeHubConfig({ configPath: workspace.configPath, navigation: { enabled: 'false' } }),
+      isConfigError(/boolean/),
+    );
+    await assert.rejects(
+      normalizeHubConfig({ configPath: workspace.configPath, navigation: { unknown: true } }),
+      isConfigError(/unknown key/),
+    );
+  });
 });

@@ -17,5 +17,5 @@
   "vueCompilerOptions": {
     "strictTemplates": true
   },
-  "include": ["frontend/**/*.ts", "frontend/**/*.vue"]
+  "include": ["src/frontend/**/*.ts", "src/frontend/**/*.vue"]
 }

@@ -25,6 +25,8 @@ export async function buildGraph(job) {
   const sourceRoot = resolve(job.sourceRoot);
   const workDir = resolve(job.workDir);
   const frontendRoot = resolve(job.frontendRoot);
+  const frontendEntry = resolve(job.frontendEntry ?? join(frontendRoot, 'home.ts'));
+  const frontendModules = new Set([frontendEntry]);
   const theme = resolve(groupJob?.profile.theme || job.theme);
   const dependencyRoot = resolve(groupJob?.profile.dependencyRoot || job.dependencyRoot);
   const syncBootstrap = job.bootstrap !== 'tla';
@@ -96,7 +98,8 @@ export async function buildGraph(job) {
         transform: {
           ...plugin.transform,
           handler(code, id, ...args) {
-            if (id.startsWith(frontendRoot + '/')) return null;
+            if (id.startsWith(frontendRoot + '/') || frontendModules.has(id.split('?')[0]))
+              return null;
             return transform.call(this, code, id, ...args);
           },
         },
@@ -125,8 +128,15 @@ export const deckBase = deckId ? '/' + deckId.split('/').map(encodeURIComponent)
     enforce: 'pre',
     resolveId: {
       order: 'pre',
-      handler(id) {
+      async handler(id, importer) {
         if (id.startsWith('/@lab/') || id.startsWith('/@slidev/') || sourceOwner(id)) return id;
+        if (importer && frontendModules.has(importer.split('?')[0])) {
+          // Custom UI dependencies can live anywhere; directory-wide exclusions
+          // would also disable context injection in neighboring slide components.
+          const resolved = await this.resolve(id, importer, { skipSelf: true });
+          if (resolved && !resolved.external) frontendModules.add(resolved.id.split('?')[0]);
+          return resolved;
+        }
       },
     },
     async load(id) {
@@ -143,18 +153,20 @@ ${
   globalThis.__slidevLabData = { configs: configs.default, slides: selected.slides };
   window.__slidevLab = { deckId, runtimeVersion: ${JSON.stringify(cliVersion)}, theme: ${JSON.stringify(publicTheme)} };
   await import('@slidev/client/main.ts');
-  await import(${JSON.stringify(join(frontendRoot, 'navigation.ts'))});
+  const { mountNavigation } = await import(${JSON.stringify(join(frontendRoot, 'navigation.ts'))});
+  mountNavigation(${JSON.stringify(job.navigation ?? {})});
 }
 if (deckId) boot().catch(showStartupError);
 else {`
     : `if (deckId) {
   window.__slidevLab = { deckId, runtimeVersion: ${JSON.stringify(cliVersion)}, theme: ${JSON.stringify(publicTheme)} };
   await import('@slidev/client/main.ts');
-  await import(${JSON.stringify(join(frontendRoot, 'navigation.ts'))});
+  const { mountNavigation } = await import(${JSON.stringify(join(frontendRoot, 'navigation.ts'))});
+  mountNavigation(${JSON.stringify(job.navigation ?? {})});
 } else {`
 }
   document.title = 'Slidev Lab';
-  import(${JSON.stringify(join(frontendRoot, 'home.ts'))}).catch(showStartupError);
+  import(${JSON.stringify(frontendEntry)}).catch(showStartupError);
 }
 `;
       if (id === '/@slidev/configs')
@@ -272,7 +284,14 @@ else {`
     define: { __VUE_PROD_DEVTOOLS__: false },
     server: {
       fs: {
-        allow: [sourceRoot, frontendRoot, theme, base.options.clientRoot, base.options.cliRoot],
+        allow: [
+          sourceRoot,
+          frontendRoot,
+          dirname(frontendEntry),
+          theme,
+          base.options.clientRoot,
+          base.options.cliRoot,
+        ],
       },
     },
   });

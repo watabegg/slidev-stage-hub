@@ -408,3 +408,22 @@ test('fails when a migration exception no longer matches a violation', async (t)
   assert.ok(rules(result).includes('stale-exception'));
   assert.deepEqual(result.exceptionsUsed, []);
 });
+
+test('Hub client and frontend source roots independently reject Node imports', async (t) => {
+  const fixture = await makeFixture(t);
+  await fixture.package('packages/hub', { name: '@fixture/hub' });
+  for (const scope of ['client', 'frontend']) {
+    await fixture.file(
+      `packages/hub/src/${scope}/index.ts`,
+      "export { readFile } from 'node:fs/promises';\n",
+    );
+  }
+  const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
+  assert.deepEqual(
+    result.violations.map(({ rule, file }) => ({ rule, file })),
+    [
+      { rule: 'production-node-builtin', file: 'packages/hub/src/client/index.ts' },
+      { rule: 'production-node-builtin', file: 'packages/hub/src/frontend/index.ts' },
+    ],
+  );
+});

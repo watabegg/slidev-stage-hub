@@ -1,3 +1,5 @@
+> Step 6 で実装を `../src/frontend/` へ移動しました。このディレクトリは移植時の記録です。現在の API は [Web カスタマイズガイド](../../../docs/guides/web-customization.md) を参照してください。
+
 # 資料ライブラリのカスタマイズ
 
 `Home.vue` がホーム画面、`style.css` がそのスタイル。Vueの `catalog` propだけで一覧を組み立てられる。`home.ts` が `/catalog.json` を取得してマウントする。

@@ -157,6 +157,8 @@ async function buildProfiles(job) {
         dependencyRoot: group.profile.dependencyRoot,
         theme: group.profile.theme,
         frontendRoot: job.frontendRoot,
+        frontendEntry: job.frontendEntry,
+        navigation: job.navigation,
         offline: job.offline,
         chromiumExecutable: job.chromiumExecutable,
         bootstrap: 'sync',

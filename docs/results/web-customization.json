@@ -1,0 +1,118 @@
+{
+  "step": 6,
+  "date": "2026-10-10",
+  "baseCommit": "c66d23d",
+  "status": "passed",
+  "tasks": [
+    "T16",
+    "T17",
+    "T18"
+  ],
+  "contracts": {
+    "client": "@slidev-stage-hub/hub/client: CatalogSource, createHttpCatalogSource, createCatalogClient, getCatalog; protocol v1 validation, AbortSignal, typed errors; no Vue/DOM/CSS dependency",
+    "frontend": "@slidev-stage-hub/hub/frontend: mountHub and mountNavigation; opt-in style.css; no automatic mount from public export",
+    "build": "frontendEntry is a trusted existing local file outside output; navigation config customizes slide back-link; CLI --frontend-entry overrides config",
+    "style": "Default CSS and Home structure preserved; CSS variables and external entry override without core/UI copy",
+    "example": "examples/custom-frontend: framework-free DOM entry and Vue mount with CSS overrides",
+    "planRefinement": "Use frontendEntry and navigation fields; stylesheet selection stays explicit in entry imports instead of a second build styles option",
+    "workers": "Only source contract fixtures here; live endpoint conversion/pagination integration belongs to Step 7"
+  },
+  "verification": {
+    "pnpm test:web-client": {
+      "exitCode": 0,
+      "tests": 7
+    },
+    "pnpm verify:web-customization": {
+      "exitCode": 0,
+      "checks": 13,
+      "details": [
+        "Entries preserve catalog and deck metadata",
+        "Default list, category filter, thumbnail, slide and return navigation work",
+        "Default mobile layout has no horizontal overflow",
+        "Broken catalog produces the default localized error",
+        "Empty catalog renders empty state",
+        "Framework-free custom entry and replacement stylesheet render",
+        "Custom deck navigation label and destination work",
+        "Custom Vue dependencies outside the entry directory avoid Slidev context injection",
+        "Reusable mount accepts branding and CSS variable overrides",
+        "Custom source, safe text, deck link override, unmount and typed mount/client errors work",
+        "Abort prevents late source completion from mounting",
+        "Deck navigation can be disabled",
+        "No unhandled browser exceptions"
+      ],
+      "evidence": "artifacts/step6/gate.json",
+      "screenshots": [
+        "default-desktop.png",
+        "default-mobile.png",
+        "invalid-catalog.png",
+        "empty-catalog.png",
+        "custom-entry.png",
+        "custom-theme.png",
+        "abort.png"
+      ],
+      "browserFixture": "disabled in browser fixture"
+    },
+    "pnpm check": {
+      "exitCode": 0,
+      "tests": 159,
+      "boundaryViolations": 0,
+      "migrationExceptions": 5
+    },
+    "pnpm verify:packed-cli": {
+      "exitCode": 0,
+      "checks": 16,
+      "details": [
+        "five private tarballs installed outside workspace without repository symlinks",
+        "hub --help (exit 0)",
+        "stage --version (exit 0)",
+        "hub publish (exit 2)",
+        "stage prepare (exit 2)",
+        "hub check (exit 0)",
+        "hub build (exit 0)",
+        "hub thumbnail (exit 0)",
+        "stage prepare (exit 0)",
+        "stage doctor (exit 0)",
+        "packed hub serve returns site over HTTP",
+        "stage connect (exit 0)",
+        "stage doctor (exit 0)",
+        "packed client runs without browser globals",
+        "hub build (exit 0)",
+        "packed frontend and stylesheet exports build outside repository"
+      ],
+      "evidence": "artifacts/step6/packed-gate.log"
+    },
+    "pnpm build:hub && pnpm verify:hub": {
+      "exitCode": 0,
+      "checks": 14,
+      "evidence": "artifacts/step6/hub-regression.log"
+    },
+    "pnpm build:example:watabegg && pnpm verify:example:watabegg": {
+      "exitCode": 0,
+      "checks": 10,
+      "theme": "slidev-theme-watabegg@1.2.1",
+      "evidence": "artifacts/step6/watabegg-regression.log"
+    },
+    "post-review config verification": {
+      "commands": [
+        "pnpm --filter @slidev-stage-hub/hub typecheck",
+        "pnpm format:check"
+      ],
+      "exitCode": 0,
+      "reason": "Restored existing moduleDetection setting; only source include paths change"
+    }
+  },
+  "findingsResolved": [
+    "Browser test reproduced injected HTTP error becoming NETWORK because frontend used src/client and public client used dist/client. Unified frontend imports through the package client export; same browser test passes.",
+    "Track custom entry dependencies during resolution so Vue modules outside its directory avoid Slidev context injection without disabling neighboring slide components."
+  ],
+  "residualScope": [
+    "No actual Workers endpoint acceptance in Step 6",
+    "No cloud deployment or public package publication",
+    "Full clean container and native regression remain Step 8; this step covers Node and browser outputs",
+    "Custom entry is trusted executable input, not a sandbox; custom framework toolchains beyond provided Vue/DOM examples are not certified"
+  ],
+  "documentation": {
+    "guide": "docs/guides/web-customization.md",
+    "writer": "agy-writer / Gemini, source facts reviewed and API examples repaired"
+  }
+}

@@ -26,7 +26,7 @@
     "format:check": "oxfmt --check .",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm check:boundaries",
-    "build:packages": "pnpm --filter @slidev-stage-hub/protocol build && pnpm --filter @slidev-stage-hub/slidev-adapter build && pnpm --filter @slidev-stage-hub/hub build:node && pnpm --filter @slidev-stage-hub/stage-tools build && pnpm --filter @slidev-stage-hub/cli build",
+    "build:packages": "pnpm --filter @slidev-stage-hub/protocol build && pnpm --filter @slidev-stage-hub/slidev-adapter build && pnpm --filter @slidev-stage-hub/hub build:node && pnpm --filter @slidev-stage-hub/hub build:client && pnpm --filter @slidev-stage-hub/stage-tools build && pnpm --filter @slidev-stage-hub/cli build",
     "test:contracts": "node scripts/test-contracts.mjs",
     "test:hub-service": "pnpm build:packages && node --test packages/hub/tests/*.test.mjs",
     "test:stage-tools": "pnpm build:packages && pnpm --filter @slidev-stage-hub/stage-tools test && cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core -p slidev-native-poc",
@@ -35,7 +35,9 @@
     "pack:cli": "pnpm build:packages && node scripts/pack-cli.mjs",
     "verify:packed-cli": "pnpm build:packages && node scripts/verify-packed-cli.mjs",
     "hub": "node packages/cli/dist/bin/hub.js",
-    "stage:cli": "node packages/cli/dist/bin/stage.js"
+    "stage:cli": "node packages/cli/dist/bin/stage.js",
+    "test:web-client": "pnpm build:packages && node --test packages/hub/tests/client.test.mjs",
+    "verify:web-customization": "pnpm build:packages && node scripts/verify-web-customization.mjs"
   },
   "devDependencies": {
     "@slidev/cli": "53.0.0",

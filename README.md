@@ -6,7 +6,7 @@
 
 App/Webの機能・コード構成・CLI・導入方法・今後の設計論点は、[現状アーキテクチャレポート（HTML）](docs/reports/architecture-overview.html) にまとめています。
 
-実験機能の集約、パッケージ境界、CLI・Webの拡張性、開発基盤の整備は、[実装計画（HTML）](docs/plans/productization-plan.html) と [進捗台帳](docs/plans/productization-todo.md) を参照してください。Step 5（CLIの整理とパッケージ化）まで完了し、Step 6〜8は未着手です。日常の検証は `pnpm check`、結果は [Step 5検証記録](docs/results/cli.json) を参照してください。
+実験機能の集約、パッケージ境界、CLI・Webの拡張性、開発基盤の整備は、[実装計画（HTML）](docs/plans/productization-plan.html) と [進捗台帳](docs/plans/productization-todo.md) を参照してください。Step 6（Web clientと表示のカスタマイズ）まで完了し、Step 7〜8は未着手です。日常の検証は `pnpm check`、結果は [Step 6検証記録](docs/results/web-customization.json) を参照してください。
 
 ```sh
 pnpm install --frozen-lockfile
@@ -38,3 +38,5 @@ Stageの準備・接続APIと設定パスは [Stageツール開発ガイド](doc
 CLIの仕様と設定移行は [CLI利用ガイド](docs/guides/cli.md) を参照。Node.js 24.15以上、pnpm 12.3.4を使用します。ワークスペースでは `pnpm build:packages` の後、`pnpm hub --help` / `pnpm stage:cli --help` で確認できます。
 
 非公開tarballは `pnpm pack:cli` で `artifacts/cli-package/` に生成します。フォルダ全体をリポジトリ外にコピーし、そこで `pnpm install` → `pnpm exec hub --help` / `pnpm exec stage --help` を実行します。npm公開はしておらず、ネイティブStageバイナリも含みません。既存の `pnpm stage` はデスクトップアプリの起動として維持します。
+
+Web の取得元・entry・CSS の差し替えは [Web カスタマイズガイド](docs/guides/web-customization.md) と [実行例](examples/custom-frontend/) を参照してください。

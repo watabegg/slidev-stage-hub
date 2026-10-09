@@ -1,18 +1,32 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import type { Catalog, JsonValue } from './catalog'
+import { computed, ref } from 'vue';
+import type { Catalog, CatalogDeck, JsonValue } from '@slidev-stage-hub/hub/client';
 
-const props = defineProps<{ catalog: Catalog }>()
-const selected = ref('')
-const decks = computed(() => props.catalog.decks.filter(deck => !selected.value || deck.categoryPath.join('/') === selected.value || deck.categoryPath.join('/').startsWith(`${selected.value}/`)))
-const label = computed(() => selected.value || 'すべての資料')
-const text = (value: JsonValue | undefined): string => Array.isArray(value) ? value.join(' / ') : value == null ? '' : String(value)
+const props = defineProps<{
+  catalog: Catalog;
+  homeHref?: string;
+  homeLabel?: string;
+  deckHref?: (deck: CatalogDeck) => string;
+}>();
+const selected = ref('');
+const decks = computed(() =>
+  props.catalog.decks.filter(
+    (deck) =>
+      !selected.value ||
+      deck.categoryPath.join('/') === selected.value ||
+      deck.categoryPath.join('/').startsWith(`${selected.value}/`),
+  ),
+);
+const label = computed(() => selected.value || 'すべての資料');
+const text = (value: JsonValue | undefined): string =>
+  Array.isArray(value) ? value.join(' / ') : value == null ? '' : String(value);
 </script>
 
 <template>
   <div class="library">
     <header class="library-header">
-      <a class="brand" href="/">SLIDE LIBRARY<span>資料ライブラリ</span></a
+      <a class="brand" :href="homeHref ?? '/'"
+        >{{ homeLabel ?? 'SLIDE LIBRARY' }}<span>資料ライブラリ</span></a
       ><span class="library-caption">考えを、スライドから。</span>
     </header>
     <div class="library-layout">
@@ -40,7 +54,12 @@ const text = (value: JsonValue | undefined): string => Array.isArray(value) ? va
           <p>{{ decks.length }} 件の資料</p>
         </div>
         <div class="deck-grid">
-          <a v-for="deck in decks" :key="deck.id" class="deck-card" :href="deck.entry">
+          <a
+            v-for="deck in decks"
+            :key="deck.id"
+            class="deck-card"
+            :href="deckHref ? deckHref(deck) : deck.entry"
+          >
             <div class="deck-preview">
               <img
                 :src="deck.thumbnail.src"

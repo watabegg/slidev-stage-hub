@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "sourceRoot": "../fixtures",
+  "outDir": "../../artifacts/custom-frontend/site",
+  "frontendEntry": "./entry.ts",
+  "navigation": { "homeLabel": "コレクションへ戻る" },
+  "offline": false
+}
