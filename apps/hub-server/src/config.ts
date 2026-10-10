@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import {
   createHubServer,
+  runtimeSnapshotFromManifest,
   type ArtifactStore,
   type PublicationStore,
 } from '@slidev-stage-hub/server';
@@ -57,6 +58,7 @@ export async function createConfiguredHub(env: Environment = process.env) {
     layouts: names(manifest.layouts, 'layouts'),
     components: names(manifest.components, 'components'),
   };
+  const runtime = runtimeSnapshotFromManifest(manifest);
   const storage = env.HUB_STORAGE ?? 'filesystem';
   const state = env.HUB_PUBLICATIONS ?? 'memory';
   if (env.NODE_ENV === 'production' && (storage === 'filesystem' || state === 'memory'))
@@ -95,6 +97,7 @@ export async function createConfiguredHub(env: Environment = process.env) {
       publications,
       staticAssets: createStaticAssets({ root: staticRoot }),
       profile,
+      loadRuntime: async () => runtime,
       publishToken: env.HUB_PUBLISH_TOKEN,
       allowLocalMutations: env.HUB_ALLOW_LOCAL_MUTATIONS === 'true',
     });

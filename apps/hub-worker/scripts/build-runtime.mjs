@@ -7,6 +7,11 @@ import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveRuntime } from '@slidev-stage-hub/slidev-adapter/runtime';
 import { compileContract, stableJson } from '@slidev-stage-hub/slidev-adapter/static-runtime';
+import { snapshotRuntime } from './runtime-snapshot.mjs';
+import {
+  preserveReleaseAssetInLayoutHelper,
+  preserveReleaseAssetInPreloader,
+} from './runtime-asset-paths.mjs';
 
 const experiment = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const projectRoot = experiment;
@@ -139,6 +144,10 @@ const adapter = {
     order: 'pre',
     handler(code, id) {
       const sourceId = id.split('?')[0];
+      if (sourceId === join(clientRoot, 'layoutHelper.ts'))
+        return preserveReleaseAssetInLayoutHelper(code);
+      if (sourceId === join(clientRoot, 'composables/usePreloadImages.ts'))
+        return preserveReleaseAssetInPreloader(code);
       if (sourceId !== join(clientRoot, 'setup/main.ts') && sourceId !== join(clientRoot, 'env.ts'))
         return;
       if (!code.includes('import.meta.env.BASE_URL'))
@@ -209,7 +218,7 @@ await writeFile(join(viteRoot, 'index.html'), html);
 await build({
   configFile: false,
   root: viteRoot,
-  base: '/',
+  base: './',
   publicDir: false,
   plugins: [adapter, ...plugins, graphPlugin],
   resolve: { alias: [{ find: /^vue$/, replacement: vueRuntime }] },
@@ -280,6 +289,7 @@ if (compilerContract.config?.theme)
   compilerContract.config.theme = `${themeInfo.name}@${themeInfo.version}`;
 const profile = {
   schemaVersion: 1,
+  runtimeSnapshotRecipeVersion: 1,
   cliVersion,
   clientVersion,
   theme: themeInfo,
@@ -303,7 +313,8 @@ const profile = {
   files: fileDigests,
 };
 const profileDigest = sha256(stableJson(profile));
-const runtimeManifest = { ...profile, profileDigest };
+const runtime = await snapshotRuntime({ siteRoot, id: profileDigest });
+const runtimeManifest = { ...profile, profileDigest, runtime };
 await writeFile(
   join(siteRoot, 'runtime-manifest.json'),
   `${JSON.stringify(runtimeManifest, null, 2)}\n`,

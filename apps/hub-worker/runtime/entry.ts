@@ -3,7 +3,12 @@ import { createSlideRoutes } from './routes';
 import { showCatalog } from './catalog';
 import { deckBase, deckId } from '/@lab/selection';
 import baseConfig from '/@lab/base-config';
-import { isRecord, validateDeckManifest, type DeckManifest } from './manifest';
+import {
+  isRecord,
+  selectRequestedRevision,
+  validateDeckManifest,
+  type DeckManifest,
+} from './manifest';
 
 type RuntimeConfig = Record<string, unknown> & {
   themeConfig?: Record<string, unknown>;
@@ -68,13 +73,18 @@ async function boot() {
     return;
   }
 
-  const requestedRevision = new URL(location.href).searchParams.get('revision');
+  const documentUrl = new URL(location.href);
+  const requestedRevision = selectRequestedRevision(
+    documentUrl,
+    document.querySelector('meta[name="hub-revision"]')?.getAttribute('content') ?? null,
+  );
   const query = requestedRevision ? `?revision=${encodeURIComponent(requestedRevision)}` : '';
   const response = await fetch(`/api/decks/${encodeURIComponent(deckId)}${query}`, {
     cache: 'no-store',
   });
   if (!response.ok) throw new Error(`Deck ${deckId} is unavailable (${response.status})`);
-  const manifest = validateDeckManifest(await response.json(), deckId);
+  const runtimeId = new URL(import.meta.url).pathname.match(/^\/runtimes\/([a-f0-9]{64})\//u)?.[1];
+  const manifest = validateDeckManifest(await response.json(), deckId, runtimeId);
   if (requestedRevision && manifest.revision !== requestedRevision)
     throw new Error(
       `Requested revision ${requestedRevision} does not match the returned deck revision`,

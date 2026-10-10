@@ -4,6 +4,7 @@ import type {
   HubServerOptions,
   PublicationStore,
 } from '@slidev-stage-hub/server';
+import { runtimeSnapshotFromManifest } from '@slidev-stage-hub/server';
 import { captureThumbnail } from './thumbnail.js';
 import type { BrowserRunBinding } from './types.js';
 
@@ -105,6 +106,13 @@ export function createCloudflareOptions(env: CloudflareBindings): HubServerOptio
     artifacts: createR2ArtifactStore(env.FILES),
     publications: createDurableObjectPublicationStore(env.VERSIONS),
     staticAssets: { fetch: (request) => env.STATIC.fetch(request) },
+    loadRuntime: async () => {
+      const response = await env.STATIC.fetch(
+        new Request('https://hub.invalid/runtime-manifest.json'),
+      );
+      if (!response.ok) throw new Error('Built runtime manifest is unavailable');
+      return runtimeSnapshotFromManifest(await response.json());
+    },
     profile: {
       digest: env.PROFILE_DIGEST,
       ...(env.PROFILE_THEME === undefined ? {} : { theme: env.PROFILE_THEME }),

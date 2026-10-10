@@ -8,6 +8,7 @@ export function createHubServer(options: HubServerOptions): {
 }
 
 export * from './ports.js';
+export { runtimeSnapshotFromManifest, auditRuntimeRetention } from './runtime.js';
 export { publishDeck, type PublishResult } from './publish.js';
 export { compileDeck, DeckCompileError } from './compiler.js';
 export type { CompileDeckInput, CompileDeckResult, NativeClickMetadata } from './compiler.js';

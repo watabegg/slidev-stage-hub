@@ -11,6 +11,7 @@ import {
 } from './storage.js';
 import { ThumbnailError, validatePng } from './thumbnail.js';
 import type { ArtifactObject, HubServerOptions } from './ports.js';
+import { readRuntimeFile } from './runtime.js';
 
 const REVISION_PATTERN = /^[a-f0-9]{64}$/u;
 const encoder = new TextEncoder();
@@ -72,18 +73,73 @@ async function routeRequest(request: Request, env: HubServerOptions): Promise<Re
       if (!manifest || !manifest.slides.some((slide) => slide.no === page)) {
         return new Response('Not found', { status: 404, headers: { 'cache-control': 'no-store' } });
       }
+      if (manifest.runtimeId !== undefined) {
+        const object = await readRuntimeFile(env.artifacts, manifest.runtimeId, 'index.html');
+        if (!object) throw new WorkerError(503, 'storage', 'Pinned runtime is unavailable');
+        const html = await new Response(object.body).text();
+        if (!/<head(?:\s[^>]*)?>/iu.test(html))
+          throw new WorkerError(503, 'storage', 'Pinned runtime is unavailable');
+        const body = html.replace(
+          /(<head(?:\s[^>]*)?>)/iu,
+          `$1<meta name="hub-revision" content="${manifest.revision}">`,
+        );
+        return new Response(request.method === 'HEAD' ? null : body, {
+          headers: {
+            'content-type': 'text/html; charset=utf-8',
+            'cache-control': 'no-store',
+            'x-content-type-options': 'nosniff',
+          },
+        });
+      }
       // Deck category names may match provider-reserved directories. Serve the
       // verified document through its public entrypoint while retaining the URL
       // and revision query that the browser's runtime uses to select the deck.
       const entryUrl = new URL(request.url);
       entryUrl.pathname = '/index.html';
-      const response = await fetchStaticContent(new Request(entryUrl, request), env);
+      let response = await fetchStaticContent(new Request(entryUrl, request), env);
+      if (
+        response.ok &&
+        response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() === 'text/html'
+      ) {
+        const headers = new Headers(response.headers);
+        headers.set('cache-control', 'no-store');
+        headers.delete('content-length');
+        headers.delete('etag');
+        const html = request.method === 'HEAD' ? '' : await response.text();
+        const base = /<base(?:\s|>)/iu.test(html) ? '' : '<base href="/">';
+        const body = html.replace(
+          /(<head(?:\s[^>]*)?>)/iu,
+          `$1${base}<meta name="hub-revision" content="${manifest.revision}">`,
+        );
+        if (request.method === 'HEAD') await response.body?.cancel();
+        response = new Response(request.method === 'HEAD' ? null : body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers,
+        });
+      }
       if (request.method === 'HEAD') {
         await response.body?.cancel();
         return new Response(null, response);
       }
       return response;
     }
+  }
+
+  if (url.pathname === '/runtimes' || url.pathname.startsWith('/runtimes/')) {
+    if (request.method !== 'GET' && request.method !== 'HEAD') return methodNotAllowed('GET, HEAD');
+    const match = /^\/runtimes\/([a-f0-9]{64})\/(.+)$/u.exec(url.pathname);
+    const object = match ? await readRuntimeFile(env.artifacts, match[1], match[2]) : null;
+    if (!object)
+      return new Response('Not found', { status: 404, headers: { 'cache-control': 'no-store' } });
+    const headers = new Headers({
+      'cache-control': 'public, max-age=31536000, immutable',
+      'x-content-type-options': 'nosniff',
+    });
+    if (object.contentType) headers.set('content-type', object.contentType);
+    if (object.etag) headers.set('etag', object.etag);
+    if (request.method === 'HEAD') await object.body.cancel();
+    return new Response(request.method === 'HEAD' ? null : object.body, { headers });
   }
 
   if (url.pathname.startsWith('/releases/') && request.method === 'GET') {

@@ -147,3 +147,14 @@ CI のワークフロー定義は [../.github/workflows/checks.yml](../.github/w
 `SLIDEV_LAB_DEPENDENCY_ROOT` は実験用です。新しい API や CLI ではこれらを使用せず、明示的な設定を参照してください。
 
 現行 Stage のフレーム維持・描画待ち・競合処理は `apps/stage/scripts/verify-flicker.mjs` で検証します。過去版の比較ハーネスと計測記録は [DECISIONS.md](DECISIONS.md) 内の固定 Git リンクから参照できます。
+
+## ランタイムアップグレードのローカル検証
+
+ランタイム固定機能のアップグレード検証は、実際のクラウド環境を使用せず、破棄可能なローカルPostgreSQLおよびローカルNode / workerd（Durable Objects）環境で実施します。次のコマンドで検証を行います。
+
+```bash
+export HUB_TEST_DATABASE_URL='postgres://USER:PASSWORD@127.0.0.1:5432/DATABASE'
+pnpm verify:runtime-upgrade
+```
+
+このコマンドはデフォルトテーマ（A）と `slidev-theme-watabegg@1.2.1`（B）を順次ビルドし、同一MarkdownをNode/PostgreSQLとローカルworkerdへ公開します。元のテーマAの静的パスを削除した上でテーマBにより再起動し、新旧両方のブラウザアセット名前空間と描画結果を確認します。生成されたログやスクリーンショットはGit管理外の `artifacts/runtime-pinning` に出力されます。本検証はローカル専用でありCIには追加されていません。検証結果の集約状況は [docs/results/runtime-pinning.json](results/runtime-pinning.json) を参照してください。

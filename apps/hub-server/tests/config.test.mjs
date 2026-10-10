@@ -190,3 +190,18 @@ test('default memory and filesystem configuration needs no PostgreSQL URL', asyn
     await app.close();
   }
 });
+
+test('a declared but invalid runtime snapshot fails startup instead of enabling legacy mode', async () => {
+  const staticRoot = await runtimeDirectory();
+  await writeFile(
+    join(staticRoot, 'runtime-manifest.json'),
+    JSON.stringify({
+      profileDigest: 'a'.repeat(64),
+      theme: { name: 'minimal' },
+      layouts: [],
+      components: [],
+      runtime: { schemaVersion: 1, id: 'invalid', files: [] },
+    }),
+  );
+  await assert.rejects(createConfiguredHub(envFor(staticRoot)));
+});

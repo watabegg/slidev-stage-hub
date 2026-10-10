@@ -145,7 +145,7 @@ try {
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
         errors.push(msg.text());
-        console.error('BROWSER', msg.text());
+        console.error('BROWSER', msg.text(), msg.location().url);
       }
     });
     await page.goto(origin + original.entry);

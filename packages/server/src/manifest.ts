@@ -12,6 +12,7 @@ export interface ReleaseManifest {
   id: string;
   revision: string;
   profileDigest?: string;
+  runtimeId?: string;
   title: string;
   frontmatter: Record<string, unknown>;
   warnings: string[];
@@ -31,6 +32,8 @@ export function isReleaseManifest(value: unknown): value is ReleaseManifest {
     isRecord(value) &&
     typeof value.id === 'string' &&
     typeof value.revision === 'string' &&
+    (value.runtimeId === undefined ||
+      (typeof value.runtimeId === 'string' && /^[a-f0-9]{64}$/u.test(value.runtimeId))) &&
     typeof value.title === 'string' &&
     isRecord(value.frontmatter) &&
     Array.isArray(value.warnings) &&

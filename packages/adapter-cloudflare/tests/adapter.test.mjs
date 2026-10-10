@@ -159,3 +159,23 @@ test('Cloudflare factory binds current generated profile and local mutation conf
     'static',
   );
 });
+
+test('Cloudflare runtime loader reads static metadata and does not downgrade malformed builds', async () => {
+  let response = Response.json({ profileDigest: 'legacy-profile' });
+  const options = createCloudflareOptions({
+    FILES: {},
+    VERSIONS: namespace(),
+    PROFILE_DIGEST: 'profile',
+    STATIC: {
+      fetch: async (request) => {
+        assert.equal(new URL(request.url).pathname, '/runtime-manifest.json');
+        return response;
+      },
+    },
+  });
+  assert.equal(await options.loadRuntime(), undefined);
+  response = Response.json({ runtime: { id: 'invalid' } });
+  await assert.rejects(options.loadRuntime());
+  response = new Response('unavailable', { status: 503 });
+  await assert.rejects(options.loadRuntime(), /unavailable/);
+});

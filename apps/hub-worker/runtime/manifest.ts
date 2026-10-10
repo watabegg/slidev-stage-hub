@@ -11,6 +11,7 @@ export type RuntimeSlide = {
 export type DeckManifest = {
   id: string;
   revision: string;
+  runtimeId?: string;
   title?: string;
   frontmatter?: Frontmatter;
   runtimeVersion?: string;
@@ -35,13 +36,25 @@ export function validatedRevisionModuleUrl(value: string): string {
   return value;
 }
 
+export function selectRequestedRevision(url: URL, metaRevision: string | null): string | undefined {
+  return url.searchParams.get('revision') || metaRevision || undefined;
+}
+
 /** Only same-release modules may enter the dynamic Slidev route loader. */
-export function validateDeckManifest(value: unknown, id: string): DeckManifest {
+export function validateDeckManifest(
+  value: unknown,
+  id: string,
+  expectedRuntimeId?: string,
+): DeckManifest {
   if (
     !isRecord(value) ||
     value.id !== id ||
     typeof value.revision !== 'string' ||
     !/^[a-f0-9]{64}$/.test(value.revision) ||
+    (value.runtimeId !== undefined &&
+      (typeof value.runtimeId !== 'string' || !/^[a-f0-9]{64}$/.test(value.runtimeId))) ||
+    (expectedRuntimeId !== undefined &&
+      (!/^[a-f0-9]{64}$/.test(expectedRuntimeId) || value.runtimeId !== expectedRuntimeId)) ||
     !Array.isArray(value.slides) ||
     value.slides.length < 1 ||
     value.slides.length > 100 ||

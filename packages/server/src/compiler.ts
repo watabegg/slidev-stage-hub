@@ -10,8 +10,6 @@ import { presetWind3 } from '@unocss/preset-wind3';
 import { createMarkdownExit } from 'markdown-exit';
 import { inspectNativeClicks, type SlideContent } from '@slidev-stage-hub/slidev-adapter/clicks';
 
-const RUNTIME_VUE_MODULE = '/_runtime/vue.js';
-const RUNTIME_BRIDGE_MODULE = '/_runtime/bridge.js';
 const SLIDE_CONTEXT_BINDINGS = {
   $slidev: 'setup-maybe-ref',
   $nav: 'setup-maybe-ref',
@@ -69,6 +67,7 @@ export interface CompileDeckInput {
   markdown: string;
   deckId: string;
   assetBase?: string;
+  runtimeBase?: string;
 }
 
 interface NamedSlotSection {
@@ -100,9 +99,12 @@ export async function compileDeck({
   markdown: source,
   deckId,
   assetBase = defaultAssetBase(deckId),
+  runtimeBase = '/_runtime/',
 }: CompileDeckInput): Promise<CompileDeckResult> {
   if (typeof source !== 'string') throw new DeckCompileError('markdown must be a string');
   validateDeckId(deckId);
+  if (!/^\/(?:_runtime\/|runtimes\/[a-f0-9]{64}\/_runtime\/)$/u.test(runtimeBase))
+    throw new DeckCompileError('Invalid runtime module base');
   const normalizedAssetBase = normalizeAssetBase(assetBase);
   const parsed = parseSync(source, `${deckId}.md`);
   if (!parsed.slides.length) throw new DeckCompileError(`Deck "${deckId}" has no slides`);
@@ -172,6 +174,7 @@ export async function compileDeck({
         no,
         pageId,
         assetBase: normalizedAssetBase,
+        runtimeBase,
         sections: slideSections[index],
         frontmatter: resolveFrontmatterImages(
           publicSlideFrontmatter(parsedSlide.frontmatter),
@@ -279,6 +282,7 @@ async function compileSlide({
   no,
   pageId,
   assetBase,
+  runtimeBase,
   frontmatter,
 }: {
   content: string;
@@ -288,6 +292,7 @@ async function compileSlide({
   no: number;
   pageId: string;
   assetBase: string;
+  runtimeBase: string;
   frontmatter: Record<string, unknown>;
 }): Promise<CompiledSlide> {
   const styles = [];
@@ -340,7 +345,7 @@ async function compileSlide({
     compilerOptions: {
       mode: 'module',
       hoistStatic: false,
-      runtimeModuleName: RUNTIME_VUE_MODULE,
+      runtimeModuleName: `${runtimeBase}vue.js`,
       bindingMetadata: SLIDE_CONTEXT_BINDINGS,
     },
     transformAssetUrls: false,
@@ -365,7 +370,7 @@ async function compileSlide({
   const css = [generated.css.trim(), ...compiledStyles].filter(Boolean).join('\n');
   const scopeId = scoped ? `\n__slide.__scopeId = "data-v-${pageId}"\n` : '\n';
   const code = [
-    `import { slideSetup } from ${JSON.stringify(RUNTIME_BRIDGE_MODULE)}`,
+    `import { slideSetup } from ${JSON.stringify(`${runtimeBase}bridge.js`)}`,
     template.code,
     'const __slide = { setup: slideSetup, render }',
     `${scopeId}export default __slide`,

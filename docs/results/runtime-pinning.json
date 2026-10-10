@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-10",
+  "scope": "Revision-pinned browser runtime archives, retention audit, and local upgrade regression",
+  "environment": {
+    "node": "24.15.0",
+    "pnpm": "12.3.4",
+    "postgres": "17 (local Docker)"
+  },
+  "checks": {
+    "workspace": {
+      "command": "HUB_TEST_DATABASE_URL=<local PostgreSQL URL> pnpm check",
+      "status": "passed",
+      "tests": 265,
+      "pass": 265,
+      "fail": 0,
+      "skipped": 0,
+      "boundaryViolations": 0,
+      "migrationExceptions": 0
+    },
+    "runtimeUpgrade": {
+      "command": "HUB_TEST_DATABASE_URL=<local PostgreSQL URL> pnpm verify:runtime-upgrade",
+      "status": "passed",
+      "assertions": 29,
+      "coverage": [
+        "distinct built themes produce distinct runtime IDs",
+        "node: first publication pins runtime A",
+        "node-a-before: page selects the expected revision",
+        "node-a-before: browser downloads the pinned runtime",
+        "node-a-before: browser never mixes mutable runtime assets",
+        "node: identical source with runtime B creates a new revision",
+        "node: restarted application restores runtime B publication",
+        "node: runtime A bytes survive static replacement and restart",
+        "node-a-after: page selects the expected revision",
+        "node-a-after: browser downloads the pinned runtime",
+        "node-a-after: browser never mixes mutable runtime assets",
+        "node-b-after: page selects the expected revision",
+        "node-b-after: browser downloads the pinned runtime",
+        "node-b-after: browser never mixes mutable runtime assets",
+        "node: pinned document works for headerless Stage requests",
+        "workerd: first publication pins runtime A",
+        "workerd-a-before: page selects the expected revision",
+        "workerd-a-before: browser downloads the pinned runtime",
+        "workerd-a-before: browser never mixes mutable runtime assets",
+        "workerd: identical source with runtime B creates a new revision",
+        "workerd: restarted application restores runtime B publication",
+        "workerd: runtime A bytes survive static replacement and restart",
+        "workerd-a-after: page selects the expected revision",
+        "workerd-a-after: browser downloads the pinned runtime",
+        "workerd-a-after: browser never mixes mutable runtime assets",
+        "workerd-b-after: page selects the expected revision",
+        "workerd-b-after: browser downloads the pinned runtime",
+        "workerd-b-after: browser never mixes mutable runtime assets",
+        "workerd: pinned document works for headerless Stage requests"
+      ],
+      "artifacts": "artifacts/runtime-pinning/2026-10-10T06-27-56.345Z",
+      "runtimes": {
+        "a": "e8d8296c9c286bb0129ffdee3593286e98bd4a2a90e732e211362ef56ab17bdf",
+        "b": "597e7f15665a6293256a07ee04efbc0c67f8015e5ce51b31d345c9fa447d7a85"
+      }
+    },
+    "workersRegression": {
+      "command": "pnpm --filter @slidev-stage-hub/workers verify",
+      "status": "passed",
+      "assertions": 39,
+      "browserErrors": []
+    },
+    "nodeRegression": {
+      "command": "HUB_TEST_DATABASE_URL=<local PostgreSQL URL> node scripts/verify-server.mjs",
+      "status": "passed",
+      "assertions": 17
+    },
+    "packedServer": {
+      "command": "node scripts/verify-packed-server.mjs",
+      "status": "passed",
+      "packages": 8
+    },
+    "independentReview": {
+      "status": "completed",
+      "unresolvedFindings": 0,
+      "resolvedRegressions": [
+        "Legacy document relative HTML asset base",
+        "Slidev layout and preloader release image paths"
+      ]
+    }
+  },
+  "retention": {
+    "automaticDeletion": false,
+    "historicalReleaseReferencesIncluded": true,
+    "unreferencedIsDeletionPermission": false
+  },
+  "limits": [
+    "Cloudflare, AWS and GCP live deployments were not exercised.",
+    "Native Stage UI and Docker image were not rerun for this change. Headerless document GET/HEAD was checked locally.",
+    "Unpinned legacy revisions do not gain retrospective runtime protection; rebuild and republish creates a protected revision.",
+    "Archives must be retained. Pinning does not guarantee compatibility with arbitrary future server or protocol changes."
+  ],
+  "cloudDeployed": false
+}

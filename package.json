@@ -44,7 +44,8 @@
     "dev:server": "pnpm --filter @slidev-stage-hub/server-app start",
     "verify:server": "pnpm build:server-runtime && node scripts/verify-server.mjs",
     "pack:server": "pnpm build:packages && node scripts/pack-server.mjs",
-    "verify:packed-server": "pnpm build:packages && node scripts/verify-packed-server.mjs"
+    "verify:packed-server": "pnpm build:packages && node scripts/verify-packed-server.mjs",
+    "verify:runtime-upgrade": "pnpm build:packages && node apps/hub-worker/scripts/verify-runtime-upgrade.mjs"
   },
   "devDependencies": {
     "@slidev/cli": "53.0.0",

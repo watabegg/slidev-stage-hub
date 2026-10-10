@@ -10,7 +10,6 @@
 - [ ] App / Web の UI・UX を設計
 
 - [ ] AWS（ECS、S3、PostgreSQL）および GCP（Cloud Run、GCS、PostgreSQL）の実環境における受け入れ検証
-- [ ] 共有ランタイム差し替え時における過去リビジョンとの互換性戦略の策定および受け入れ検証
 - [ ] npm パッケージおよびサーバー成果物の正式な配布への対応
 
 既存機能の集約・パッケージ分離・CLI・Web 拡張点の整備は完了。[最終回帰記録](docs/results/final-regression.json) にローカルの検証範囲を記載しています。

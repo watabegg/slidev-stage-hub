@@ -38,11 +38,23 @@ export interface RuntimeProfile {
   layouts?: string;
   components?: string;
 }
+export interface RuntimeSnapshotFile {
+  path: string;
+  sha256: string;
+  size: number;
+  contentType: string;
+}
+export interface RuntimeSnapshot {
+  schemaVersion: 1;
+  id: string;
+  files: RuntimeSnapshotFile[];
+}
 export interface HubServerOptions {
   artifacts: ArtifactStore;
   publications: PublicationStore;
   staticAssets: { fetch(request: Request): Promise<Response> };
   profile: RuntimeProfile;
+  loadRuntime?: () => Promise<RuntimeSnapshot | undefined>;
   publishToken?: string;
   allowLocalMutations?: boolean;
   renderThumbnail?: (url: string) => Promise<{ bytes: Uint8Array; usedMs: number | null }>;

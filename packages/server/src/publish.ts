@@ -8,6 +8,7 @@ import { WorkerError } from './errors.js';
 import { isRecord, isReleaseManifest, type ReleaseManifest } from './manifest.js';
 import { markDeckIndexed, putArtifacts, putJson, readJson, type ArtifactWrite } from './storage.js';
 import type { HubServerOptions } from './ports.js';
+import { archiveRuntime } from './runtime.js';
 
 const MAX_SLIDES = 100;
 const REVISION_METADATA_VERSION = 'native-click-metadata-v1';
@@ -48,8 +49,7 @@ export async function publishDeck(
   const orderedAssets = Object.fromEntries(
     Object.entries(assets).sort(([left], [right]) => left.localeCompare(right)),
   );
-  const revision = await calculateRevision(env.profile.digest, input.markdown, orderedAssets);
-  const prefix = `releases/${id}/${revision}`;
+  let revision = await calculateRevision(env.profile.digest, input.markdown, orderedAssets);
 
   let generation: string;
   try {
@@ -58,11 +58,33 @@ export async function publishDeck(
     throw new WorkerError(500, 'commit', 'Could not reserve a publication generation');
   }
 
+  let snapshot;
+  try {
+    snapshot = await env.loadRuntime?.();
+  } catch {
+    throw new WorkerError(500, 'storage', 'Could not load the publication runtime');
+  }
+  if (snapshot !== undefined) {
+    snapshot = await archiveRuntime(env, snapshot);
+    revision = await calculateRevision(
+      env.profile.digest,
+      input.markdown,
+      orderedAssets,
+      snapshot.id,
+    );
+  }
+  const prefix = `releases/${id}/${revision}`;
+
   const existing = await readJson(env.artifacts, `${prefix}/manifest.json`);
   let manifest: ReleaseManifest;
   let cached = false;
   if (existing !== null) {
-    if (!isReleaseManifest(existing) || existing.id !== id || existing.revision !== revision) {
+    if (
+      !isReleaseManifest(existing) ||
+      existing.id !== id ||
+      existing.revision !== revision ||
+      (snapshot !== undefined && existing.runtimeId !== snapshot.id)
+    ) {
       throw new WorkerError(500, 'storage', 'Stored publication metadata is invalid');
     }
     manifest = existing;
@@ -72,6 +94,7 @@ export async function publishDeck(
       markdown: input.markdown,
       deckId: id,
       assetBase: `/${prefix}/assets/`,
+      ...(snapshot ? { runtimeBase: `/runtimes/${snapshot.id}/_runtime/` } : {}),
     });
     if (result.slides.length > MAX_SLIDES) {
       throw new WorkerError(400, 'compiler', 'This runtime supports at most 100 slides');
@@ -86,6 +109,7 @@ export async function publishDeck(
       id,
       revision,
       profileDigest: env.profile.digest,
+      ...(snapshot ? { runtimeId: snapshot.id } : {}),
       title: result.title,
       frontmatter: result.frontmatter,
       warnings: result.warnings,
@@ -242,9 +266,14 @@ async function calculateRevision(
   profileDigest: string,
   markdown: string,
   assets: Record<string, string>,
+  runtimeId?: string,
 ): Promise<string> {
   const data = new TextEncoder().encode(
-    JSON.stringify([profileDigest, REVISION_METADATA_VERSION, markdown, assets]),
+    JSON.stringify(
+      runtimeId === undefined
+        ? [profileDigest, REVISION_METADATA_VERSION, markdown, assets]
+        : [profileDigest, REVISION_METADATA_VERSION, markdown, assets, runtimeId],
+    ),
   );
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
   return [...digest].map((value) => value.toString(16).padStart(2, '0')).join('');
