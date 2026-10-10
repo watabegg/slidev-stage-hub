@@ -189,7 +189,7 @@ try {
   });
   const oldCurrent = await store.publications.current(migrationDeckId);
   check(
-    'schema v2 opens the original DeckVersions class and preserves its current manifest',
+    'schema v4 opens the original DeckVersions class and preserves its current manifest',
     oldCurrent?.revision === 'preserved-before-upgrade',
   );
   const nextGeneration = await store.publications.begin(migrationDeckId);

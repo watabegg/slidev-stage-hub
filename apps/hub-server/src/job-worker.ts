@@ -1,4 +1,8 @@
-import { runPublicationJob, type HubServerOptions } from '@slidev-stage-hub/server';
+import {
+  runPublicationJob,
+  runPublicationJobCleanup,
+  type HubServerOptions,
+} from '@slidev-stage-hub/server';
 
 export function startPublicationJobWorker(
   options: HubServerOptions,
@@ -6,6 +10,7 @@ export function startPublicationJobWorker(
     concurrency?: number;
     pollIntervalMs?: number;
     run?: typeof runPublicationJob;
+    cleanup?: typeof runPublicationJobCleanup;
     onError?: () => void;
   } = {},
 ): { close(): Promise<void> } {
@@ -18,6 +23,7 @@ export function startPublicationJobWorker(
     throw new Error('Job poll interval must be a positive integer');
   const controller = new AbortController();
   const run = settings.run ?? runPublicationJob;
+  const cleanup = settings.cleanup ?? runPublicationJobCleanup;
   const wait = () =>
     new Promise<void>((resolve) => {
       const finish = () => {
@@ -31,12 +37,20 @@ export function startPublicationJobWorker(
     });
   const loops = Array.from({ length: concurrency }, async () => {
     while (!controller.signal.aborted) {
+      let worked = false;
       try {
-        if (await run(options, { signal: controller.signal })) continue;
+        worked = await run(options, { signal: controller.signal });
       } catch {
         settings.onError?.();
       }
-      if (!controller.signal.aborted) await wait();
+      if (!controller.signal.aborted) {
+        try {
+          worked = (await cleanup(options, { signal: controller.signal })) || worked;
+        } catch {
+          settings.onError?.();
+        }
+      }
+      if (!worked && !controller.signal.aborted) await wait();
     }
   });
   return {

@@ -83,6 +83,27 @@ export interface PublicationJobListResponse {
   items: JobSnapshot[];
   nextCursor?: string;
 }
+export interface JobCleanupRequest {
+  deckId: string;
+  apply?: boolean;
+  limit?: number;
+}
+export interface JobCleanupItem {
+  jobId: string;
+  finishedAt: string;
+}
+export interface JobCleanupResponse {
+  schemaVersion: 1;
+  deckId: string;
+  dryRun: boolean;
+  retentionDays: 30;
+  cutoff: string;
+  jobs: JobCleanupItem[];
+  deletedJobs: number;
+  deletedInputs: number;
+  pendingInputs: number;
+  more: boolean;
+}
 export interface HubCapabilities {
   schemaVersion: 1;
   publicationJobs: { enabled: boolean; pollAfterMs: 2000 };
@@ -234,6 +255,51 @@ export function isPublicationJobListResponse(v: unknown): v is PublicationJobLis
     Array.isArray(v.items) &&
     v.items.every(isJobSnapshot) &&
     optional(v, 'nextCursor', (c) => typeof c === 'string')
+  );
+}
+export function isJobCleanupRequest(v: unknown): v is JobCleanupRequest {
+  return (
+    record(v) &&
+    keys(v, ['deckId', 'apply', 'limit']) &&
+    typeof v.deckId === 'string' &&
+    /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/u.test(v.deckId) &&
+    optional(v, 'apply', (apply) => typeof apply === 'boolean') &&
+    optional(v, 'limit', (limit) => integer(limit) && limit >= 1 && limit <= 100)
+  );
+}
+export function isJobCleanupResponse(v: unknown): v is JobCleanupResponse {
+  return (
+    record(v) &&
+    keys(v, [
+      'schemaVersion',
+      'deckId',
+      'dryRun',
+      'retentionDays',
+      'cutoff',
+      'jobs',
+      'deletedJobs',
+      'deletedInputs',
+      'pendingInputs',
+      'more',
+    ]) &&
+    v.schemaVersion === 1 &&
+    typeof v.deckId === 'string' &&
+    /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/u.test(v.deckId) &&
+    typeof v.dryRun === 'boolean' &&
+    v.retentionDays === 30 &&
+    iso(v.cutoff) &&
+    Array.isArray(v.jobs) &&
+    v.jobs.every(
+      (job) =>
+        record(job) &&
+        keys(job, ['jobId', 'finishedAt']) &&
+        isJobId(job.jobId) &&
+        iso(job.finishedAt),
+    ) &&
+    integer(v.deletedJobs) &&
+    integer(v.deletedInputs) &&
+    integer(v.pendingInputs) &&
+    typeof v.more === 'boolean'
   );
 }
 export function isHubCapabilities(v: unknown): v is HubCapabilities {

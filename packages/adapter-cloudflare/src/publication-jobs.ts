@@ -1,5 +1,10 @@
 import type {
+  AutomaticJobCleanupStore,
+  JobCleanupLease,
   JobAdmissionResult,
+  JobIdentity,
+  PendingJobInputDelete,
+  PublicationJobMaintenanceStore,
   PublicationJobRecord,
   PublicationJobStore,
 } from '@slidev-stage-hub/server';
@@ -22,6 +27,12 @@ export interface DeckVersionsCoordinator extends Rpc.DurableObjectBranded {
   ): Promise<'published' | 'superseded' | 'lease_lost'>;
   jobsFinish(leaseJson: string, updateJson: string): Promise<boolean>;
   jobsRetry(parentJson: string, stage: 'all' | 'thumbnail', jobJson: string): Promise<string>;
+  jobsIsExpired(identityJson: string): Promise<boolean>;
+  jobsCleanup(optionsJson: string): Promise<string>;
+  jobsCleanupClaim(optionsJson: string): Promise<string | null>;
+  jobsCleanupFinish(leaseJson: string, optionsJson: string): Promise<boolean>;
+  jobsListInputDeletes(optionsJson: string): Promise<string>;
+  jobsAcknowledgeInputDelete(itemJson: string): Promise<boolean>;
 }
 
 type DeckVersionsMethodName =
@@ -35,7 +46,13 @@ type DeckVersionsMethodName =
   | 'jobsCheckpoint'
   | 'jobsCommitPublication'
   | 'jobsFinish'
-  | 'jobsRetry';
+  | 'jobsRetry'
+  | 'jobsIsExpired'
+  | 'jobsCleanup'
+  | 'jobsCleanupClaim'
+  | 'jobsCleanupFinish'
+  | 'jobsListInputDeletes'
+  | 'jobsAcknowledgeInputDelete';
 
 /** Raw method shape used by alarm code inside the object itself. */
 export type DeckVersionsDirect = Pick<DeckVersionsCoordinator, DeckVersionsMethodName>;
@@ -103,10 +120,55 @@ function directStub(stub: DeckVersionsRpc): DeckVersionsDirect {
     },
     jobsFinish: (leaseJson, updateJson) => stub.jobsFinish(leaseJson, updateJson),
     jobsRetry: (parentJson, stage, jobJson) => stub.jobsRetry(parentJson, stage, jobJson),
+    jobsIsExpired: (identityJson) => stub.jobsIsExpired(identityJson),
+    jobsCleanup: (optionsJson) => stub.jobsCleanup(optionsJson),
+    async jobsCleanupClaim(optionsJson) {
+      const value = await stub.jobsCleanupClaim(optionsJson);
+      return value === null ? null : value;
+    },
+    jobsCleanupFinish: (leaseJson, optionsJson) => stub.jobsCleanupFinish(leaseJson, optionsJson),
+    jobsListInputDeletes: (optionsJson) => stub.jobsListInputDeletes(optionsJson),
+    jobsAcknowledgeInputDelete: (itemJson) => stub.jobsAcknowledgeInputDelete(itemJson),
   };
 }
 
 function storeForDeck(rpcForDeck: RpcForDeck): PublicationJobStore {
+  const maintenance: PublicationJobMaintenanceStore = {
+    automatic: {
+      async claim(options) {
+        if (options.deckId === undefined) return null;
+        const deckId = requireDeckId(options.deckId);
+        const value = await rpcForDeck(deckId).jobsCleanupClaim(toRpc({ ...options, deckId }));
+        return value === null ? null : fromRpc<JobCleanupLease>(value);
+      },
+      finish(lease, options) {
+        const deckId = requireDeckId(lease.deckId);
+        return rpcForDeck(deckId).jobsCleanupFinish(toRpc(lease), toRpc(options));
+      },
+    } satisfies AutomaticJobCleanupStore,
+    isExpired(identity: JobIdentity) {
+      const deckId = requireDeckId(identity.deckId);
+      return rpcForDeck(deckId).jobsIsExpired(toRpc(identity));
+    },
+    cleanup(options) {
+      const deckId = requireDeckId(options.deckId);
+      return rpcForDeck(deckId)
+        .jobsCleanup(toRpc({ ...options, deckId }))
+        .then((value) =>
+          fromRpc<{ jobs: { jobId: string; finishedAt: string }[]; more: boolean }>(value),
+        );
+    },
+    listPendingInputDeletes(options) {
+      const deckId = requireDeckId(options.deckId);
+      return rpcForDeck(deckId)
+        .jobsListInputDeletes(toRpc({ ...options, deckId }))
+        .then((value) => fromRpc<{ items: PendingJobInputDelete[]; pendingCount: number }>(value));
+    },
+    acknowledgeInputDelete(item) {
+      const deckId = requireDeckId(item.deckId);
+      return rpcForDeck(deckId).jobsAcknowledgeInputDelete(toRpc(item));
+    },
+  };
   const publications: PublicationJobStore['publications'] = {
     async begin(deckId) {
       const generation = await rpcForDeck(requireDeckId(deckId)).begin(deckId);
@@ -130,6 +192,7 @@ function storeForDeck(rpcForDeck: RpcForDeck): PublicationJobStore {
 
   return {
     publications,
+    maintenance,
     submit(job) {
       const deckId = requireDeckId(job.snapshot.deckId);
       return rpcForDeck(deckId)

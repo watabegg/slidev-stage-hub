@@ -403,7 +403,7 @@ export async function runHubPublish(
     );
   }
   const viewUrl = makeJobViewUrl(settings.origin, idValue, response, viewToken);
-  printAcceptedJob(jobId, viewUrl);
+  printAcceptedJob(jobId, viewUrl, response.job.status);
   if (noWait) {
     acceptedOutput(jobId, idValue, response.job.status, response, 'hub publish', json, {
       origin: settings.origin,

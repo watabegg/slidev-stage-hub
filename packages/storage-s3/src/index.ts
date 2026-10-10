@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
@@ -8,6 +9,7 @@ import {
   type HeadObjectCommandOutput,
   type ListObjectsV2CommandOutput,
   type PutObjectCommandOutput,
+  type DeleteObjectCommandOutput,
 } from '@aws-sdk/client-s3';
 import type {
   ArtifactBody,
@@ -17,6 +19,7 @@ import type {
 } from '@slidev-stage-hub/server';
 
 export interface S3ArtifactClient {
+  send(command: DeleteObjectCommand): Promise<DeleteObjectCommandOutput>;
   send(command: GetObjectCommand): Promise<GetObjectCommandOutput>;
   send(command: HeadObjectCommand): Promise<HeadObjectCommandOutput>;
   send(command: ListObjectsV2Command): Promise<ListObjectsV2CommandOutput>;
@@ -91,6 +94,9 @@ export function createS3ArtifactStore(options: S3ArtifactStoreOptions): Artifact
   const { bucket } = options;
 
   return {
+    async delete(key): Promise<void> {
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    },
     async get(key): Promise<ArtifactObject | null> {
       let result: GetObjectCommandOutput;
       try {

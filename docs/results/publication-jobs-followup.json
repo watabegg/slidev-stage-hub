@@ -1,0 +1,152 @@
+{
+  "date": "2026-10-10",
+  "status": "passed",
+  "baseCommit": "ae0448cdd5d1beecc98abbf77360ec450a2a29a0",
+  "cloudDeployed": false,
+  "scope": [
+    "publication-job review fixes",
+    "clean container installation",
+    "manual 30-day terminal-job and private-input retention"
+  ],
+  "review": {
+    "mode": "agent-native-unattested",
+    "resolvedFindings": [
+      "superseded stage normalization",
+      "prepared-publication recovery phase",
+      "terminal replay exit and wording",
+      "view-token authorization with stale publish credentials",
+      "sanitized CLI read errors",
+      "local-mutation listener boundary"
+    ],
+    "additionalFix": "Preserve Chromium private-network response metadata while blocking document redirects before following them.",
+    "coverage": "Correctness, operational UX, and framework lanes completed; risk lane failed, with a narrower authorization followup by the framework reviewer.",
+    "evidence": "artifacts/review/publication-jobs-followup/dispositions.json"
+  },
+  "checks": {
+    "rootCheck": {
+      "status": "passed",
+      "tests": 344,
+      "passed": 344,
+      "failed": 0,
+      "skipped": 0,
+      "localPostgres": true,
+      "boundaryViolations": 0,
+      "migrationExceptions": 0,
+      "log": "artifacts/implementation/jobs-followup/check.log"
+    },
+    "durableObjectRetention": {
+      "status": "passed",
+      "checks": 16,
+      "command": "node apps/hub-worker/scripts/verify-job-retention-do.mjs"
+    },
+    "durableObjectJobs": {
+      "status": "passed",
+      "checks": 16,
+      "command": "node apps/hub-worker/scripts/verify-jobs-do.mjs"
+    },
+    "renderer": {
+      "status": "passed",
+      "tests": 4,
+      "realLocalChromium": true,
+      "privateHttpNetwork": true,
+      "redirectDestinationRequests": 0
+    },
+    "postgresMigration": {
+      "status": "passed",
+      "isolatedSchema": true,
+      "applied": [
+        "baseline hub_publications DDL",
+        "002-publication-jobs.sql",
+        "003-job-retention.sql twice"
+      ],
+      "existingJobPreserved": true,
+      "tablesAndIndexesVerified": true,
+      "temporarySchemaRemoved": true
+    },
+    "packedCli": {
+      "status": "passed",
+      "checks": 20,
+      "log": "artifacts/implementation/jobs-followup/packed-cli.log"
+    },
+    "packedServer": {
+      "status": "passed",
+      "packages": 9,
+      "httpPublication": true,
+      "log": "artifacts/implementation/jobs-followup/packed-server.log"
+    },
+    "publicationJobsIntegration": {
+      "status": "passed",
+      "scenarios": 16,
+      "failed": 0,
+      "cloudflareWorkerdChecks": 16,
+      "evidence": "apps/hub-worker/artifacts/publication-jobs/2026-10-10T09-07-39-255Z-b3f8ad3d/evidence.json"
+    },
+    "verifierPreflight": {
+      "status": "passed",
+      "missingDatabaseEnvironmentReportsOriginalError": true,
+      "log": "artifacts/implementation/jobs-followup/preflight-diagnostic.log"
+    },
+    "cleanDocker": {
+      "status": "passed",
+      "checks": 27,
+      "sourceSnapshotSha256": "7183604b722a83888ecf68c05d44f789d600e5a14dd54588b160b7d63c340854",
+      "sourceSnapshotFiles": 376,
+      "productionAndTestSourcesMatchFinalWorkingTree": true,
+      "imageId": "sha256:5e72b7a7b0441fdf4e6daac88c11b053b9a23712ef6542b15668eb7239d46bcb",
+      "chromiumVersion": "154.0.8037.92",
+      "freshPostgres": true,
+      "separateApiAndWorker": true,
+      "cliPublicationAndProgress": true,
+      "thumbnailDimensions": [
+        1200,
+        675
+      ],
+      "postgresApiWorkerRestartPersistence": true,
+      "cleanupDryRunAndApply": true,
+      "agedTerminalJobDeleted": true,
+      "unreferencedInputDeleted": true,
+      "publicPageThumbnailRuntimePreserved": true,
+      "expiredIdentityReturns410": true,
+      "containersNetworksVolumesRemoved": true,
+      "evidence": "artifacts/implementation/jobs-clean-install/evidence-final-1791623264014/summary.json"
+    }
+  },
+  "retention": {
+    "daysAfterTerminalFinishedAt": 30,
+    "automaticScheduler": false,
+    "defaultMode": "dry-run",
+    "applyCommand": "pnpm hub jobs cleanup --id talks/intro --apply",
+    "defaultAndMaximumBatchSize": 100,
+    "keeps": [
+      "active jobs",
+      "parents of retained child jobs",
+      "inputs referenced by retained jobs",
+      "published revisions",
+      "thumbnails",
+      "runtime archives",
+      "current pointer and generation",
+      "local CLI receipts"
+    ],
+    "persistentMinimalState": [
+      "expired deck/job identity tombstones",
+      "pending input deletion outbox with fenced acknowledgements"
+    ],
+    "physicalCloudErasureGuaranteed": false
+  },
+  "limitations": [
+    "No real AWS, GCP, or Cloudflare deployment/acceptance run.",
+    "S3/GCS/R2 deletes are tested via adapters and fixtures, not live cloud accounts.",
+    "Cloudflare Durable Object schema v3 is incompatible with rollback to code that only supports v2.",
+    "Unadmitted orphan inputs are outside cleanup scope.",
+    "Cloud object versions, soft-delete retention, and backups may retain data after logical deletion.",
+    "Native Stage and hosted CI were not rerun for this followup."
+  ],
+  "documentation": {
+    "writer": "agy-writer",
+    "runs": [
+      "20261010T085918-sq25oxyl",
+      "20261010T090521-uk1fl11t"
+    ],
+    "meaningCheckedAgainstImplementation": true
+  }
+}

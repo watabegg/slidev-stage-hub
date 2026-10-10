@@ -25,3 +25,5 @@ export type { ReleaseManifest, ReleaseSlide } from './manifest.js';
 export * from './jobs/ports.js';
 export { runPublicationJob, type PublicationJobRunnerOptions } from './jobs/runner.js';
 export { publicJobSnapshot, publicationJobsEnabled } from './jobs/service.js';
+
+export { runPublicationJobCleanup } from './jobs/maintenance.js';

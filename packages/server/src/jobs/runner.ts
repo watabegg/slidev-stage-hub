@@ -203,7 +203,8 @@ export async function runPublicationJob(
   };
   try {
     if (!result && record.snapshot.kind === 'publication') {
-      if (!record.preparedManifest) await enter('runtime');
+      // A recovered preparation resumes at publication; completed storage stays complete.
+      await enter(record.preparedManifest ? 'publish' : 'runtime');
       if (
         record.profileDigest !== env.profile.digest ||
         record.compilerContractVersion !== COMPILER_CONTRACT_VERSION

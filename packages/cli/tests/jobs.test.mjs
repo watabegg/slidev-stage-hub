@@ -94,6 +94,22 @@ function submitResponse(job, replayed = false) {
   };
 }
 
+function cleanupResponse(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    deckId: 'course/topic',
+    dryRun: true,
+    retentionDays: 30,
+    cutoff: '2026-09-10T00:00:00.000Z',
+    jobs: [{ jobId: parentJobId, finishedAt: '2026-09-09T23:59:59.999Z' }],
+    deletedJobs: 0,
+    deletedInputs: 0,
+    pendingInputs: 0,
+    more: false,
+    ...overrides,
+  };
+}
+
 async function readRequest(request) {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
@@ -213,6 +229,7 @@ test('publish --no-wait stores a private receipt before submit and keeps the tok
           stateHome,
         );
         assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+        assert.match(result.stderr, /Publication job .* accepted/u);
         const envelope = jsonOutput(result);
         assert.deepEqual(envelope, {
           ok: true,
@@ -241,6 +258,107 @@ test('publish --no-wait stores a private receipt before submit and keeps the tok
         assert.equal(result.stdout.includes(observed.body.viewToken), false);
         assert.equal(result.stderr.trimEnd().endsWith(`#view=${observed.body.viewToken}`), true);
         assert.equal(`${result.stdout}${result.stderr}`.includes(markdown.trim()), false);
+      },
+    );
+  });
+});
+
+test('publish --no-wait routes terminal replay snapshots through publication exit handling', async () => {
+  await withTempDir(async (cwd) => {
+    const stateHome = path.join(cwd, 'state');
+    await writeFile(path.join(cwd, 'slides.md'), '# Terminal publication\n');
+    const revision = 'b'.repeat(64);
+    const terminalCases = [
+      {
+        status: 'succeeded',
+        overrides: {
+          phase: 'thumbnail',
+          finishedAt: timestamp,
+          result: {
+            revision,
+            entry: `/course/topic/1?revision=${revision}`,
+            pages: 1,
+            cached: false,
+            thumbnail: 'ready',
+          },
+        },
+        exitCode: 0,
+      },
+      {
+        status: 'partial',
+        overrides: { phase: 'thumbnail', finishedAt: timestamp },
+        exitCode: 1,
+        errorCode: 'PARTIAL_SUCCESS',
+      },
+      {
+        status: 'failed',
+        overrides: {
+          phase: 'compile',
+          finishedAt: timestamp,
+          error: { code: 'COMPILE_FAILED', message: 'Compilation failed', retryable: false },
+        },
+        exitCode: 1,
+        errorCode: 'JOB_FAILED',
+      },
+      {
+        status: 'superseded',
+        overrides: { phase: 'publish', finishedAt: timestamp },
+        exitCode: 1,
+        errorCode: 'PUBLISH_SUPERSEDED',
+      },
+    ];
+    let currentCase = 0;
+    await withServer(
+      async (request, response) => {
+        if (request.url === '/api/capabilities') {
+          response.writeHead(200, { 'content-type': 'application/json' });
+          response.end(JSON.stringify(capabilities()));
+          return;
+        }
+        const body = await readRequest(request);
+        const scenario = terminalCases[currentCase];
+        assert.ok(scenario);
+        currentCase += 1;
+        response.writeHead(202, { 'content-type': 'application/json' });
+        response.end(
+          JSON.stringify(
+            submitResponse(
+              snapshot(body.jobId, body.deckId, { status: scenario.status, ...scenario.overrides }),
+              true,
+            ),
+          ),
+        );
+      },
+      async (origin) => {
+        for (const scenario of terminalCases) {
+          const result = await run(
+            [
+              'publish',
+              '--origin',
+              origin,
+              '--id',
+              'course/topic',
+              '--source',
+              'slides.md',
+              '--no-wait',
+              '--json',
+            ],
+            cwd,
+            stateHome,
+          );
+          assert.equal(result.status, scenario.exitCode, `${result.stdout}\n${result.stderr}`);
+          assert.match(result.stderr, /Publication job .* already completed \(/u);
+          assert.doesNotMatch(result.stderr, /Publication job .* accepted/u);
+          if (scenario.errorCode === undefined) {
+            assert.equal(jsonOutput(result).ok, true);
+            assert.equal(jsonOutput(result).data.status, scenario.status);
+            assert.equal(jsonOutput(result).data.accepted, undefined);
+          } else {
+            assert.equal(jsonOutput(result).ok, false);
+            assert.equal(jsonOutput(result).error.code, scenario.errorCode);
+          }
+        }
+        assert.equal(currentCase, terminalCases.length);
       },
     );
   });
@@ -319,6 +437,233 @@ test('jobs status and list use the authenticated remote profile and return one J
           { url: `/api/jobs/${parentJobId}?deckId=course%2Ftopic`, auth },
           { url: '/api/decks/course%2Ftopic/jobs?limit=8&cursor=next%2Fpage', auth },
         ]);
+      },
+    );
+  });
+});
+
+test('jobs status and list map transport failures to stable sanitized CLI errors', async () => {
+  await withTempDir(async (cwd) => {
+    const stateHome = path.join(cwd, 'state');
+    const rawCanary = 'RAW_JOB_API_CANARY';
+    const cases = [
+      { args: ['status', '--job', parentJobId], status: 401, code: 'JOB_AUTH_FAILED' },
+      { args: ['list', '--id', 'course/topic'], status: 404, code: 'JOB_NOT_FOUND' },
+      { args: ['status', '--job', parentJobId], status: 429, code: 'JOB_RATE_LIMITED' },
+      { args: ['list', '--id', 'course/topic'], status: 503, code: 'JOB_API_UNAVAILABLE' },
+      {
+        args: ['status', '--job', parentJobId],
+        status: 200,
+        code: 'JOB_INVALID_RESPONSE',
+        body: JSON.stringify({ schemaVersion: 1, job: { secret: rawCanary } }),
+      },
+      { args: ['list', '--id', 'course/topic'], network: true, code: 'JOB_API_UNAVAILABLE' },
+    ];
+    let currentCase = 0;
+    await withServer(
+      (_request, response) => {
+        const scenario = cases[currentCase];
+        assert.ok(scenario);
+        currentCase += 1;
+        if (scenario.network) {
+          response.destroy();
+          return;
+        }
+        response.writeHead(scenario.status, { 'content-type': 'application/json' });
+        response.end(scenario.body ?? JSON.stringify({ error: rawCanary }));
+      },
+      async (origin) => {
+        await writeFile(
+          path.join(cwd, 'hub.remote.json'),
+          JSON.stringify({ schemaVersion: 1, origin, defaultDeckId: 'course/topic' }),
+        );
+        for (const scenario of cases) {
+          const result = await run(['jobs', ...scenario.args, '--json'], cwd, stateHome);
+          assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+          const envelope = jsonOutput(result);
+          assert.equal(envelope.ok, false);
+          assert.equal(envelope.error.code, scenario.code);
+          assert.equal(`${result.stdout}${result.stderr}`.includes(rawCanary), false);
+        }
+        assert.equal(currentCase, cases.length);
+      },
+    );
+  });
+});
+
+test('jobs cleanup defaults to one authenticated dry-run request and never creates a receipt', async () => {
+  await withTempDir(async (cwd) => {
+    const stateHome = path.join(cwd, 'state');
+    const auth = 'Bearer JOB_CLEANUP_AUTH';
+    let observed;
+    await withServer(
+      async (request, response) => {
+        observed = {
+          method: request.method,
+          url: request.url,
+          auth: request.headers.authorization,
+          view: request.headers['x-hub-job-view'],
+          body: await readRequest(request),
+        };
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify(cleanupResponse({ more: true })));
+      },
+      async (origin) => {
+        await writeHeadersFile(cwd, origin, { Authorization: auth });
+        await writeFile(
+          path.join(cwd, 'hub.remote.json'),
+          JSON.stringify({ schemaVersion: 1, origin, headersFile: 'auth/headers.json' }),
+        );
+        const result = await run(
+          ['jobs', 'cleanup', '--id', 'course/topic', '--json'],
+          cwd,
+          stateHome,
+        );
+        assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+        assert.deepEqual(jsonOutput(result), {
+          ok: true,
+          command: 'hub jobs cleanup',
+          data: cleanupResponse({ more: true }),
+        });
+        assert.deepEqual(observed, {
+          method: 'POST',
+          url: '/api/jobs/cleanup',
+          auth,
+          view: undefined,
+          body: { deckId: 'course/topic', apply: false, limit: 100 },
+        });
+        assert.match(result.stderr, /dry-run for course\/topic \(limit 100\)/u);
+        assert.ok(
+          result.stderr.includes(
+            `Next action: rerun hub jobs cleanup --id 'course/topic' --origin '${origin}' --headers-file '${path.resolve(cwd, 'auth/headers.json')}' --limit 100 --apply\nReason: to continue the bounded cleanup.\n`,
+          ),
+        );
+        await assert.rejects(readdir(path.join(stateHome, 'slidev-stage-hub', 'receipts')), {
+          code: 'ENOENT',
+        });
+      },
+    );
+  });
+});
+
+test('cleanup dry-run guidance preserves explicit remote settings and applies pending input retries', async () => {
+  await withTempDir(async (cwd) => {
+    const stateHome = path.join(cwd, 'state');
+    const auth = 'Bearer JOB_CLEANUP_RERUN_AUTH';
+    const headersPath = path.join(cwd, 'auth files', 'private headers.json');
+    const remoteConfig = 'remote profile.json';
+    let observed;
+    await withServer(
+      async (request, response) => {
+        observed = {
+          url: request.url,
+          auth: request.headers.authorization,
+          body: await readRequest(request),
+        };
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify(cleanupResponse({ jobs: [], pendingInputs: 2 })));
+      },
+      async (origin) => {
+        await mkdir(path.dirname(headersPath), { recursive: true });
+        await writeFile(headersPath, JSON.stringify({ origin, headers: { Authorization: auth } }), {
+          mode: 0o600,
+        });
+        await chmod(headersPath, 0o600);
+        await writeFile(
+          path.join(cwd, remoteConfig),
+          JSON.stringify({ schemaVersion: 1, origin: 'https://profile.example.test' }),
+        );
+        const result = await run(
+          [
+            'jobs',
+            'cleanup',
+            '--id',
+            'course/topic',
+            '--origin',
+            origin,
+            '--remote-config',
+            remoteConfig,
+            '--headers-file',
+            path.relative(cwd, headersPath),
+            '--limit',
+            '12',
+            '--json',
+          ],
+          cwd,
+          stateHome,
+        );
+        assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+        assert.deepEqual(jsonOutput(result).data, cleanupResponse({ jobs: [], pendingInputs: 2 }));
+        assert.deepEqual(observed, {
+          url: '/api/jobs/cleanup',
+          auth,
+          body: { deckId: 'course/topic', apply: false, limit: 12 },
+        });
+        assert.match(result.stderr, /No eligible job metadata was found/u);
+        assert.match(result.stderr, /--apply will retry pending input deletion/u);
+        assert.ok(
+          result.stderr.includes(
+            `Next action: rerun hub jobs cleanup --id 'course/topic' --origin '${origin}' --remote-config 'remote profile.json' --headers-file '${headersPath}' --limit 12 --apply\n`,
+          ),
+        );
+      },
+    );
+  });
+});
+
+test('jobs cleanup apply reports partial input deletion and unsupported endpoints clearly', async () => {
+  await withTempDir(async (cwd) => {
+    const stateHome = path.join(cwd, 'state');
+    await withServer(
+      async (request, response) => {
+        if (request.url === '/api/jobs/cleanup') {
+          const body = await readRequest(request);
+          if (body.apply !== true) {
+            response.writeHead(404);
+            response.end();
+            return;
+          }
+          assert.deepEqual(body, { deckId: 'course/topic', apply: true, limit: 1 });
+          response.writeHead(200, { 'content-type': 'application/json' });
+          response.end(
+            JSON.stringify(
+              cleanupResponse({
+                dryRun: false,
+                deletedJobs: 1,
+                pendingInputs: 1,
+              }),
+            ),
+          );
+          return;
+        }
+        response.writeHead(404);
+        response.end();
+      },
+      async (origin) => {
+        await writeFile(
+          path.join(cwd, 'hub.remote.json'),
+          JSON.stringify({ schemaVersion: 1, origin }),
+        );
+        const partial = await run(
+          ['jobs', 'cleanup', '--id', 'course/topic', '--apply', '--limit', '1', '--json'],
+          cwd,
+          stateHome,
+        );
+        assert.equal(partial.status, 1, `${partial.stdout}\n${partial.stderr}`);
+        const partialEnvelope = jsonOutput(partial);
+        assert.equal(partialEnvelope.error.code, 'JOB_CLEANUP_PARTIAL');
+        assert.equal(partialEnvelope.error.result.pendingInputs, 1);
+        assert.match(partial.stderr, /Cleanup partially completed/u);
+        assert.match(partial.stderr, /retry pending input deletion/u);
+
+        const unsupported = await run(
+          ['jobs', 'cleanup', '--id', 'course/topic', '--json'],
+          cwd,
+          stateHome,
+        );
+        assert.equal(unsupported.status, 1);
+        assert.equal(jsonOutput(unsupported).error.code, 'JOB_CLEANUP_UNAVAILABLE');
+        assert.match(jsonOutput(unsupported).error.message, /does not support job cleanup/u);
       },
     );
   });

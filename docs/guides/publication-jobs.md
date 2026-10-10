@@ -83,6 +83,21 @@ hub publish --id ID --source PATH [--assets PATH] [--origin URL] [--headers-file
 
 `--stage all` を再試行できるのは、その親ジョブが最新世代（generation）の場合に限られます。後から新しい世代が始まっていると API は HTTP 409（`superseded`）を返します。その場合は古い入力で再試行せず、新しい公開ジョブを送信してください。
 
+#### 完了ジョブの整理（`hub jobs cleanup`）
+保持期限を過ぎたジョブは、次のコマンドでデッキ単位に整理できます。
+
+```sh
+# 対象のプレビュー（既定で dry-run）
+pnpm hub jobs cleanup --id talks/intro
+
+# 結果を確認してから実行
+pnpm hub jobs cleanup --id talks/intro --apply
+```
+
+`--limit N` は1回に処理する上限で、既定値は100、指定できる範囲は1〜100です。コマンドは1回だけ API を呼び出します。dry-run の `jobs` はそのバッチの候補一覧です。`more` は後続のジョブまたは入力削除作業が残ることを、`pendingInputs` は保留中の入力削除件数を示します。一度の要求では全履歴の合計件数を返しません。対象が残る場合は CLI が再実行コマンドを案内するので、案内に従って `more` が false になり、`pendingInputs` もなくなるまで繰り返してください。`--apply` はジョブ履歴を削除するため、プレビュー結果を確認してから指定します。`--origin`、`--remote-config`、`--headers-file` は他の `hub jobs` コマンドと同様に使えます。認証には publish 権限が必要で、ジョブ閲覧トークンは使えません。ローカルの CLI receipt は変更されません。
+
+サーバーは `POST /api/jobs/cleanup` を提供します。リクエストは `{deckId, apply?, limit?}` 形式で、保持期限の判定にはサーバー時刻を使います。応答には期限、対象ジョブ ID と完了時刻、削除数、保留中の入力削除数、続きがあるかを含み、ソースやトークンは含みません。ジョブストアの保守機能または ArtifactStore の削除機能がない場合は、変更前に `503 JOB_CLEANUP_UNAVAILABLE` を返します。削除に失敗した入力が残ると `pendingInputs` が正の値になり、`--apply` は `JOB_CLEANUP_PARTIAL` で非ゼロ終了します。保留作業を再試行するには、案内されたコマンドをもう一度 `--apply` 付きで実行してください。新規受付を `HUB_JOBS_ENABLED=false` で停止していても、ジョブストアが構成されていれば整理を実行できます。
+
 ### 出力仕様と終了コード
 自動化スクリプトや外部ツールとの連携のため、出力と終了コードの仕様が明確に整理されています。
 
@@ -93,7 +108,7 @@ hub publish --id ID --source PATH [--assets PATH] [--origin URL] [--headers-file
 - **`partial`（終了コード 1 `PARTIAL_SUCCESS`）**: スライド自体の公開は成功したものの、サムネイル生成が失敗または利用不可になった状態です。公開されたリビジョンはサーバー上に反映されて結果に残りますが、完全な成功ではないため終了コード 1 を返します。公開確定前に失敗してリビジョンが反映されない `failed` とは明確に区別されます。
 - **watch 中の Ctrl+C（終了コード 130）**: ローカルでの監視処理のみを終了します。サーバー側のジョブは継続して実行されます。
 - **タイムアウト（終了コード 1 `JOB_WAIT_TIMEOUT`）**: 指定した待機時間内に完了しなかった場合に返されます。後から監視を再開するためのコマンドが画面上に案内されます。
-- **`--no-wait` 指定時（終了コード 0）**: サーバーへの受け付けが完了した時点で正常終了（コード 0）しますが、ジョブ自体の処理はまだ未完了であることが明示されます。
+- **`--no-wait` 指定時**: 新規に受け付けられた未完了ジョブは処理の完了を待たずに終了コード 0 で終了しますが、リプレイなどですでに終端状態（`succeeded`、`partial`、`failed`、`superseded`）にあるジョブが返された場合は、`--no-wait` を指定していてもその状態に応じた通常の終了コードが返されます。
 
 ### 代表的な利用例
 以下は、パッケージのビルドからプロファイル作成、公開、およびジョブ管理に至る代表的なコマンド例です。
@@ -151,6 +166,7 @@ CLI の詳細な共通仕様や、サーバーおよびプラットフォーム�
 - `GET /api/jobs/:jobId?deckId=...`
 - `GET /api/decks/:deckId/jobs`
 - `POST /api/jobs/:jobId/retry?deckId=...`
+- `POST /api/jobs/cleanup`
 
 各操作には用途に応じた認証が必要です。ジョブの登録（submit）、再試行（retry）、一覧取得（list）には publish 認証が求められます。ジョブの状態取得（status）は、publish 認証のほか、対象ジョブの閲覧専用トークンである `X-Hub-Job-View` を使ってアクセスすることも可能です。
 
@@ -217,7 +233,7 @@ CLI が受け付け応答から生成する確認リンクは、以下の形式�
 ### アーキテクチャと設計判断
 ジョブ管理の中核を担う `packages/server` は、特定のクラウド基盤向け SDK に依存せず、共通のジョブ API と実行機構（ランナー）を提供します。
 
-公開処理では、最新世代の整合性を保つ排他制御（フェンシング）を実現し、公開の確定とキューの状態を同一トランザクション内でアトミックに更新することが求められます。本機能では、外部のメッセージブローカー（Amazon SQS、Google Cloud Pub/Sub、Redis など）を新たに導入するのではなく、デッキ単位で公開状態とジョブを同じトランザクションに記録し、各環境の既存の起床方式を利用しています。ジョブメタデータと非公開入力（private input）の自動ガベージコレクション（GC）がない点は、そのトレードオフです。
+公開の確定とジョブ状態は同じトランザクションで更新し、外部メッセージブローカーや cron は追加しません。first-party store は terminal publication finish と同じトランザクションでデッキ単位の cleanup 要求を記録し、Node worker または既存の Durable Object alarm が処理します。起動条件と日次上限は「自動クリーンアップ」に記載します。手動の `hub jobs cleanup` も引き続き利用できます。
 - **Cloudflare Workers**: 既存の `DeckVersions` Durable Object の SQLite トランザクション内で公開状態とジョブを扱い、Durable Object のアラーム（alarm）によってワーカーを起床させます。
 - **Node.js**: 公開ストアとジョブストアを同一の PostgreSQL トランザクションに参加させ、ワーカーは `SKIP LOCKED` による行ロックを使ったポーリングでジョブを取得します。
 
@@ -231,13 +247,13 @@ Node.js 環境で `apps/hub-server` を運用する場合、利用するデー�
 
 #### PostgreSQL 構成
 本番環境での永続化には PostgreSQL を使用します。環境変数に `HUB_PUBLICATIONS=postgres` および接続先を示す `HUB_DATABASE_URL` を指定します。
-- **マイグレーションの事前適用**: サービスを開始する前に、既存の `hub_publications` テーブルを用意した上で、追加マイグレーション [`packages/state-postgres/migrations/002-publication-jobs.sql`](../../packages/state-postgres/migrations/002-publication-jobs.sql) を適用します。`HUB_DATABASE_INIT=true` で Node アプリを起動し、ジョブストアが構成されている場合は基底 publication schema と job schema の両方が初期化されます。本番テンプレートは `HUB_DATABASE_INIT=false` のため、事前のデータベース初期化は運用者が行います。
+- **マイグレーションの事前適用**: サービスを開始する前に、既存の `hub_publications` テーブルを用意した上で、追加マイグレーション [`002-publication-jobs.sql`](../../packages/state-postgres/migrations/002-publication-jobs.sql)、[`003-job-retention.sql`](../../packages/state-postgres/migrations/003-job-retention.sql)、[`004-job-cleanup-schedule.sql`](../../packages/state-postgres/migrations/004-job-cleanup-schedule.sql) を順に適用します。`HUB_DATABASE_INIT=true` で Node アプリを起動し、ジョブストアが構成されている場合は基底 publication schema と job schema の両方が初期化されます。本番テンプレートは `HUB_DATABASE_INIT=false` のため、事前のデータベース初期化は運用者が行います。
 - **プロセスの分離**: API プロセス（`start.ts`）とワーカープロセス（`node dist/worker.js`）を別プロセスとして起動します。両プロセスは同一の PostgreSQL データベースと成果物ストア（ArtifactStore）を共有します。API プロセス単体では PostgreSQL ジョブを処理しません。
 - **並列処理数**: ワーカープロセスの既定の並列数は 2 です。
 - **新規受付の停止とドレイン**: `HUB_JOBS_ENABLED=false` を設定すると、新規ジョブの受付を停止しつつ、すでに保存されているジョブの処理（ドレイン）を継続できます。なお、`HUB_JOBS_ENABLED=false` の状態であってもストア自体は構成されます。
 
 ### Cloudflare Workers 環境での運用
-Cloudflare Workers 環境では、既存の `DeckVersions` Durable Object の SQLite トランザクション内で公開状態とジョブを扱い、Durable Object のアラーム機能でワーカーを起床させます。API リクエストの処理、世代管理、ジョブ状態を同じ Durable Object のトランザクションで更新するため、新しいキューサービスを追加する必要がありません。
+Cloudflare Workers 環境では、既存の `DeckVersions` Durable Object の SQLite トランザクション内で公開状態とジョブを扱い、Durable Object のアラームでワーカーを起床させます。クラス名と Wrangler migration v1 は維持し、内部 SQLite スキーマを v4 に進めます。v4 初期化後は旧 v3 schema を前提とする Worker code に戻せません。無停止移行や rollback は検証されていません。既存 alarm は公開処理後に自動クリーンアップも試行します。
 
 新規ジョブの受付制御には、環境変数または Wrangler の設定変数 `HUB_JOBS_ENABLED` をトグルとして使用し、新規受付の可否を切り替えます。Cloudflare 環境および Wrangler の固有設定の詳細は[workers.md](workers.md)を参照してください。
 
@@ -257,15 +273,32 @@ Docker イメージのビルド処理では、Playwright によるブラウザ�
 - **オリジンの扱い**: Node.js の `HUB_PUBLIC_ORIGIN` は Playwright が描画対象のスライドへアクセスする際の接続先としてのみ使用されます。API は閲覧リンクをオリジン相対パスで返し、CLI がプロファイルまたは `--origin` で設定された Hub オリジンを基準に解決します。
 - **レンダラー未設定時の動作**: レンダラーが設定されていない場合、サムネイルの自動生成ジョブは `partial`（一部完了）として終了し、結果は利用不可（unavailable）になります。ただし、サムネイルが生成されなくても、公開されたスライド自体は公開状態（live）を保ちます。Web ライブラリ側の表示拡張については[web-customization.md](web-customization.md)を参照してください。
 
+### 30日保持と削除範囲
+削除対象は、`succeeded`、`partial`、`failed`、`superseded` のいずれかで完了し、`finishedAt` がサーバー時刻から30日以上前のジョブです。`queued`、`running`、`retry_wait` は対象になりません。親ジョブは参照中の子ジョブが残る間は保持され、共有入力も残っているいずれかのジョブから参照されている間は削除されません。親子関係によって複数回の実行が必要になることがあります。
+
+`--apply` はジョブメタデータを削除すると同じトランザクションで、再利用を防ぐ最小限の tombstone と、未参照の private input を消す耐久性のある outbox を記録します。削除済み UUID の再送・再試行には `410 JOB_EXPIRED` を返します。ストレージへの削除はメタデータのトランザクション後、同じ cleanup API 呼び出し内で試行されます。失敗分は outbox に残り、後続の `--apply` で再試行できます。
+
+対象は厳密に `private/jobs/<deckId>/<UUIDv4>.json` の未参照入力だけです。未受理の孤立アップロード、公開リリース、サムネイル、ランタイムアーカイブ、current pointer、generation、ローカル receipt は削除しません。S3/GCS のバージョニング、soft delete、保持ポリシー、バックアップによってストレージ上にデータが残ることがあるため、この処理は物理消去を保証しません。クラウド権限とストレージごとの削除動作は[プラットフォームガイド](platforms.md)を参照してください。
+
+### 自動クリーンアップ
+
+first-party job store は `kind=publication` のジョブが `finish` によって terminal 状態へ遷移すると、同じトランザクションでデッキ単位の cleanup 要求を記録します。`retry_wait`、thumbnail-only retry、旧同期 publish はこの要求を発生させません。期限切れ ID の遅れて到着した submit/retry が private input の削除待ちを再登録した場合も、同じ保留処理が入力削除を再試行します。マイグレーション時点ですでに完了している履歴は自動的には queue されません。
+
+最初の要求はすぐに処理可能です。その後はデッキごとにローリング24時間あたり最大1回、最大100件の terminal leaf job と最大100件の保留中 input delete を処理します。複数の完了要求は合流し、次回の実行を後ろへずらしません。バッチの残作業や一時的な失敗があれば要求を保留し、後続の publication がなくても次の日次枠で再試行します。一方、完了したバッチでレコードが削除されたか空バッチであったかを問わず、残作業がなくなってクリーンアップが正常に完了したデッキに対しては定期的な再訪を行わず、全デッキ対象の periodic sweep も行いません。自動クリーンアップの失敗は publication の terminal status を変更しません。
+
+Node worker は各 publication attempt の後と idle poll 時に cleanup を await して試します。PostgreSQL 構成では API と別に `node dist/worker.js` を起動してください。Cloudflare は既存の Durable Object alarm を使い、publication の後に cleanup を試行します。外部 cron や新しい queue service は必要ありません。メモリストアは開発用で、スケジュールもジョブ状態と同様にプロセス再起動後は残りません。
+
+マイグレーション前の完了履歴は、そのデッキで新たな terminal publication finish が発生すれば後続の cleanup 対象になり得ます。新たな publication がないデッキを整理する場合は、手動の `hub jobs cleanup` を使ってください。手動 cleanup は自動の日次上限を消費しません。`PublicationJobMaintenanceStore.automatic` は optional なので、custom store がこの port または ArtifactStore の delete 操作を実装しない場合、自動 cleanup は安全のため skip します。
+
 ### 運用上の制約と検証状況
 
 #### システムの制約事項
 本機能の運用にあたっては、以下の制約事項を考慮する必要があります。
-- **自動ガベージコレクションの未実装**: ジョブのメタデータ、非公開の入力データ、過去の受領記録（レシート）に対する自動ガベージコレクション（GC）は現在実装されていません。運用者が手動で管理を行わない限り、ストレージ使用量は増加し続けます。
+- **自動保持の範囲**: first-party worker は terminal publication finish で要求されたデッキを日次上限付きで整理します。古い idle deck は新たな publication がなければ自動走査されないため、手動の `hub jobs cleanup` を使ってください。未受理の孤立入力、公開成果物、サムネイル、ランタイム、CLI のローカル receipt は対象外です。
 - **管理・操作機能の制限**: ジョブのキャンセル機能、サイト管理者用の管理コンソール、WebSocket や SSE（Server-Sent Events）を用いたリアルタイム通信、ロールバック機能、およびブラウザからの直接アップロード機能は提供されていません。
 - **ブラウザの自動取得不可**: オプションのレンダラー機能は、実行時にブラウザを自動でダウンロードしません。
 
 #### 検証手順と受け入れ状況
 ローカル開発におけるジョブ機能の検証手順として、ルートディレクトリで実行可能な `pnpm verify:publication-jobs` コマンドが用意されています。検証の実施状況はリポジトリの[検証記録](../results/publication-jobs.json)を参照してください。
 
-なお、実際の AWS、GCP、Cloudflare などのクラウド実環境へのデプロイや、Cloudflare Access などの本番認証を通した受け入れ検証は実施されていません（未実施として扱います）。
+なお、実際の AWS、GCP、Cloudflare などのクラウド実環境へのデプロイや、Cloudflare Access などの本番認証を通した受け入れ検証は実施されていません（未実施として扱います）。クリーンインストールと手動保持の検証は[フォローアップ記録](../results/publication-jobs-followup.json)、自動保持の検証状況は[自動保持記録](../results/publication-jobs-auto-retention.json)を参照してください。

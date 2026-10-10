@@ -1,16 +1,31 @@
 import type {
+  AutomaticJobCleanupStore,
+  JobCleanupLease,
   JobLease,
   JobAdmissionResult,
   NewPublicationJob,
+  PendingJobInputDelete,
   PublicationJobRecord,
   PublicationJobStore,
 } from '@slidev-stage-hub/server';
-import type { JobSnapshot } from '@slidev-stage-hub/protocol';
+import { JOB_CLEANUP_INTERVAL_MS } from '@slidev-stage-hub/server';
+import { isJobId, type JobSnapshot } from '@slidev-stage-hub/protocol';
+import { isDeckId } from '@slidev-stage-hub/server/catalog';
 import { createMemoryPublicationStoreWithState } from './publication-store.js';
 
 type MemoryState = Parameters<typeof createMemoryPublicationStoreWithState>[0] & {
   jobs: Map<string, PublicationJobRecord>;
+  tombstones: Set<string>;
+  inputDeletes: Map<string, PendingJobInputDelete>;
+  automaticCleanup: Map<string, AutomaticCleanupRecord>;
 };
+
+interface AutomaticCleanupRecord {
+  pending: boolean;
+  lastStartedAt?: number;
+  leaseToken?: string;
+  leaseUntil?: number;
+}
 
 const TERMINAL = new Set(['succeeded', 'partial', 'failed', 'superseded']);
 const ACTIVE = new Set(['queued', 'running', 'retry_wait']);
@@ -36,6 +51,56 @@ function clone<T>(value: T): T {
 
 function key(deckId: string, jobId: string): string {
   return `${deckId}\0${jobId}`;
+}
+
+function inputDeleteKey(deckId: string, inputKey: string): string {
+  return `${deckId}\0${inputKey}`;
+}
+
+function exactJobInputKey(
+  deckId: string,
+  jobId: string,
+  inputKey: string | undefined,
+): inputKey is string {
+  return (
+    inputKey !== undefined &&
+    isDeckId(deckId) &&
+    isJobId(jobId) &&
+    inputKey === `private/jobs/${deckId}/${jobId}.json`
+  );
+}
+
+function enqueueUnusedInput(
+  state: MemoryState,
+  deckId: string,
+  inputKey: string | undefined,
+  wakeAutomaticCleanup = false,
+): void {
+  if (inputKey === undefined) return;
+  const prefix = `private/jobs/${deckId}/`;
+  const inputJobId = inputKey.startsWith(prefix)
+    ? inputKey.slice(prefix.length, -'.json'.length)
+    : '';
+  if (!isDeckId(deckId) || !isJobId(inputJobId) || inputKey !== `${prefix}${inputJobId}.json`)
+    return;
+  if (
+    [...state.jobs.values()].some(
+      (record) => record.snapshot.deckId === deckId && record.inputKey === inputKey,
+    )
+  )
+    return;
+  const item: PendingJobInputDelete = {
+    deckId,
+    jobId: inputJobId,
+    inputKey,
+    token: crypto.randomUUID(),
+  };
+  state.inputDeletes.set(inputDeleteKey(deckId, inputKey), item);
+  if (wakeAutomaticCleanup) {
+    const schedule = state.automaticCleanup.get(deckId) ?? { pending: false };
+    schedule.pending = true;
+    state.automaticCleanup.set(deckId, schedule);
+  }
 }
 
 function cloneRecord(record: PublicationJobRecord): PublicationJobRecord {
@@ -112,7 +177,15 @@ function supersedeUnpublished(
     )
       continue;
     record.snapshot.status = 'superseded';
-    record.snapshot.finishedAt = laterIso(record.snapshot.updatedAt, now);
+    const finishedAt = laterIso(record.snapshot.updatedAt, now);
+    record.snapshot.finishedAt = finishedAt;
+    record.snapshot.stages = record.snapshot.stages.map((stage) =>
+      stage.status === 'pending' || stage.status === 'running'
+        ? { ...stage, status: 'skipped', finishedAt }
+        : stage,
+    );
+    delete record.snapshot.progress;
+    delete record.snapshot.error;
     delete record.snapshot.nextRunAt;
     delete record.leaseToken;
     delete record.leaseUntil;
@@ -145,6 +218,26 @@ function isTerminal(status: string): boolean {
   return TERMINAL.has(status);
 }
 
+function cleanupDueAt(record: AutomaticCleanupRecord): number | null {
+  if (record.lastStartedAt === undefined) return 0;
+  return Math.max(record.lastStartedAt + JOB_CLEANUP_INTERVAL_MS, record.leaseUntil ?? 0);
+}
+
+function validateCleanupClaim(options: {
+  now: string;
+  leaseUntil: string;
+  leaseToken: string;
+  deckId?: string;
+}): { now: number; leaseUntil: number } {
+  const now = requireIso(options.now, 'now');
+  const leaseUntil = requireIso(options.leaseUntil, 'leaseUntil');
+  if (leaseUntil <= now) throw new RangeError('leaseUntil must be later than now');
+  if (!uuidPattern.test(options.leaseToken)) throw new TypeError('leaseToken must be a UUID');
+  if (options.deckId !== undefined && !isDeckId(options.deckId))
+    throw new TypeError('deckId must be a valid deck id');
+  return { now, leaseUntil };
+}
+
 function jobCount(state: MemoryState, deckId: string): number {
   let count = 0;
   for (const record of state.jobs.values()) {
@@ -174,17 +267,158 @@ function ensureSnapshot(job: NewPublicationJob): PublicationJobRecord {
 }
 
 export function createMemoryPublicationJobStore(): PublicationJobStore {
-  const state: MemoryState = { decks: new Map(), jobs: new Map() };
+  const state: MemoryState = {
+    decks: new Map(),
+    jobs: new Map(),
+    tombstones: new Set(),
+    inputDeletes: new Map(),
+    automaticCleanup: new Map(),
+  };
   const publications = createMemoryPublicationStoreWithState(state, (deckId, generation, now) =>
     supersedeUnpublished(state, deckId, generation, now),
   );
 
   return {
     publications,
+    maintenance: {
+      automatic: {
+        async claim(options): Promise<JobCleanupLease | null> {
+          const { now, leaseUntil } = validateCleanupClaim(options);
+          const candidates = [...state.automaticCleanup.entries()]
+            .filter(([deckId]) => options.deckId === undefined || deckId === options.deckId)
+            .filter(([, record]) => {
+              const leaseLive = record.leaseUntil !== undefined && record.leaseUntil > now;
+              if (leaseLive || (!record.pending && record.leaseToken === undefined)) return false;
+              return (cleanupDueAt(record) ?? 0) <= now;
+            })
+            .sort(([leftDeck, left], [rightDeck, right]) => {
+              const due = (cleanupDueAt(left) ?? 0) - (cleanupDueAt(right) ?? 0);
+              return due || leftDeck.localeCompare(rightDeck);
+            });
+          const candidate = candidates[0];
+          if (!candidate) return null;
+          const [deckId, record] = candidate;
+          record.pending = false;
+          record.lastStartedAt = now;
+          record.leaseToken = options.leaseToken;
+          record.leaseUntil = leaseUntil;
+          return { deckId, leaseToken: options.leaseToken, leaseUntil: options.leaseUntil };
+        },
+        async finish(lease, options): Promise<boolean> {
+          const now = requireIso(options.now, 'now');
+          if (typeof options.retry !== 'boolean') throw new TypeError('retry must be a boolean');
+          if (!isDeckId(lease.deckId)) throw new TypeError('deckId must be a valid deck id');
+          if (!uuidPattern.test(lease.leaseToken)) throw new TypeError('leaseToken must be a UUID');
+          const leaseUntil = requireIso(lease.leaseUntil, 'leaseUntil');
+          const record = state.automaticCleanup.get(lease.deckId);
+          if (
+            !record ||
+            record.leaseToken !== lease.leaseToken ||
+            record.leaseUntil !== leaseUntil ||
+            leaseUntil <= now
+          )
+            return false;
+          record.pending = record.pending || options.retry;
+          delete record.leaseToken;
+          delete record.leaseUntil;
+          return true;
+        },
+      } satisfies AutomaticJobCleanupStore,
+      async isExpired(identity) {
+        return state.tombstones.has(key(identity.deckId, identity.jobId));
+      },
+      async cleanup(options) {
+        const cutoff = requireIso(options.cutoff, 'cutoff');
+        if (!Number.isSafeInteger(options.limit) || options.limit < 1 || options.limit > 100)
+          throw new RangeError('Job cleanup limit must be between 1 and 100');
+        const eligible = [...state.jobs.values()]
+          .filter((record) => {
+            const snapshot = record.snapshot;
+            return (
+              snapshot.deckId === options.deckId &&
+              isTerminal(snapshot.status) &&
+              snapshot.finishedAt !== undefined &&
+              Date.parse(snapshot.finishedAt) <= cutoff &&
+              ![...state.jobs.values()].some(
+                (child) =>
+                  child.snapshot.deckId === options.deckId &&
+                  child.snapshot.parentJobId === snapshot.id,
+              )
+            );
+          })
+          .sort(
+            (left, right) =>
+              Date.parse(left.snapshot.finishedAt!) - Date.parse(right.snapshot.finishedAt!) ||
+              compareJobIds(left.snapshot.id, right.snapshot.id),
+          );
+        const selected = eligible.slice(0, options.limit);
+        if (!options.dryRun) {
+          for (const record of selected) {
+            const identity = {
+              deckId: record.snapshot.deckId,
+              jobId: record.snapshot.id,
+            };
+            state.jobs.delete(key(identity.deckId, identity.jobId));
+            state.tombstones.add(key(identity.deckId, identity.jobId));
+            enqueueUnusedInput(state, identity.deckId, record.inputKey);
+          }
+        }
+        const excluded = options.dryRun
+          ? new Set(selected.map((record) => key(options.deckId, record.snapshot.id)))
+          : new Set<string>();
+        const more = [...state.jobs.values()].some((record) => {
+          const snapshot = record.snapshot;
+          if (
+            snapshot.deckId !== options.deckId ||
+            excluded.has(key(options.deckId, snapshot.id)) ||
+            !isTerminal(snapshot.status) ||
+            snapshot.finishedAt === undefined ||
+            Date.parse(snapshot.finishedAt) > cutoff
+          )
+            return false;
+          return ![...state.jobs.values()].some(
+            (child) =>
+              child.snapshot.deckId === options.deckId &&
+              child.snapshot.parentJobId === snapshot.id &&
+              !excluded.has(key(options.deckId, child.snapshot.id)),
+          );
+        });
+        return {
+          jobs: selected.map((record) => ({
+            jobId: record.snapshot.id,
+            finishedAt: record.snapshot.finishedAt!,
+          })),
+          more,
+        };
+      },
+      async listPendingInputDeletes(options) {
+        if (!Number.isSafeInteger(options.limit) || options.limit < 1 || options.limit > 100)
+          throw new RangeError('Pending input deletion limit must be between 1 and 100');
+        const items = [...state.inputDeletes.values()]
+          .filter((item) => item.deckId === options.deckId)
+          .sort((left, right) => left.jobId.localeCompare(right.jobId));
+        return { items: clone(items.slice(0, options.limit)), pendingCount: items.length };
+      },
+      async acknowledgeInputDelete(item) {
+        const storageKey = inputDeleteKey(item.deckId, item.inputKey);
+        if (state.inputDeletes.get(storageKey)?.token !== item.token) return false;
+        state.inputDeletes.delete(storageKey);
+        return true;
+      },
+    },
 
     async submit(job): Promise<JobAdmissionResult> {
       const snapshot = job.snapshot;
       const id = key(snapshot.deckId, snapshot.id);
+      if (state.tombstones.has(id)) {
+        enqueueUnusedInput(
+          state,
+          snapshot.deckId,
+          exactJobInputKey(snapshot.deckId, snapshot.id, job.inputKey) ? job.inputKey : undefined,
+          true,
+        );
+        return { outcome: 'expired' };
+      }
       const existing = state.jobs.get(id);
       if (existing) return replayOrConflict(existing, job.requestHash);
       if (jobCount(state, snapshot.deckId) >= 10) return { outcome: 'limit' };
@@ -348,12 +582,24 @@ export function createMemoryPublicationJobStore(): PublicationJobStore {
       delete record.leaseToken;
       delete record.leaseUntil;
       touch(record, lease.now);
+      if (record.snapshot.kind === 'publication' && isTerminal(update.status)) {
+        const cleanup = state.automaticCleanup.get(lease.deckId) ?? { pending: false };
+        cleanup.pending = true;
+        state.automaticCleanup.set(lease.deckId, cleanup);
+      }
       return true;
     },
 
     async retry(parent, stage, job): Promise<JobAdmissionResult> {
       const child = job.snapshot;
       const childKey = key(parent.deckId, child.id);
+      if (
+        state.tombstones.has(key(parent.deckId, parent.jobId)) ||
+        state.tombstones.has(childKey)
+      ) {
+        enqueueUnusedInput(state, parent.deckId, job.inputKey, true);
+        return { outcome: 'expired' };
+      }
       const existing = state.jobs.get(childKey);
       if (existing) return replayOrConflict(existing, job.requestHash);
       const parentRecord = state.jobs.get(key(parent.deckId, parent.jobId));

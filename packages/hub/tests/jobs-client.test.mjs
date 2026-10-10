@@ -162,6 +162,93 @@ test('request validates responses, refuses redirects, and preserves HTTP status 
   );
 });
 
+test('cleanup posts one bounded public request with auth and validates the deck response identity', async () => {
+  const cleanupResponse = {
+    schemaVersion: 1,
+    deckId: 'course/topic',
+    dryRun: true,
+    retentionDays: 30,
+    cutoff: '2026-09-10T00:00:00.000Z',
+    jobs: [{ jobId, finishedAt: '2026-09-09T23:59:59.999Z' }],
+    deletedJobs: 0,
+    deletedInputs: 0,
+    pendingInputs: 0,
+    more: true,
+  };
+  const calls = [];
+  const client = createPublicationJobClient({
+    baseUrl: 'https://hub.example.test',
+    headers: {
+      Authorization: 'Bearer maintenance-secret',
+      'X-Hub-Job-View': 'must-not-be-forwarded',
+    },
+    fetch: async (url, init) => {
+      calls.push({ url: new URL(String(url)), init });
+      return jsonResponse(cleanupResponse);
+    },
+  });
+  const response = await client.cleanup({ deckId: 'course/topic', apply: false, limit: 25 });
+  assert.equal(response.more, true);
+  assert.deepEqual(
+    calls.map(({ url }) => [url.pathname, url.search]),
+    [['/api/jobs/cleanup', '']],
+  );
+  assert.equal(calls[0].init.method, 'POST');
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    deckId: 'course/topic',
+    apply: false,
+    limit: 25,
+  });
+  assert.equal(calls[0].init.headers.get('authorization'), 'Bearer maintenance-secret');
+  assert.equal(calls[0].init.headers.has('X-Hub-Job-View'), false);
+
+  const wrongDeck = createPublicationJobClient({
+    baseUrl: 'https://hub.example.test',
+    fetch: async () => jsonResponse({ ...cleanupResponse, deckId: 'other/deck' }),
+  });
+  await assert.rejects(
+    wrongDeck.cleanup({ deckId: 'course/topic' }),
+    (error) => error instanceof PublicationJobClientError && error.code === 'INVALID_RESPONSE',
+  );
+
+  const malformed = createPublicationJobClient({
+    baseUrl: 'https://hub.example.test',
+    fetch: async () => jsonResponse({ ...cleanupResponse, privateInputKey: 'private' }),
+  });
+  await assert.rejects(
+    malformed.cleanup({ deckId: 'course/topic' }),
+    (error) => error instanceof PublicationJobClientError && error.code === 'INVALID_RESPONSE',
+  );
+
+  const appliedResponseDuringDryRun = createPublicationJobClient({
+    baseUrl: 'https://hub.example.test',
+    fetch: async () => jsonResponse({ ...cleanupResponse, dryRun: false }),
+  });
+  await assert.rejects(
+    appliedResponseDuringDryRun.cleanup({ deckId: 'course/topic' }),
+    (error) => error instanceof PublicationJobClientError && error.code === 'INVALID_RESPONSE',
+  );
+
+  const dryRunResponseDuringApply = createPublicationJobClient({
+    baseUrl: 'https://hub.example.test',
+    fetch: async () => jsonResponse(cleanupResponse),
+  });
+  await assert.rejects(
+    dryRunResponseDuringApply.cleanup({ deckId: 'course/topic', apply: true }),
+    (error) => error instanceof PublicationJobClientError && error.code === 'INVALID_RESPONSE',
+  );
+
+  const unsupported = createPublicationJobClient({
+    baseUrl: 'https://hub.example.test',
+    fetch: async () => new Response(null, { status: 404 }),
+  });
+  await assert.rejects(
+    unsupported.cleanup({ deckId: 'course/topic' }),
+    (error) =>
+      error instanceof PublicationJobClientError && error.code === 'HTTP' && error.status === 404,
+  );
+});
+
 test('watch emits changed snapshots, reports connection recovery, and stops at terminal status', async () => {
   const states = [
     snapshot(),

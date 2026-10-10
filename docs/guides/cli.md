@@ -25,7 +25,7 @@
 - `stage doctor`: ランタイム設定、Node.js バージョン、スキーマ、スライド構成、パス、認証ファイルを読み取り専用で検査します。ファイルへの書き込みは行わず、OS やネイティブバイナリ自体の動作準備を保証するものではありません。準備不備が検出された場合は終了コード 1 で終了します。
 - `hub init --origin URL` は接続プロファイルを作成し、`hub doctor` はプロファイル、認証ファイル、`GET /api/capabilities` を読み取り専用で確認します。
 - `hub publish --id ID --source PATH [--assets PATH]` は capabilities が有効なら `POST /api/jobs` へ投入し、既定で完了まで監視します。ジョブ非対応・受付無効のサーバーでは同期 API にフォールバックします。認証・ネットワーク・5xx・不正な応答ではフォールバックしません。
-- `hub jobs status|watch|list|retry` はジョブの確認、一覧、再試行に使います。オプション、終了コード、認証、再送条件の詳細は[公開ジョブガイド](publication-jobs.md)を参照してください。
+- `hub jobs status|watch|list|retry|cleanup` はジョブの確認、一覧、再試行、完了済みジョブの整理に使います。`cleanup` は既定で dry-run し、`--apply` で削除を実行します。この手動操作には publish 認証が必要で、自動クリーンアップの日次上限を消費しません。自動処理はサーバー側で行うため、CLI に scheduler command はありません。オプション、終了コード、認証、再送条件の詳細は[公開ジョブガイド](publication-jobs.md)を参照してください。
 
 ### 共通フラグ・入出力・終了コード
 

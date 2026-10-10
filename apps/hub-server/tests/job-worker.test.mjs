@@ -73,3 +73,63 @@ test('worker requires a job store and valid concurrency', () => {
   assert.throws(() => startPublicationJobWorker({}), /job store/);
   assert.throws(() => startPublicationJobWorker({ jobs: {} }, { concurrency: 0 }), /concurrency/);
 });
+
+test('worker services persisted cleanup even while publication work continues', async () => {
+  const events = [];
+  let release;
+  const finished = new Promise((resolve) => {
+    release = resolve;
+  });
+  const worker = startPublicationJobWorker(
+    { jobs: {} },
+    {
+      concurrency: 1,
+      pollIntervalMs: 5,
+      run: async () => {
+        events.push('publication');
+        return true;
+      },
+      cleanup: async () => {
+        events.push('cleanup');
+        await finished;
+        return true;
+      },
+    },
+  );
+  await delay(5);
+  const closing = worker.close();
+  release();
+  await closing;
+  assert.deepEqual(events, ['publication', 'cleanup']);
+});
+
+test('cleanup failures do not stop subsequent publication polling', async () => {
+  let publicationCalls = 0;
+  let errors = 0;
+  let done;
+  const observed = new Promise((resolve) => {
+    done = resolve;
+  });
+  const worker = startPublicationJobWorker(
+    { jobs: {} },
+    {
+      concurrency: 1,
+      pollIntervalMs: 5,
+      run: async () => {
+        publicationCalls += 1;
+        if (publicationCalls === 2) done();
+        return false;
+      },
+      cleanup: async () => {
+        throw new Error('cleanup database unavailable');
+      },
+      onError: () => {
+        errors += 1;
+      },
+    },
+  );
+  await observed;
+  await worker.close();
+  assert.equal(publicationCalls, 2);
+  assert.ok(errors >= 1);
+});

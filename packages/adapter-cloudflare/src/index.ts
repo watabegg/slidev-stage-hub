@@ -39,6 +39,9 @@ function metadata(object: R2Object): ArtifactMetadata {
 
 export function createR2ArtifactStore(bucket: R2Bucket): ArtifactStore {
   return {
+    async delete(key) {
+      await bucket.delete(key);
+    },
     async get(key) {
       const object = await bucket.get(key);
       if (!object) return null;

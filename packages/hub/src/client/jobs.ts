@@ -2,6 +2,8 @@ import {
   JOB_POLL_AFTER_MS,
   JOB_VIEW_HEADER,
   isJobId,
+  isJobCleanupRequest,
+  isJobCleanupResponse,
   isJobViewToken,
   isPublicationJobGetResponse,
   isPublicationJobListResponse,
@@ -10,6 +12,8 @@ import {
 } from '@slidev-stage-hub/protocol/contracts';
 import type {
   JobSnapshot,
+  JobCleanupRequest,
+  JobCleanupResponse,
   PublicationJobGetResponse,
   PublicationJobListResponse,
   PublicationJobRequest,
@@ -80,6 +84,8 @@ export interface PublicationJobRetryInput {
   jobId: string;
 }
 
+export type PublicationJobCleanupInput = JobCleanupRequest;
+
 export interface PublicationJobWatchOptions extends PublicationJobRequestOptions {
   pollIntervalMs?: number;
   hiddenIntervalMs?: number;
@@ -106,13 +112,20 @@ export interface PublicationJobClient {
     body: PublicationJobRetryRequest,
     options?: PublicationJobRequestOptions,
   ): Promise<PublicationJobSubmitResponse>;
+  cleanup(
+    input: PublicationJobCleanupInput,
+    options?: PublicationJobRequestOptions,
+  ): Promise<JobCleanupResponse>;
   watch(
     input: PublicationJobKey,
     options?: PublicationJobWatchOptions,
   ): AsyncIterableIterator<JobSnapshot>;
 }
 
-type RequestOptions = PublicationJobRequestOptions & { viewToken?: string };
+type RequestOptions = PublicationJobRequestOptions & {
+  viewToken?: string;
+  omitViewToken?: boolean;
+};
 
 function abortedError(signal?: AbortSignal): PublicationJobClientError {
   return new PublicationJobClientError('ABORTED', 'Publication job request was aborted', {
@@ -289,6 +302,7 @@ export function createPublicationJobClient(
     const headers = new Headers(options.headers);
     headers.set('accept', 'application/json');
     if (init.json !== undefined) headers.set('content-type', 'application/json');
+    if (requestOptions.omitViewToken) headers.delete(JOB_VIEW_HEADER);
     if (requestOptions.viewToken !== undefined)
       headers.set(JOB_VIEW_HEADER, requestOptions.viewToken);
     const { json, ...requestInit } = init;
@@ -423,6 +437,31 @@ export function createPublicationJobClient(
       return value;
     },
 
+    async cleanup(input, requestOptions = {}) {
+      if (!isJobCleanupRequest(input))
+        throw new TypeError(
+          'cleanup input must contain a canonical deckId and a limit from 1 to 100',
+        );
+      const body: JobCleanupRequest = {
+        deckId: input.deckId,
+        ...(input.apply === undefined ? {} : { apply: input.apply }),
+        ...(input.limit === undefined ? {} : { limit: input.limit }),
+      };
+      const value = await request(
+        '/api/jobs/cleanup',
+        { method: 'POST', json: body },
+        { ...requestOptions, omitViewToken: true },
+      );
+      const expectedDryRun = input.apply !== true;
+      if (
+        !isJobCleanupResponse(value) ||
+        value.deckId !== input.deckId ||
+        value.dryRun !== expectedDryRun
+      )
+        throw invalidResponse();
+      return value;
+    },
+
     async *watch(input, watchOptions = {}): AsyncIterableIterator<JobSnapshot> {
       assertJobKey(input);
       const pollIntervalMs = watchOptions.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
@@ -483,6 +522,9 @@ export type {
   JobPhase,
   JobSnapshot,
   JobStatus,
+  JobCleanupItem,
+  JobCleanupRequest,
+  JobCleanupResponse,
   PublicationJobGetResponse,
   PublicationJobListResponse,
   PublicationJobRequest,

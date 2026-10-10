@@ -139,3 +139,26 @@ test('S3 listing maps opaque continuation tokens and clamps provider page size',
     /truncated but has no continuation token/u,
   );
 });
+
+test('S3 deletion addresses one key and propagates authorization failures', async () => {
+  const calls = [];
+  const store = createS3ArtifactStore({
+    bucket: 'slides',
+    client: {
+      send: async (command) => {
+        calls.push(command);
+        return {};
+      },
+    },
+  });
+  await store.delete('private/jobs/deck/input.json');
+  assert.equal(calls[0].constructor.name, 'DeleteObjectCommand');
+  assert.deepEqual(calls[0].input, { Bucket: 'slides', Key: 'private/jobs/deck/input.json' });
+  const denied = createS3ArtifactStore({
+    bucket: 'slides',
+    client: stubClient(() => {
+      throw Object.assign(new Error('denied'), { $metadata: { httpStatusCode: 403 } });
+    }),
+  });
+  await assert.rejects(denied.delete('private/input'), /denied/u);
+});

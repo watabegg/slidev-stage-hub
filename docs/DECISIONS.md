@@ -116,7 +116,9 @@ Cloudflare 環境（Workers、Durable Objects、R2）への過度な依存によ
 
 非同期公開では、ジョブの受付、公開世代の割り当て、既存ジョブの supersede、公開 pointer の更新を整合させる必要がある。そのため provider-free な `packages/server` に API と runner を置き、各アダプターでは公開 commit とジョブ状態を同じトランザクションで更新できる保存先を使う。Cloudflare は既存 `DeckVersions` Durable Object の SQLite トランザクション内で公開状態とジョブを扱い、alarm で起床する。Node/PostgreSQL は公開ストアとジョブストアを同じ PostgreSQL トランザクションに参加させ、worker は `SKIP LOCKED` polling で job を claim する。
 
-カスタムアダプターの実装者は、publication commit と job transitions が同じトランザクションに参加する store を用意する必要がある。データベース接続情報を共有するだけでは、公開状態とジョブ状態の原子性は保証されない。外部メッセージブローカーの運用やプロバイダー固有の upload/notification 経路を追加しない代わりに、ジョブ metadata と private input の自動 GC は行わない。Cloudflare alarm と PostgreSQL worker の運用、状態・retry 契約、未実施の live cloud acceptance は[公開ジョブガイド](guides/publication-jobs.md)を参照してください。
+カスタムアダプターの実装者は、publication commit と job transitions が同じトランザクションに参加する store を用意する必要がある。データベース接続情報を共有するだけでは、公開状態とジョブ状態の原子性は保証されない。first-party store は terminal publication finish と同じトランザクションで、デッキ単位の cleanup 要求を記録する。Node worker と既存の Cloudflare alarm がこの要求を消化し、最大100件の terminal leaf job と最大100件の private input deletion をデッキごとにローリング24時間あたり1回処理する。残作業や失敗は保留され、次の日次枠で再試行する。外部 queue、cron、global periodic sweep は設けず、optional な `PublicationJobMaintenanceStore.automatic` port により custom store のソース互換性を保つ。
+
+完了から30日を経た job と未参照 private input は、恒久 tombstone と durable input-delete outbox を使って整理する。公開リリースと runtime は対象外である。導入時点ですでに完了している履歴は自動要求に登録されないため、後続 publication がないデッキやすぐ整理する場合は認証付きの上限付き `hub jobs cleanup` を使う。この手動経路は自動処理の日次枠を消費しない。クラウド実デプロイと live acceptance は未実施であり、保持契約と検証状況は[公開ジョブガイド](guides/publication-jobs.md)および[自動保持記録](results/publication-jobs-auto-retention.json)を参照してください。
 
 ## 検証記録と過去の技術資料
 

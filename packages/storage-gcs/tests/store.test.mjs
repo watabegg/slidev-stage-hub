@@ -169,3 +169,33 @@ test('GCS accepts strings and Web streams as write bodies', async () => {
     ],
   );
 });
+
+test('GCS deletion ignores missing objects but preserves permission errors', async () => {
+  const calls = [];
+  const client = {
+    bucket: (name) => ({
+      file: (key) => ({
+        delete: async (options) => {
+          calls.push({ name, key, options });
+        },
+      }),
+    }),
+  };
+  await createGcsArtifactStore({ bucket: 'slides', client }).delete('private/jobs/input.json');
+  assert.deepEqual(calls, [
+    { name: 'slides', key: 'private/jobs/input.json', options: { ignoreNotFound: true } },
+  ]);
+  const denied = {
+    bucket: () => ({
+      file: () => ({
+        delete: async () => {
+          throw Object.assign(new Error('denied'), { code: 403 });
+        },
+      }),
+    }),
+  };
+  await assert.rejects(
+    createGcsArtifactStore({ bucket: 'slides', client: denied }).delete('x'),
+    /denied/u,
+  );
+});

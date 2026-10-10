@@ -19,6 +19,8 @@ export interface ArtifactStore {
     body: ArtifactBody,
     options?: { contentType?: string; ifAbsent?: boolean },
   ): Promise<boolean>;
+  /** Delete one object. Missing objects are treated as successfully deleted. */
+  delete?(key: string): Promise<void>;
   /** Cursor is opaque and store-specific. An absent cursor means the final page. */
   list(options: {
     prefix: string;
@@ -71,6 +73,7 @@ export interface HubServerOptions {
   onJobEvent?: (event: PublicationJobEvent) => void | Promise<void>;
   /** Configured origin used for background rendering; never derived from request Host. */
   publicOrigin?: string;
+  /** Must equal `jobs.publications` when a paired job store is configured. */
   publications: PublicationStore;
   staticAssets: { fetch(request: Request): Promise<Response> };
   profile: RuntimeProfile;

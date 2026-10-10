@@ -54,7 +54,7 @@ Node.js 環境上で手軽にサーバーを起動し、CLI からスライド�
 
 - ローカルのデフォルト構成では、インメモリ配信ストア（`HUB_PUBLICATIONS=memory`）とファイルシステム成果物保存（`HUB_STORAGE=filesystem`）が使用されます。上記の `HUB_JOBS_ENABLED=true` はジョブ受付を明示的に有効にし、インメモリ構成では API と同一 Node プロセス内に開発用 worker を起動します。再起動後も残るジョブ処理には PostgreSQL 構成を使用してください。
 - サーバーを再起動すると、インメモリに保持されていた配信ポインタ（`current`）は失われますが、ファイルシステム上の成果物実体（`artifacts/hub-server/objects` 配下）は残存します。
-- `HUB_ALLOW_LOCAL_MUTATIONS=true` は、公開トークン未設定かつループバック接続時に限って変更操作を許可する開発向けのフラグです。本番環境（`NODE_ENV=production`）では本フラグ自体が自動で無効化されるのではなく、ファイルシステム保存やインメモリ配信ストアの利用自体が起動時に拒否されます。
+- `HUB_ALLOW_LOCAL_MUTATIONS=true` は、本番環境以外で `HUB_PUBLISH_TOKEN` が未設定のときに使う認証フォールバックです。Node リファレンスアプリは `HOST` が文字どおり `127.0.0.1` または `::1`（既定値は `127.0.0.1`）の場合だけ設定を受け付け、`localhost` は拒否します。共通サーバーもリクエスト URL のホスト名を検査しますが、カスタム統合では信頼できるトランスポートやリッスン先の境界を別途制限し、呼び出し元が指定できる `Host` ヘッダーだけでローカル接続を判定してはいけません。
 - 認証が必要な環境に対して CLI から配信を行う場合は、パーミッション `0600` の設定ファイル（`--headers-file`）を介して Bearer トークンを渡してください。詳細は [cli.md](cli.md) を参照してください。
 
 ## 環境変数一覧と設定仕様
@@ -82,7 +82,7 @@ Node.js 環境上で手軽にサーバーを起動し、CLI からスライド�
 | `HUB_CHROMIUM_EXECUTABLE` | なし | 実行ファイルパス | Playwright renderer が起動する Chromium の明示的なパス |
 | `HUB_PUBLIC_ORIGIN` | なし | HTTP(S) origin | 任意 renderer が接続するスライドの origin。`playwright` 使用時は必須で、API リクエストから推測しません |
 | `HUB_PUBLISH_TOKEN` | なし | 文字列 | 設定時、Bearer トークンによる変更操作（mutation）を有効化 |
-| `HUB_ALLOW_LOCAL_MUTATIONS` | なし | `true` / `false` | 正確に `true` かつループバック通信、トークン未設定の場合のみ有効 |
+| `HUB_ALLOW_LOCAL_MUTATIONS` | なし | `true` / `false` | `true` は本番以外・`HUB_PUBLISH_TOKEN` 未設定でのみ有効。Node リファレンスアプリは `HOST=127.0.0.1` または `::1` のみ許可し、`localhost` は受け付けません |
 
 クラウドストレージの認証情報はコードやリポジトリ、コンテナイメージに直接埋め込まず、AWS SDK 標準の認証情報チェーン、または Google Cloud の ADC（Application Default Credentials）を使用します。
 
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS hub_publications (
 );
 ```
 
-公開ジョブを有効にする場合は `HUB_JOBS_ENABLED=true` を設定し、既存の `hub_publications` テーブルを用意した上で、デプロイ前に追加 migration `packages/state-postgres/migrations/002-publication-jobs.sql` を適用します。PostgreSQL 構成では API（`node dist/start.js`）と worker（`node dist/worker.js`）を別プロセスで起動し、同じ DB と ArtifactStore を使います。worker の既定並列数は 2 です。`HUB_JOBS_ENABLED=false` は新規受付を止めても job store を構成したままにし、worker は既存ジョブを drain できます。ローカル memory は再起動でジョブ状態が失われるため開発用です。詳細は[公開ジョブガイド](publication-jobs.md)を参照してください。
+公開ジョブを有効にする場合は `HUB_JOBS_ENABLED=true` を設定し、既存の `hub_publications` テーブルを用意した上で、デプロイ前に `002-publication-jobs.sql`、`003-job-retention.sql`、`004-job-cleanup-schedule.sql` を順に適用します（ファイルは `packages/state-postgres/migrations/` にあります）。PostgreSQL 構成では API（`node dist/start.js`）と worker（`node dist/worker.js`）を別プロセスで起動し、同じ DB と ArtifactStore を使います。worker の既定並列数は 2 です。`HUB_JOBS_ENABLED=false` は新規受付を止めても job store を構成したままにし、worker は既存ジョブを drain できます。ローカル memory は再起動でジョブ状態が失われるため開発用です。自動クリーンアップはこの worker が実行し、API プロセス単体では動作しません。詳細は[公開ジョブガイド](publication-jobs.md)を参照してください。
 
 ## コンテナ環境とデプロイ用テンプレート
 
@@ -135,7 +135,7 @@ docker compose -f apps/hub-server/deploy/compose.yaml up --build
 ```
 
 - 開発用構成（`HUB_STORAGE=filesystem` + PostgreSQL）で動作し、`localhost:8080` で待機します。
-- テスト用の固定トークン `local-dev-only-publish-token` が設定されており、CLI からの接続には `--headers-file` による認証が必要です。この固定認証情報を本番環境で使用してはなりません。なお、今回の開発工程では構文確認のみを行っており、Docker Compose プラグインによる実起動テストは未実行です。
+- テスト用の固定トークン `local-dev-only-publish-token` が設定されており、CLI からの接続には `--headers-file` による認証が必要です。この固定認証情報を本番環境で使用してはなりません。クリーンインストール検証の範囲と結果は[フォローアップ記録](../results/publication-jobs-followup.json)に記録します。
 - API と `node dist/worker.js` は別サービスで同じ PostgreSQL と成果物 volume を使います。両方に `HUB_JOBS_ENABLED` を設定し、`HUB_JOBS_ENABLED=false` に切り替えると新規受付を止めて worker の drain を続けられます。
 - Compose は `HUB_THUMBNAIL_RENDERER=none` を既定とします。任意で Playwright を使う場合は `HUB_INSTALL_CHROMIUM=true` でイメージをビルドし、`HUB_THUMBNAIL_RENDERER=playwright` を設定します。イメージの build は browser を自動ダウンロードせず、Compose の API はクライアント向け localhost origin、renderer worker は内部 `http://hub:8080` origin を使います。
 
@@ -146,9 +146,13 @@ docker compose -f apps/hub-server/deploy/compose.yaml up --build
 - **AWS ECS Fargate向け**: `apps/hub-server/deploy/aws-ecs-task-definition.template.json`（ECS Fargate + S3 + PostgreSQL）
 - **Google Cloud Run向け**: `apps/hub-server/deploy/gcp-cloud-run-service.template.yaml`（Cloud Run + GCS + PostgreSQL）
 
-`apps/hub-server/deploy/aws-ecs-task-definition.template.json` および `apps/hub-server/deploy/gcp-cloud-run-service.template.yaml` は、リソースをプロビジョニングするコマンドではなく参照用の設定テンプレートであるため、含まれるすべての `REPLACE_*` プレースホルダーを運用者の実際の値に置き換える必要があります。テンプレートは PostgreSQL の API と別 worker を `HUB_PUBLICATIONS=postgres`、`HUB_JOBS_ENABLED=true` で構成し、両方に同じ database と ArtifactStore の設定を渡します。`HUB_DATABASE_INIT=false` のため、既存の `hub_publications` テーブルを用意した上で追加 migration `packages/state-postgres/migrations/002-publication-jobs.sql` をデプロイ前に適用してください。また、実際の AWS/GCP 受け入れ検証、デプロイ、IAM やネットワークの設定検証は実施されていないため、利用側で既存の bucket、接続可能な PostgreSQL database、実行・サービスアカウントの IAM 権限、シークレット連携、ネットワーク設定、イメージレジストリとイメージを事前に準備してください。
+`apps/hub-server/deploy/aws-ecs-task-definition.template.json` および `apps/hub-server/deploy/gcp-cloud-run-service.template.yaml` は、リソースをプロビジョニングするコマンドではなく参照用の設定テンプレートであるため、含まれるすべての `REPLACE_*` プレースホルダーを運用者の実際の値に置き換える必要があります。テンプレートは PostgreSQL の API と別 worker を `HUB_PUBLICATIONS=postgres`、`HUB_JOBS_ENABLED=true` で構成し、両方に同じ database と ArtifactStore の設定を渡します。`HUB_DATABASE_INIT=false` のため、既存の `hub_publications` テーブルを用意した上で `002-publication-jobs.sql`、`003-job-retention.sql`、`004-job-cleanup-schedule.sql`（`packages/state-postgres/migrations/`）をデプロイ前に順に適用してください。クリーンアップを使う実行主体には、対象となる private input のみを削除できる `s3:DeleteObject` または `storage.objects.delete` が必要です。実際の AWS/GCP 受け入れ検証、デプロイ、IAM やネットワークの設定検証は実施されていないため、利用側で既存の bucket、接続可能な PostgreSQL database、実行・サービスアカウントの IAM 権限、シークレット連携、ネットワーク設定、イメージレジストリとイメージを事前に準備してください。
 
 いずれのテンプレートも `HUB_DATABASE_INIT=false`、`HUB_THUMBNAIL_RENDERER=none` を設定しています。レンダラーを有効にする場合は Chromium を明示的に含むイメージをビルドして `HUB_THUMBNAIL_RENDERER=playwright`、`HUB_CHROMIUM_EXECUTABLE`、`HUB_PUBLIC_ORIGIN` を構成してください。Playwright のインストールはブラウザを自動ダウンロードしません。認証情報はテンプレートやイメージ内に含めず、各種シークレット管理サービスから注入してください。テンプレート単体でのデプロイコマンドや実環境での展開テストは提供されていません。
+
+クリーンアップはオブジェクトキーの削除を要求しますが、S3 バージョニングでは delete marker が作成され、GCS の soft delete や Object Versioning では過去データが保持される場合があります。物理消去やバックアップの消去を保証しない点と、削除権限の設定は[公開ジョブガイド](publication-jobs.md)を参照してください。詳細は公式資料の [S3 DeleteObject](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html)、[Cloud Storage deleting objects](https://docs.cloud.google.com/storage/docs/deleting-objects)、[soft delete](https://docs.cloud.google.com/storage/docs/soft-delete)、[Object Versioning](https://docs.cloud.google.com/storage/docs/object-versioning) を参照してください。
+
+Cloudflare Workers では `DeckVersions` クラスと Wrangler migration v1 を維持したまま、Durable Object の内部 SQLite スキーマを v4 に進めます。v4 初期化後はスキーマ v3 までしか扱えない古い Worker イメージに戻せません。無停止移行や旧イメージへのロールバックは検証されていません。既存の alarm は publication の後に自動クリーンアップも試し、外部 cron や新しい queue は追加しません。初期化前の完了 job は自動では再登録されないため、後続 publication がない場合は手動 `hub jobs cleanup` が必要です。詳細と検証状況は[公開ジョブガイド](publication-jobs.md)および[自動保持記録](../results/publication-jobs-auto-retention.json)を参照してください。
 
 ## プライベートtarballパッケージの利用
 

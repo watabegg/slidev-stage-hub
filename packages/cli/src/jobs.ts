@@ -7,7 +7,11 @@ import {
   PublicationJobClientError,
 } from '@slidev-stage-hub/hub/client';
 import { isJobId, isJobViewToken, isTerminalJobStatus } from '@slidev-stage-hub/protocol/contracts';
-import type { JobSnapshot, PublicationJobRetryRequest } from '@slidev-stage-hub/protocol/contracts';
+import type {
+  JobSnapshot,
+  JobStatus,
+  PublicationJobRetryRequest,
+} from '@slidev-stage-hub/protocol/contracts';
 import { failInput, failRuntime, CliFailure } from './errors.js';
 import { emitSuccess } from './output.js';
 import { ensurePrivateReceiptDirectory, loadHubRemoteSettings } from './remote-config.js';
@@ -218,8 +222,10 @@ export function makeJobViewUrl(
   return viewUrl.href;
 }
 
-export function printAcceptedJob(jobId: string, viewUrl: string): void {
-  process.stderr.write(`Publication job ${jobId} accepted\n`);
+export function printAcceptedJob(jobId: string, viewUrl: string, status: JobStatus): void {
+  if (isTerminalJobStatus(status))
+    process.stderr.write(`Publication job ${jobId} already completed (${status})\n`);
+  else process.stderr.write(`Publication job ${jobId} accepted\n`);
   process.stderr.write(`View progress: ${viewUrl}\n`);
 }
 
@@ -238,6 +244,30 @@ export function resumeCommand(
     values.push('--remote-config', shellQuote(options.remoteConfig));
   if (options.headersFile !== undefined)
     values.push('--headers-file', shellQuote(options.headersFile));
+  return values.join(' ');
+}
+
+function cleanupCommand(
+  deckId: string,
+  options: {
+    origin: string;
+    remoteConfig?: string;
+    headersFile?: string;
+    limit: number;
+  },
+): string {
+  const values = [
+    'hub jobs cleanup',
+    '--id',
+    shellQuote(deckId),
+    '--origin',
+    shellQuote(options.origin),
+  ];
+  if (options.remoteConfig !== undefined)
+    values.push('--remote-config', shellQuote(options.remoteConfig));
+  if (options.headersFile !== undefined)
+    values.push('--headers-file', shellQuote(options.headersFile));
+  values.push('--limit', String(options.limit), '--apply');
   return values.join(' ');
 }
 
@@ -341,6 +371,33 @@ export async function waitForPublicationJob(options: {
   }
 }
 
+function failJobRead(error: unknown, operation: 'status' | 'list'): never {
+  if (error instanceof CliFailure) throw error;
+  if (error instanceof PublicationJobClientError) {
+    if (error.code === 'HTTP' && [401, 403].includes(error.status ?? 0))
+      failRuntime('Publication job authentication failed', 'JOB_AUTH_FAILED');
+    if (error.code === 'HTTP' && error.status === 404)
+      failRuntime('Publication job or requested deck could not be found', 'JOB_NOT_FOUND');
+    if (error.code === 'HTTP' && error.status === 429)
+      failRuntime(
+        'Hub is rate-limiting publication job reads; try again later',
+        'JOB_RATE_LIMITED',
+      );
+    if (
+      error.code === 'NETWORK' ||
+      error.code === 'TIMEOUT' ||
+      (error.code === 'HTTP' && (error.status ?? 0) >= 500)
+    )
+      failRuntime('Publication job API is unavailable; try again later', 'JOB_API_UNAVAILABLE');
+    if (error.code === 'INVALID_JSON' || error.code === 'INVALID_RESPONSE')
+      failRuntime('Hub returned an invalid publication job response', 'JOB_INVALID_RESPONSE');
+  }
+  failRuntime(
+    `Publication job ${operation} request failed`,
+    operation === 'status' ? 'JOB_STATUS_FAILED' : 'JOB_LIST_FAILED',
+  );
+}
+
 export function exitForJob(
   snapshot: JobSnapshot,
   command: string,
@@ -401,6 +458,7 @@ function jobOptions(): Record<string, { type: 'string' | 'boolean' }> {
     stage: { type: 'string' },
     timeout: { type: 'string' },
     'no-wait': { type: 'boolean' },
+    apply: { type: 'boolean' },
   };
 }
 
@@ -424,11 +482,15 @@ export function acceptedOutput(
   jobId: string,
   deckId: string,
   status: string,
-  response: { replayed: boolean },
+  response: { replayed: boolean; job: JobSnapshot },
   command: string,
   json: boolean,
   extra: Record<string, unknown> = {},
 ): void {
+  if (isTerminalJobStatus(response.job.status)) {
+    exitForJob(response.job, command, json, extra);
+    return;
+  }
   const data = {
     ...extra,
     jobId,
@@ -448,10 +510,11 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
   const parsed = parseCommand('hub', 'jobs', args, jobOptions());
   const [subcommand, ...rest] = parsed.positionals;
   const help = [
-    'Usage: hub jobs <status|watch|list|retry> [options]',
+    'Usage: hub jobs <status|watch|list|retry|cleanup> [options]',
     'status/watch: --id ID --job UUID [--remote-config PATH]',
     'list:         --id ID [--limit N] [--cursor CURSOR]',
     'retry:        --id ID --job UUID --stage thumbnail|all [--timeout 300] [--no-wait]',
+    'cleanup:      --id ID [--apply] [--limit N] (dry-run by default)',
   ].join('\n');
   if (!subcommand || optionBoolean(parsed.values, 'help')) {
     emitSuccess('hub jobs', { help }, json, help);
@@ -462,9 +525,11 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
     return;
   }
   if (!subcommand || rest.length !== 0)
-    failInput('usage: hub jobs <status|watch|list|retry> [options]', 'INVALID_ARGUMENTS');
-  if (!['status', 'watch', 'list', 'retry'].includes(subcommand))
+    failInput('usage: hub jobs <status|watch|list|retry|cleanup> [options]', 'INVALID_ARGUMENTS');
+  if (!['status', 'watch', 'list', 'retry', 'cleanup'].includes(subcommand))
     failInput('unknown hub jobs command', 'UNKNOWN_COMMAND');
+  if (subcommand !== 'cleanup' && optionBoolean(parsed.values, 'apply') !== undefined)
+    failInput('--apply is only supported by hub jobs cleanup');
 
   const settings = await loadHubRemoteSettings(cwd, parsed.values);
   const deckId = requireDeckId(optionString(parsed.values, 'id'), settings.defaultDeckId);
@@ -484,11 +549,16 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
       failInput('--limit must be an integer between 1 and 100', 'INVALID_LIMIT');
     const cursor = optionString(parsed.values, 'cursor');
-    const result = await client.list({
-      deckId,
-      limit,
-      ...(cursor === undefined ? {} : { cursor }),
-    });
+    let result;
+    try {
+      result = await client.list({
+        deckId,
+        limit,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+    } catch (error) {
+      failJobRead(error, 'list');
+    }
     emitSuccess(
       'hub jobs list',
       {
@@ -498,6 +568,108 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
       },
       json,
       `Found ${result.items.length} publication jobs for ${deckId}`,
+    );
+    return;
+  }
+
+  if (subcommand === 'cleanup') {
+    if (
+      jobId !== undefined ||
+      optionString(parsed.values, 'stage') !== undefined ||
+      optionString(parsed.values, 'cursor') !== undefined ||
+      optionString(parsed.values, 'timeout') !== undefined ||
+      optionBoolean(parsed.values, 'no-wait') !== undefined
+    )
+      failInput('hub jobs cleanup only accepts --id, --apply, and --limit');
+    const apply = optionBoolean(parsed.values, 'apply') ?? false;
+    const rawLimit = optionString(parsed.values, 'limit') ?? '100';
+    if (!/^\d+$/u.test(rawLimit))
+      failInput('--limit must be an integer between 1 and 100', 'INVALID_LIMIT');
+    const limit = Number(rawLimit);
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
+      failInput('--limit must be an integer between 1 and 100', 'INVALID_LIMIT');
+    const remoteConfig = optionString(parsed.values, 'remote-config');
+    const rerunCommand = cleanupCommand(deckId, {
+      origin: settings.origin,
+      ...(remoteConfig === undefined ? {} : { remoteConfig }),
+      ...(settings.headersFilePath === undefined ? {} : { headersFile: settings.headersFilePath }),
+      limit,
+    });
+
+    process.stderr.write(
+      `jobs cleanup: ${apply ? 'applying' : 'dry-run'} for ${deckId} (limit ${limit})\n`,
+    );
+    let result;
+    try {
+      result = await client.cleanup({ deckId, apply, limit });
+    } catch (error) {
+      if (
+        error instanceof PublicationJobClientError &&
+        error.code === 'HTTP' &&
+        [401, 403].includes(error.status ?? 0)
+      )
+        failRuntime('Job cleanup authentication failed', 'JOB_AUTH_FAILED');
+      if (
+        error instanceof PublicationJobClientError &&
+        error.code === 'HTTP' &&
+        [404, 405, 501, 503].includes(error.status ?? 0)
+      )
+        failRuntime(
+          'This Hub does not support job cleanup; no cleanup was performed',
+          'JOB_CLEANUP_UNAVAILABLE',
+        );
+      if (error instanceof PublicationJobClientError && error.code === 'INVALID_RESPONSE')
+        failRuntime('Hub returned an invalid job cleanup response', 'JOB_CLEANUP_INVALID_RESPONSE');
+      failRuntime('Job cleanup request failed', 'JOB_CLEANUP_FAILED');
+    }
+    if (result.dryRun === apply)
+      failRuntime(
+        'Hub returned a cleanup response with the wrong dry-run state',
+        'JOB_CLEANUP_INVALID_RESPONSE',
+      );
+
+    const summary = apply
+      ? `removed ${result.deletedJobs} job(s), deleted ${result.deletedInputs} input(s), ${result.pendingInputs} input(s) pending`
+      : `previewed ${result.jobs.length} eligible job(s)`;
+    process.stderr.write(`jobs cleanup: ${summary}\n`);
+    if (apply && result.pendingInputs > 0) {
+      process.stderr.write(
+        `Cleanup partially completed: ${result.deletedJobs} job(s) were removed, but ${result.pendingInputs} input deletion(s) remain pending.\n`,
+      );
+      process.stderr.write(
+        `Next action: rerun ${rerunCommand}\nReason: retry pending input deletion.\n`,
+      );
+      failRuntime(
+        'Job cleanup partially completed; pending private input deletion must be retried',
+        'JOB_CLEANUP_PARTIAL',
+        result,
+      );
+    }
+    if (result.more) {
+      const reason =
+        !apply && result.pendingInputs > 0
+          ? 'to continue cleanup and retry pending input deletion'
+          : 'to continue the bounded cleanup';
+      process.stderr.write(`Next action: rerun ${rerunCommand}\nReason: ${reason}.\n`);
+    } else if (!apply && result.jobs.length > 0) {
+      const reason =
+        result.pendingInputs > 0
+          ? 'to remove the previewed metadata and retry pending input deletion'
+          : 'to remove the previewed metadata';
+      process.stderr.write(`Next action: rerun ${rerunCommand}\nReason: ${reason}.\n`);
+    } else if (!apply && result.pendingInputs > 0) {
+      process.stderr.write(
+        `No eligible job metadata was found.\nNext action: rerun ${rerunCommand}\n--apply will retry pending input deletion.\n`,
+      );
+    }
+
+    emitSuccess(
+      'hub jobs cleanup',
+      result,
+      json,
+      apply
+        ? `Cleanup completed for ${deckId}: ${summary}`
+        : `Cleanup preview for ${deckId}: ${summary}`,
     );
     return;
   }
@@ -556,7 +728,7 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
       );
     }
     const viewUrl = makeJobViewUrl(settings.origin, deckId, response, identity.viewToken);
-    printAcceptedJob(identity.jobId, viewUrl);
+    printAcceptedJob(identity.jobId, viewUrl, response.job.status);
     if (optionBoolean(parsed.values, 'no-wait')) {
       acceptedOutput(identity.jobId, deckId, response.job.status, response, 'hub jobs retry', json);
       return;
@@ -590,7 +762,12 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
     ...(receipt === undefined ? {} : { viewToken: receipt.viewToken }),
   };
   if (subcommand === 'status') {
-    const result = await client.get(key);
+    let result;
+    try {
+      result = await client.get(key);
+    } catch (error) {
+      failJobRead(error, 'status');
+    }
     emitSuccess(
       'hub jobs status',
       result.job,

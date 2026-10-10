@@ -88,11 +88,31 @@ test('paired admission replays, conflicts, and legacy begin supersedes only unpu
   assert.equal(preserved.leaseToken, firstLease.leaseToken);
 
   const secondLeaseToken = randomUUID();
-  await store.claim({ now, leaseUntil: later(2), leaseToken: secondLeaseToken, deckId });
+  const runningSecond = await store.claim({
+    now,
+    leaseUntil: later(2),
+    leaseToken: secondLeaseToken,
+    deckId,
+  });
+  const runningStages = runningSecond.snapshot.stages.map((stage, index) =>
+    index === 0 ? { ...stage, status: 'running' } : stage,
+  );
+  await store.checkpoint(lease(deckId, second.snapshot.id, secondLeaseToken), {
+    progress: { completed: 1, total: 5, unit: 'slides' },
+    stages: runningStages,
+  });
   assert.equal(await store.publications.begin(deckId), '3');
   const superseded = await store.get({ deckId, jobId: second.snapshot.id });
   assert.equal(superseded.snapshot.status, 'superseded');
   assert.equal(superseded.leaseToken, undefined);
+  assert.equal(superseded.snapshot.progress, undefined);
+  assert.equal(superseded.snapshot.error, undefined);
+  assert.ok(superseded.snapshot.stages.every((stage) => stage.status === 'skipped'));
+  assert.ok(
+    superseded.snapshot.stages.every(
+      (stage) => stage.finishedAt === superseded.snapshot.finishedAt,
+    ),
+  );
   assert.deepEqual(await store.publications.current(deckId), { revision });
   assert.equal(
     await store.finish(lease(deckId, second.snapshot.id, secondLeaseToken), {
@@ -113,6 +133,36 @@ test('paired admission replays, conflicts, and legacy begin supersedes only unpu
     (await store.get({ deckId, jobId: first.snapshot.id })).snapshot.result.revision,
     revision,
   );
+});
+
+test('superseding retry-wait jobs clears retry state and closes unfinished stages', async () => {
+  const store = createMemoryPublicationJobStore();
+  const deckId = 'deck-retry-wait-supersede';
+  const job = makeJob(deckId);
+  await store.submit(job);
+  const token = randomUUID();
+  const claimed = await store.claim({ now, leaseUntil: later(2), leaseToken: token, deckId });
+  const stages = claimed.snapshot.stages.map((stage, index) =>
+    index === 1 ? { ...stage, status: 'running' } : stage,
+  );
+  await store.checkpoint(lease(deckId, job.snapshot.id, token), {
+    progress: { completed: 1, total: 5, unit: 'slides' },
+    stages,
+  });
+  await store.finish(lease(deckId, job.snapshot.id, token), {
+    status: 'retry_wait',
+    nextRunAt: later(5),
+    stages,
+    error: { code: 'STORE_FAILED', message: 'Private failure', retryable: true },
+  });
+  await store.publications.begin(deckId);
+  const superseded = await store.get({ deckId, jobId: job.snapshot.id });
+  assert.equal(superseded.snapshot.status, 'superseded');
+  assert.equal(superseded.snapshot.nextRunAt, undefined);
+  assert.equal(superseded.snapshot.progress, undefined);
+  assert.equal(superseded.snapshot.error, undefined);
+  assert.equal(superseded.snapshot.stages[1].status, 'skipped');
+  assert.equal(superseded.snapshot.stages[1].finishedAt, superseded.snapshot.finishedAt);
 });
 
 test('expired leases are reclaimable, tokens fence old workers, and expiry is strict', async () => {

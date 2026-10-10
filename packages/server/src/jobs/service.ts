@@ -1,3 +1,4 @@
+import { cleanupPublicationJobs } from './maintenance.js';
 import { parseSync } from '@slidev/parser';
 import {
   JOB_PHASES,
@@ -96,6 +97,7 @@ function jobReply(outcome: JobAdmissionResult): Response {
       invalid_retry: [409, 'INVALID_RETRY', 'This job cannot be retried at the requested stage'],
       superseded: [409, 'SUPERSEDED', 'A newer publication was accepted; publish again explicitly'],
       active_retry: [409, 'ACTIVE_RETRY', 'A retry is already active'],
+      expired: [410, 'JOB_EXPIRED', 'This job identity has expired and cannot be reused'],
     } as const;
     const [status, code, message] = errors[outcome.outcome];
     fail(status, code, message);
@@ -131,6 +133,38 @@ function requireIdentity(url: URL, jobId: string): { deckId: string; jobId: stri
   if (!isJobId(jobId) || deckId === null || !isDeckId(deckId))
     fail(400, 'INVALID_REQUEST', 'Invalid job identity');
   return { deckId, jobId };
+}
+function maintenanceStoreConfigured(env: HubServerOptions): boolean {
+  return !!env.jobs && env.jobs.publications === env.publications;
+}
+
+function parseCleanupLimit(value: unknown): number {
+  if (value === undefined) return 100;
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1 || value > 100)
+    fail(400, 'INVALID_REQUEST', 'limit must be an integer between 1 and 100');
+  return value;
+}
+
+async function handleCleanupRequest(
+  request: Request,
+  env: HubServerOptions,
+  authorize: () => Promise<void>,
+): Promise<Response> {
+  if (request.method !== 'POST')
+    return response({ error: 'Method not allowed' }, 405, { allow: 'POST' });
+  await authorize();
+  if (!maintenanceStoreConfigured(env) || !env.jobs?.maintenance || !env.artifacts.delete)
+    fail(503, 'JOB_CLEANUP_UNAVAILABLE', 'Job cleanup is not available');
+
+  const body = await jsonBody(request);
+  strict(body, ['deckId', 'apply', 'limit']);
+  if (typeof body.deckId !== 'string' || !isDeckId(body.deckId))
+    fail(400, 'INVALID_REQUEST', 'Invalid deck id');
+  if (body.apply !== undefined && typeof body.apply !== 'boolean')
+    fail(400, 'INVALID_REQUEST', 'apply must be a boolean');
+  const apply = body.apply === true;
+  const limit = parseCleanupLimit(body.limit);
+  return response(await cleanupPublicationJobs(env, { deckId: body.deckId, apply, limit }));
 }
 async function newRecord(
   env: HubServerOptions,
@@ -194,19 +228,21 @@ async function requireReadAuthorization(
   authorize: () => Promise<void>,
 ): Promise<void> {
   const token = request.headers.get('X-Hub-Job-View');
+  if (
+    token !== null &&
+    isJobViewToken(token) &&
+    job !== null &&
+    Date.parse(job.viewExpiresAt) > Date.now() &&
+    (await sha256(token)) === job.viewTokenHash
+  )
+    return;
   if (request.headers.has('authorization') || (token === null && env.allowLocalMutations)) {
     await authorize();
     if (!job) fail(404, 'JOB_NOT_FOUND', 'Job not found');
     return;
   }
   if (!token) fail(401, 'AUTH_REQUIRED', 'Authentication required');
-  if (
-    !isJobViewToken(token) ||
-    !job ||
-    Date.parse(job.viewExpiresAt) <= Date.now() ||
-    (await sha256(token)) !== job.viewTokenHash
-  )
-    fail(404, 'JOB_NOT_FOUND', 'Job not found');
+  fail(404, 'JOB_NOT_FOUND', 'Job not found');
 }
 /** Returns null only for paths outside the jobs API. */
 export async function handlePublicationJobRequest(
@@ -215,17 +251,20 @@ export async function handlePublicationJobRequest(
   authorize: () => Promise<void>,
 ): Promise<Response | null> {
   const url = new URL(request.url);
+  const cleanupRoute = url.pathname === '/api/jobs/cleanup';
   const statusRoute = /^\/api\/jobs\/([^/]+)(\/retry)?$/u.exec(url.pathname);
   const listRoute =
     request.method === 'GET' ? /^\/api\/decks\/(.+)\/jobs$/u.exec(url.pathname) : null;
   if (
     url.pathname !== '/api/capabilities' &&
     url.pathname !== '/api/jobs' &&
+    !cleanupRoute &&
     !statusRoute &&
     !listRoute
   )
     return null;
   try {
+    if (cleanupRoute) return await handleCleanupRequest(request, env, authorize);
     if (url.pathname === '/api/capabilities') {
       if (request.method !== 'GET')
         return response({ error: 'Method not allowed' }, 405, { allow: 'GET' });
@@ -272,6 +311,8 @@ export async function handlePublicationJobRequest(
         JSON.stringify([body.deckId, source.markdown, source.assets, thumbnail, viewTokenHash]),
       );
       const identity = { deckId: body.deckId, jobId: body.jobId };
+      if (store.maintenance && (await store.maintenance.isExpired(identity)))
+        fail(410, 'JOB_EXPIRED', 'This job identity has expired and cannot be reused');
       const existing = await store.get(identity);
       if (existing)
         return jobReply(
@@ -355,6 +396,12 @@ export async function handlePublicationJobRequest(
     )
       fail(400, 'INVALID_REQUEST', 'Invalid retry request');
     const stage = body.stage as 'all' | 'thumbnail';
+    if (store.maintenance) {
+      if (await store.maintenance.isExpired(identity))
+        fail(410, 'JOB_EXPIRED', 'This job identity has expired and cannot be reused');
+      if (await store.maintenance.isExpired({ deckId: identity.deckId, jobId: body.jobId }))
+        fail(410, 'JOB_EXPIRED', 'This job identity has expired and cannot be reused');
+    }
     const viewTokenHash = await sha256(body.viewToken);
     const requestHash = await sha256(
       JSON.stringify([identity.deckId, identity.jobId, stage, viewTokenHash]),

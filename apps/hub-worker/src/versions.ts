@@ -1,16 +1,24 @@
-import { JOB_LEASE_MS, runPublicationJob } from '@slidev-stage-hub/server';
+import {
+  JOB_CLEANUP_INTERVAL_MS,
+  JOB_LEASE_MS,
+  runPublicationJob,
+  runPublicationJobCleanup,
+} from '@slidev-stage-hub/server';
 import type {
+  JobCleanupLease,
   JobAdmissionResult,
   JobCheckpoint,
   JobFinish,
   JobIdentity,
   JobLease,
   NewPublicationJob,
+  PendingJobInputDelete,
   PublicationJobRecord,
   PublicationJobStore,
   ReleaseManifest,
 } from '@slidev-stage-hub/server';
 import type { JobResult, StageSnapshot } from '@slidev-stage-hub/protocol';
+import { isJobId } from '@slidev-stage-hub/protocol';
 import {
   createCloudflareOptions,
   createDeckBoundDurableObjectPublicationJobStore,
@@ -18,7 +26,7 @@ import {
 import { DurableObject } from 'cloudflare:workers';
 import type { WorkerEnv } from './types.js';
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 4;
 const MAX_ACTIVE_JOBS = 10;
 const LEGACY_UNSCOPED_DECK_ID = '__legacy__';
 
@@ -46,6 +54,29 @@ interface RecordRow {
 
 interface AlarmRow {
   alarm_at: string | null;
+}
+
+interface CleanupRow {
+  job_id: string;
+  input_key: string | null;
+  finished_at: string;
+}
+
+interface InputDeleteRow {
+  job_id: string;
+  input_key: string;
+  token: string;
+}
+
+interface TombstoneRow {
+  job_id: string;
+}
+
+interface CleanupScheduleRow {
+  pending: number;
+  last_started_at: string | null;
+  lease_token: string | null;
+  lease_until: string | null;
 }
 
 type SqlRow<T extends object> = Record<string, SqlStorageValue> & T;
@@ -248,7 +279,43 @@ export class DeckVersions extends DurableObject<WorkerEnv> {
       ON jobs (deck_id, parent_job_id, kind)
       WHERE parent_job_id IS NOT NULL AND status IN ('queued', 'running', 'retry_wait')
     `);
-    sql.exec('UPDATE schema_version SET version = 2 WHERE id = 1');
+    sql.exec(
+      'CREATE INDEX IF NOT EXISTS idx_jobs_parent ON jobs (deck_id, parent_job_id) WHERE parent_job_id IS NOT NULL',
+    );
+    sql.exec(
+      'CREATE INDEX IF NOT EXISTS idx_jobs_input_key ON jobs (deck_id, input_key) WHERE input_key IS NOT NULL',
+    );
+    sql.exec(`
+      CREATE TABLE IF NOT EXISTS job_tombstones (
+        deck_id TEXT NOT NULL,
+        job_id TEXT NOT NULL,
+        PRIMARY KEY (deck_id, job_id)
+      )
+    `);
+    sql.exec(`
+      CREATE TABLE IF NOT EXISTS job_input_outbox (
+        deck_id TEXT NOT NULL,
+        job_id TEXT NOT NULL,
+        input_key TEXT NOT NULL,
+        token TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (deck_id, input_key)
+      )
+    `);
+    sql.exec(
+      'CREATE INDEX IF NOT EXISTS idx_job_input_outbox_order ON job_input_outbox (deck_id, created_at, input_key)',
+    );
+    sql.exec(`
+      CREATE TABLE IF NOT EXISTS job_cleanup_schedule (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        pending INTEGER NOT NULL DEFAULT 0 CHECK (pending IN (0, 1)),
+        last_started_at TEXT,
+        lease_token TEXT,
+        lease_until TEXT,
+        CHECK ((lease_token IS NULL AND lease_until IS NULL) OR (lease_token IS NOT NULL AND lease_until IS NOT NULL))
+      )
+    `);
+    sql.exec('UPDATE schema_version SET version = 4 WHERE id = 1');
   }
 
   private identityValue(): string | null {
@@ -261,6 +328,7 @@ export class DeckVersions extends DurableObject<WorkerEnv> {
   private async withDeck<T>(
     requestedDeckId: string | undefined,
     action: (transaction: SqlTransaction, deckId: string) => Promise<T> | T,
+    establish = true,
   ): Promise<T> {
     const deckId = checkedDeckId(
       requestedDeckId ?? this.identityValue() ?? LEGACY_UNSCOPED_DECK_ID,
@@ -272,7 +340,7 @@ export class DeckVersions extends DurableObject<WorkerEnv> {
       if (current && current.deck_id !== deckId) {
         throw new Error('DeckVersions Durable Object cannot be used for a different deck');
       }
-      if (!current) {
+      if (!current && establish) {
         this.ctx.storage.sql.exec('INSERT INTO identity (id, deck_id) VALUES (1, ?)', deckId);
       }
       return action(transaction, deckId);
@@ -290,11 +358,106 @@ export class DeckVersions extends DurableObject<WorkerEnv> {
     return row ? parseRecord(row.record_json) : null;
   }
 
+  private isExpired(deckId: string, jobId: string): boolean {
+    if (!isJobId(jobId)) return false;
+    return (
+      this.ctx.storage.sql
+        .exec<SqlRow<TombstoneRow>>(
+          'SELECT job_id FROM job_tombstones WHERE deck_id = ? AND job_id = ?',
+          deckId,
+          jobId,
+        )
+        .toArray().length > 0
+    );
+  }
+
+  private exactInputJobId(deckId: string, inputKey: string): string | null {
+    const prefix = `private/jobs/${deckId}/`;
+    if (!inputKey.startsWith(prefix)) return null;
+    const jobId = inputKey.slice(prefix.length, -'.json'.length);
+    return inputKey === `${prefix}${jobId}.json` && isJobId(jobId) ? jobId : null;
+  }
+
+  private enqueueUnusedInput(
+    deckId: string,
+    inputKey: string | undefined,
+    expectedJobId?: string,
+    wakeAutomaticCleanup = false,
+  ): boolean {
+    if (inputKey === undefined) return false;
+    const jobId = this.exactInputJobId(deckId, inputKey);
+    if (
+      !jobId ||
+      (expectedJobId !== undefined && jobId.toLowerCase() !== expectedJobId.toLowerCase())
+    )
+      return false;
+    const referenced = this.ctx.storage.sql
+      .exec<SqlRow<{ job_id: string }>>(
+        'SELECT job_id FROM jobs WHERE deck_id = ? AND input_key = ? LIMIT 1',
+        deckId,
+        inputKey,
+      )
+      .toArray()[0];
+    if (referenced) return false;
+    this.ctx.storage.sql.exec(
+      `INSERT INTO job_input_outbox (deck_id, job_id, input_key, token, created_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (deck_id, input_key) DO UPDATE
+         SET job_id = excluded.job_id, token = excluded.token, created_at = excluded.created_at`,
+      deckId,
+      jobId,
+      inputKey,
+      crypto.randomUUID(),
+      new Date().toISOString(),
+    );
+    if (wakeAutomaticCleanup) {
+      this.ctx.storage.sql.exec(
+        `INSERT INTO job_cleanup_schedule (id, pending)
+         VALUES (1, 1)
+         ON CONFLICT (id) DO UPDATE SET pending = 1`,
+      );
+    }
+    return true;
+  }
+
   private records(sql: string, ...values: (string | number | null)[]): PublicationJobRecord[] {
     return this.ctx.storage.sql
       .exec<SqlRow<RecordRow>>(sql, ...values)
       .toArray()
       .map((row) => parseRecord(row.record_json));
+  }
+
+  private hasEligibleJobAfterCleanup(
+    deckId: string,
+    cutoff: string,
+    excludedJobIds: string[],
+  ): boolean {
+    const jobExclusion = excludedJobIds.length
+      ? `AND job.job_id NOT IN (${excludedJobIds.map(() => '?').join(', ')})`
+      : '';
+    const childExclusion = excludedJobIds.length
+      ? `AND child.job_id NOT IN (${excludedJobIds.map(() => '?').join(', ')})`
+      : '';
+    const result = this.ctx.storage.sql
+      .exec<SqlRow<{ job_id: string }>>(
+        `SELECT job.job_id FROM jobs AS job
+         WHERE job.deck_id = ?
+           AND job.status IN ('succeeded', 'partial', 'failed', 'superseded')
+           AND job.finished_at IS NOT NULL AND job.finished_at <= ?
+           ${jobExclusion}
+           AND NOT EXISTS (
+             SELECT 1 FROM jobs AS child
+             WHERE child.deck_id = job.deck_id AND child.parent_job_id = job.job_id
+             ${childExclusion}
+           )
+         LIMIT 1`,
+        deckId,
+        cutoff,
+        ...excludedJobIds,
+        ...excludedJobIds,
+      )
+      .toArray();
+    return result.length > 0;
   }
 
   private saveRecord(record: PublicationJobRecord): void {
@@ -436,7 +599,7 @@ export class DeckVersions extends DurableObject<WorkerEnv> {
   }
 
   private async refreshAlarm(transaction: SqlTransaction, deckId: string): Promise<void> {
-    const row = this.ctx.storage.sql
+    const jobAlarm = this.ctx.storage.sql
       .exec<SqlRow<AlarmRow>>(
         `SELECT MIN(alarm_at) AS alarm_at FROM (
           SELECT next_run_at AS alarm_at FROM jobs
@@ -449,11 +612,32 @@ export class DeckVersions extends DurableObject<WorkerEnv> {
         deckId,
       )
       .one();
-    if (row.alarm_at === null) {
+    const schedule = this.ctx.storage.sql
+      .exec<SqlRow<CleanupScheduleRow>>(
+        `SELECT pending, last_started_at, lease_token, lease_until
+         FROM job_cleanup_schedule WHERE id = 1`,
+      )
+      .toArray()[0];
+    let cleanupAlarm: number | null = null;
+    if (schedule && (schedule.pending === 1 || schedule.lease_token !== null)) {
+      const lastStartedAt =
+        schedule.last_started_at === null
+          ? 1
+          : checkedTime(schedule.last_started_at) + JOB_CLEANUP_INTERVAL_MS;
+      const leaseUntil = schedule.lease_until === null ? 0 : checkedTime(schedule.lease_until);
+      cleanupAlarm = Math.max(lastStartedAt, leaseUntil);
+    }
+    const jobAlarmAt = jobAlarm.alarm_at === null ? null : checkedTime(jobAlarm.alarm_at);
+    const alarmAt =
+      jobAlarmAt === null
+        ? cleanupAlarm
+        : cleanupAlarm === null
+          ? jobAlarmAt
+          : Math.min(jobAlarmAt, cleanupAlarm);
+    if (alarmAt === null) {
       await transaction.deleteAlarm();
       return;
     }
-    const alarmAt = checkedTime(row.alarm_at);
     await transaction.setAlarm(alarmAt);
   }
 
@@ -505,6 +689,12 @@ export class DeckVersions extends DurableObject<WorkerEnv> {
     const job = fromRpc<NewPublicationJob>(jobJson);
     const deckId = checkedDeckId(job.snapshot.deckId);
     const result = await this.withDeck(deckId, async (transaction, identity) => {
+      if (this.isExpired(identity, job.snapshot.id)) {
+        if (this.enqueueUnusedInput(identity, job.inputKey, job.snapshot.id, true)) {
+          await this.refreshAlarm(transaction, identity);
+        }
+        return { outcome: 'expired' };
+      }
       const existing = this.loadRecord(identity, job.snapshot.id);
       const replay = admissionIdempotency(existing, job.requestHash);
       if (replay) return replay;
@@ -545,6 +735,217 @@ export class DeckVersions extends DurableObject<WorkerEnv> {
       return record ? clone(record) : null;
     });
     return record === null ? null : toRpc(record);
+  }
+
+  async jobsIsExpired(identityJson: string): Promise<boolean> {
+    const identity = fromRpc<JobIdentity>(identityJson);
+    const deckId = checkedDeckId(identity.deckId);
+    const current = this.identityValue();
+    if (current && current !== deckId) {
+      throw new Error('DeckVersions Durable Object cannot be used for a different deck');
+    }
+    return this.isExpired(deckId, identity.jobId);
+  }
+
+  async jobsCleanup(optionsJson: string): Promise<string> {
+    const options = fromRpc<{
+      deckId: string;
+      cutoff: string;
+      limit: number;
+      dryRun: boolean;
+    }>(optionsJson);
+    const deckId = checkedDeckId(options.deckId);
+    checkedTime(options.cutoff);
+    if (!Number.isSafeInteger(options.limit) || options.limit < 1 || options.limit > 100) {
+      throw new Error('Job cleanup limit must be from 1 to 100');
+    }
+    if (typeof options.dryRun !== 'boolean') throw new Error('Job cleanup dryRun must be boolean');
+    const result = await this.withDeck(
+      deckId,
+      (_transaction, identity) => {
+        const candidates = this.ctx.storage.sql
+          .exec<SqlRow<CleanupRow>>(
+            `SELECT job.job_id, job.input_key, job.finished_at FROM jobs AS job
+             WHERE job.deck_id = ?
+               AND job.status IN ('succeeded', 'partial', 'failed', 'superseded')
+               AND job.finished_at IS NOT NULL AND job.finished_at <= ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM jobs AS child
+                 WHERE child.deck_id = job.deck_id AND child.parent_job_id = job.job_id
+               )
+             ORDER BY job.finished_at ASC, job.job_id ASC LIMIT ?`,
+            identity,
+            options.cutoff,
+            options.limit + 1,
+          )
+          .toArray();
+        const selected = candidates.slice(0, options.limit);
+        const jobs: { jobId: string; finishedAt: string }[] = [];
+        for (const candidate of selected) {
+          if (!options.dryRun) {
+            this.ctx.storage.sql.exec(
+              'DELETE FROM jobs WHERE deck_id = ? AND job_id = ?',
+              identity,
+              candidate.job_id,
+            );
+            this.ctx.storage.sql.exec(
+              'INSERT INTO job_tombstones (deck_id, job_id) VALUES (?, ?) ON CONFLICT DO NOTHING',
+              identity,
+              candidate.job_id,
+            );
+            this.enqueueUnusedInput(identity, candidate.input_key ?? undefined);
+          }
+          jobs.push({ jobId: candidate.job_id, finishedAt: candidate.finished_at });
+        }
+        const excluded = options.dryRun ? selected.map((candidate) => candidate.job_id) : [];
+        const more = this.hasEligibleJobAfterCleanup(identity, options.cutoff, excluded);
+        return { jobs, more };
+      },
+      !options.dryRun,
+    );
+    return toRpc(result);
+  }
+
+  async jobsCleanupClaim(optionsJson: string): Promise<string | null> {
+    const options = fromRpc<{
+      now: string;
+      leaseUntil: string;
+      leaseToken: string;
+      deckId?: string;
+    }>(optionsJson);
+    const deckId = checkedDeckId(options.deckId);
+    const now = checkedTime(options.now);
+    const leaseUntil = checkedTime(options.leaseUntil);
+    if (leaseUntil <= now || !isJobId(options.leaseToken)) {
+      throw new Error('Automatic job cleanup lease is invalid');
+    }
+    const lease = await this.withDeck(
+      deckId,
+      async (transaction, identity) => {
+        const row = this.ctx.storage.sql
+          .exec<SqlRow<CleanupScheduleRow>>(
+            `SELECT pending, last_started_at, lease_token, lease_until
+             FROM job_cleanup_schedule WHERE id = 1`,
+          )
+          .toArray()[0];
+        if (!row) return null;
+        const previousLeaseUntil = row.lease_until === null ? null : checkedTime(row.lease_until);
+        const liveLease = previousLeaseUntil !== null && previousLeaseUntil > now;
+        const orphanedLease =
+          row.lease_token !== null && previousLeaseUntil !== null && previousLeaseUntil <= now;
+        if (liveLease || (row.pending !== 1 && !orphanedLease)) return null;
+        const dailyDueAt =
+          row.last_started_at === null
+            ? now
+            : checkedTime(row.last_started_at) + JOB_CLEANUP_INTERVAL_MS;
+        const dueAt = Math.max(dailyDueAt, previousLeaseUntil ?? 0);
+        if (now < dueAt) return null;
+        const claimed = this.ctx.storage.sql.exec<SqlRow<{ id: number }>>(
+          `UPDATE job_cleanup_schedule
+           SET pending = 0, last_started_at = ?, lease_token = ?, lease_until = ?
+           WHERE id = 1 RETURNING id`,
+          options.now,
+          options.leaseToken,
+          options.leaseUntil,
+        );
+        if (claimed.toArray().length !== 1) {
+          throw new Error('Automatic job cleanup claim lost its scheduler row');
+        }
+        await this.refreshAlarm(transaction, identity);
+        return { deckId: identity, leaseToken: options.leaseToken, leaseUntil: options.leaseUntil };
+      },
+      false,
+    );
+    return lease === null ? null : toRpc(lease);
+  }
+
+  async jobsCleanupFinish(leaseJson: string, optionsJson: string): Promise<boolean> {
+    const lease = fromRpc<JobCleanupLease>(leaseJson);
+    const options = fromRpc<{ now: string; retry: boolean }>(optionsJson);
+    const deckId = checkedDeckId(lease.deckId);
+    const now = checkedTime(options.now);
+    const leaseUntil = checkedTime(lease.leaseUntil);
+    if (typeof options.retry !== 'boolean') throw new Error('Cleanup retry must be boolean');
+    if (!isJobId(lease.leaseToken) || leaseUntil <= now) return false;
+    return this.withDeck(
+      deckId,
+      async (transaction, identity) => {
+        const finished = this.ctx.storage.sql.exec<SqlRow<{ id: number }>>(
+          `UPDATE job_cleanup_schedule
+         SET pending = CASE WHEN pending = 1 OR ? = 1 THEN 1 ELSE 0 END,
+             lease_token = NULL, lease_until = NULL
+         WHERE id = 1 AND lease_token = ? AND lease_until = ? AND lease_until > ?
+         RETURNING id`,
+          options.retry ? 1 : 0,
+          lease.leaseToken,
+          lease.leaseUntil,
+          options.now,
+        );
+        if (finished.toArray().length !== 1) return false;
+        await this.refreshAlarm(transaction, identity);
+        return true;
+      },
+      false,
+    );
+  }
+
+  async jobsListInputDeletes(optionsJson: string): Promise<string> {
+    const options = fromRpc<{ deckId: string; limit: number }>(optionsJson);
+    const deckId = checkedDeckId(options.deckId);
+    if (!Number.isSafeInteger(options.limit) || options.limit < 1 || options.limit > 100) {
+      throw new Error('Pending input deletion limit must be from 1 to 100');
+    }
+    const result = await this.withDeck(
+      deckId,
+      (_transaction, identity) => {
+        const pendingCount = this.ctx.storage.sql
+          .exec<SqlRow<{ count: number }>>(
+            'SELECT COUNT(*) AS count FROM job_input_outbox WHERE deck_id = ?',
+            identity,
+          )
+          .one().count;
+        const items = this.ctx.storage.sql
+          .exec<SqlRow<InputDeleteRow>>(
+            `SELECT job_id, input_key, token FROM job_input_outbox
+             WHERE deck_id = ? ORDER BY created_at, input_key LIMIT ?`,
+            identity,
+            options.limit,
+          )
+          .toArray()
+          .map((row) => ({
+            deckId: identity,
+            jobId: row.job_id,
+            inputKey: row.input_key,
+            token: row.token,
+          }));
+        return { items, pendingCount };
+      },
+      false,
+    );
+    return toRpc(result);
+  }
+
+  async jobsAcknowledgeInputDelete(itemJson: string): Promise<boolean> {
+    const item = fromRpc<PendingJobInputDelete>(itemJson);
+    const deckId = checkedDeckId(item.deckId);
+    if (
+      !isJobId(item.jobId) ||
+      !isJobId(item.token) ||
+      this.exactInputJobId(deckId, item.inputKey)?.toLowerCase() !== item.jobId.toLowerCase()
+    )
+      return false;
+    return this.withDeck(deckId, () => {
+      const result = this.ctx.storage.sql.exec<SqlRow<{ job_id: string }>>(
+        `DELETE FROM job_input_outbox
+         WHERE deck_id = ? AND job_id = ? AND input_key = ? AND token = ?
+         RETURNING job_id`,
+        deckId,
+        item.jobId,
+        item.inputKey,
+        item.token,
+      );
+      return result.toArray().length === 1;
+    });
   }
 
   async jobsList(optionsJson: string): Promise<string> {
@@ -740,6 +1141,13 @@ export class DeckVersions extends DurableObject<WorkerEnv> {
       delete current.leaseToken;
       delete current.leaseUntil;
       this.saveRecord(current);
+      if (current.snapshot.kind === 'publication' && terminal(update.status)) {
+        this.ctx.storage.sql.exec(
+          `INSERT INTO job_cleanup_schedule (id, pending)
+           VALUES (1, 1)
+           ON CONFLICT (id) DO UPDATE SET pending = 1`,
+        );
+      }
       await this.refreshAlarm(transaction, identity);
       return true;
     });
@@ -757,6 +1165,12 @@ export class DeckVersions extends DurableObject<WorkerEnv> {
       throw new Error('Retry job identity does not match its parent');
     }
     const result = await this.withDeck(deckId, async (transaction, identity) => {
+      if (this.isExpired(identity, parent.jobId) || this.isExpired(identity, job.snapshot.id)) {
+        if (this.enqueueUnusedInput(identity, job.inputKey, undefined, true)) {
+          await this.refreshAlarm(transaction, identity);
+        }
+        return { outcome: 'expired' };
+      }
       const existing = this.loadRecord(identity, job.snapshot.id);
       const replay = admissionIdempotency(existing, job.requestHash);
       if (replay) return replay;
@@ -843,6 +1257,14 @@ export class DeckVersions extends DurableObject<WorkerEnv> {
     );
     const server = createCloudflareOptions(this.env);
     await runPublicationJob(
+      {
+        ...server,
+        jobs: store,
+        publications: store.publications,
+      },
+      { deckId },
+    );
+    await runPublicationJobCleanup(
       {
         ...server,
         jobs: store,

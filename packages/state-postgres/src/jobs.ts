@@ -1,13 +1,19 @@
+import { randomUUID } from 'node:crypto';
 import type {
+  AutomaticJobCleanupStore,
+  JobCleanupLease,
   JobAdmissionResult,
   JobCheckpoint,
   JobFinish,
   JobIdentity,
   JobLease,
   NewPublicationJob,
+  PendingJobInputDelete,
   PublicationJobRecord,
   PublicationJobStore,
 } from '@slidev-stage-hub/server';
+import { isJobId } from '@slidev-stage-hub/protocol';
+import { isDeckId } from '@slidev-stage-hub/server/catalog';
 import type {
   JobError,
   JobPhase,
@@ -18,6 +24,7 @@ import type {
   StageSnapshot,
 } from '@slidev-stage-hub/protocol';
 import type { ReleaseManifest } from '@slidev-stage-hub/server';
+import { JOB_CLEANUP_INTERVAL_MS } from '@slidev-stage-hub/server';
 import type { Pool, PoolClient } from 'pg';
 
 export const POSTGRES_PUBLICATION_JOBS_SCHEMA = `
@@ -69,15 +76,58 @@ CREATE INDEX IF NOT EXISTS idx_hub_publication_jobs_ready
 CREATE INDEX IF NOT EXISTS idx_hub_publication_jobs_deck_history
   ON hub_publication_jobs (deck_id, created_at DESC, job_id DESC);
 
+CREATE INDEX IF NOT EXISTS idx_hub_publication_jobs_parent
+  ON hub_publication_jobs (deck_id, parent_job_id) WHERE parent_job_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_hub_publication_jobs_input_key
+  ON hub_publication_jobs (deck_id, input_key) WHERE input_key IS NOT NULL;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_hub_publication_jobs_active_child
   ON hub_publication_jobs (deck_id, parent_job_id, kind)
   WHERE parent_job_id IS NOT NULL AND status IN ('queued', 'running', 'retry_wait');
+
+CREATE TABLE IF NOT EXISTS hub_publication_job_tombstones (
+  deck_id text NOT NULL,
+  job_id uuid NOT NULL,
+  PRIMARY KEY (deck_id, job_id),
+  FOREIGN KEY (deck_id) REFERENCES hub_publications (deck_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS hub_publication_job_input_outbox (
+  deck_id text NOT NULL,
+  job_id uuid NOT NULL,
+  input_key text NOT NULL,
+  token uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (deck_id, input_key),
+  FOREIGN KEY (deck_id) REFERENCES hub_publications (deck_id) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS idx_hub_publication_job_input_outbox_order
+  ON hub_publication_job_input_outbox (deck_id, created_at, input_key);
+`;
+
+export const POSTGRES_PUBLICATION_JOB_CLEANUP_SCHEMA = `
+CREATE TABLE IF NOT EXISTS hub_publication_job_cleanup (
+  deck_id text PRIMARY KEY,
+  pending boolean NOT NULL DEFAULT false,
+  last_started_at timestamptz,
+  lease_token uuid,
+  lease_until timestamptz,
+  CONSTRAINT fk_hub_publication_job_cleanup_deck FOREIGN KEY (deck_id)
+    REFERENCES hub_publications (deck_id) ON DELETE RESTRICT,
+  CONSTRAINT chk_hub_publication_job_cleanup_lease
+    CHECK ((lease_token IS NULL AND lease_until IS NULL) OR (lease_token IS NOT NULL AND lease_until IS NOT NULL))
+);
+
+CREATE INDEX IF NOT EXISTS idx_hub_publication_job_cleanup_due
+  ON hub_publication_job_cleanup (last_started_at, lease_until, deck_id)
+  WHERE pending OR lease_token IS NOT NULL;
 `;
 
 const ACTIVE_STATUSES = ['queued', 'running', 'retry_wait'] as const;
 const TERMINAL_STATUSES = new Set<JobStatus>(['succeeded', 'partial', 'failed', 'superseded']);
 const ISO_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 
 type JobRow = {
   deck_id: string;
@@ -112,6 +162,13 @@ type JobRow = {
   finished_at: Date | string | null;
   prepared_manifest: ReleaseManifest | null;
   prepared_cached: boolean | null;
+};
+
+type PendingInputDeleteRow = {
+  deck_id: string;
+  job_id: string;
+  input_key: string;
+  token: string;
 };
 
 function validIso(value: string): boolean {
@@ -193,7 +250,51 @@ function mapRecord(row: JobRow): PublicationJobRecord {
 }
 
 function validUuid(value: string): boolean {
-  return UUID_PATTERN.test(value);
+  return isJobId(value);
+}
+
+function exactInputJobId(deckId: string, inputKey: string): string | null {
+  if (!isDeckId(deckId)) return null;
+  const prefix = `private/jobs/${deckId}/`;
+  if (!inputKey.startsWith(prefix)) return null;
+  const jobId = inputKey.slice(prefix.length, -'.json'.length);
+  return inputKey === `${prefix}${jobId}.json` && isJobId(jobId) ? jobId : null;
+}
+
+async function enqueueUnusedInput(
+  client: PoolClient,
+  deckId: string,
+  inputKey: string | undefined,
+  expectedJobId?: string,
+  wakeAutomaticCleanup = false,
+): Promise<void> {
+  if (inputKey === undefined) return;
+  const jobId = exactInputJobId(deckId, inputKey);
+  if (
+    !jobId ||
+    (expectedJobId !== undefined && jobId.toLowerCase() !== expectedJobId.toLowerCase())
+  )
+    return;
+  const referenced = await client.query(
+    'SELECT 1 FROM hub_publication_jobs WHERE deck_id = $1 AND input_key = $2 LIMIT 1',
+    [deckId, inputKey],
+  );
+  if (referenced.rowCount) return;
+  await client.query(
+    `INSERT INTO hub_publication_job_input_outbox (deck_id, job_id, input_key, token)
+     VALUES ($1, $2::uuid, $3, $4::uuid)
+     ON CONFLICT (deck_id, input_key) DO UPDATE
+       SET job_id = EXCLUDED.job_id, token = EXCLUDED.token, created_at = CURRENT_TIMESTAMP`,
+    [deckId, jobId, inputKey, randomUUID()],
+  );
+  if (wakeAutomaticCleanup) {
+    await client.query(
+      `INSERT INTO hub_publication_job_cleanup (deck_id, pending)
+       VALUES ($1, TRUE)
+       ON CONFLICT (deck_id) DO UPDATE SET pending = TRUE`,
+      [deckId],
+    );
+  }
 }
 
 function cursorBytes(value: string): string {
@@ -378,7 +479,23 @@ async function supersedeUnpublished(
      SET status = 'superseded', version = version + 1,
          updated_at = GREATEST(updated_at, $3::timestamptz),
          finished_at = GREATEST(updated_at, $3::timestamptz),
-         next_run_at = NULL, lease_token = NULL, lease_until = NULL
+         next_run_at = NULL, lease_token = NULL, lease_until = NULL,
+         progress = NULL, error = NULL,
+         stages = COALESCE((
+           SELECT jsonb_agg(
+             CASE WHEN stage.value->>'status' IN ('pending', 'running')
+               THEN stage.value || jsonb_build_object(
+                 'status', 'skipped',
+                 'finishedAt', to_char(
+                   GREATEST(hub_publication_jobs.updated_at, $3::timestamptz) AT TIME ZONE 'UTC',
+                   'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+                 )
+               )
+               ELSE stage.value
+             END ORDER BY stage.ordinality
+           )
+           FROM jsonb_array_elements(hub_publication_jobs.stages) WITH ORDINALITY AS stage(value, ordinality)
+         ), '[]'::jsonb)
      WHERE deck_id = $1 AND generation IS NOT NULL AND generation < $2::bigint
        AND status IN ('queued', 'running', 'retry_wait') AND result IS NULL`,
     [deckId, generation, now],
@@ -427,6 +544,63 @@ function leaseMatches(record: PublicationJobRecord, lease: JobLease): boolean {
 
 export function createPostgresPublicationJobStore(options: { pool: Pool }): PublicationJobStore {
   const { pool } = options;
+  const automatic: AutomaticJobCleanupStore = {
+    async claim(options): Promise<JobCleanupLease | null> {
+      const now = requireIso(options.now, 'now');
+      const leaseUntil = requireIso(options.leaseUntil, 'leaseUntil');
+      if (leaseUntil <= now) throw new RangeError('leaseUntil must be later than now');
+      if (!validUuid(options.leaseToken)) throw new TypeError('leaseToken must be a UUID');
+      if (options.deckId !== undefined && !isDeckId(options.deckId))
+        throw new TypeError('deckId must be a valid deck id');
+      return withTransaction(pool, async (client) => {
+        const due = await client.query<{
+          deck_id: string;
+        }>(
+          `SELECT deck_id
+           FROM hub_publication_job_cleanup
+           WHERE (pending OR lease_token IS NOT NULL)
+             AND (lease_until IS NULL OR lease_until <= $1::timestamptz)
+             AND (last_started_at IS NULL OR last_started_at <=
+               $1::timestamptz - ($3::double precision * INTERVAL '1 millisecond'))
+             AND ($2::text IS NULL OR deck_id = $2)
+           ORDER BY GREATEST(
+             COALESCE(last_started_at + ($3::double precision * INTERVAL '1 millisecond'), '-infinity'::timestamptz),
+             COALESCE(lease_until, '-infinity'::timestamptz)
+           ), deck_id
+           LIMIT 1 FOR UPDATE SKIP LOCKED`,
+          [options.now, options.deckId ?? null, JOB_CLEANUP_INTERVAL_MS],
+        );
+        const deckId = due.rows[0]?.deck_id;
+        if (deckId === undefined) return null;
+        const claimed = await client.query(
+          `UPDATE hub_publication_job_cleanup
+           SET pending = false, last_started_at = $2::timestamptz,
+               lease_token = $3::uuid, lease_until = $4::timestamptz
+           WHERE deck_id = $1`,
+          [deckId, options.now, options.leaseToken, options.leaseUntil],
+        );
+        if (claimed.rowCount !== 1)
+          throw new Error('PostgreSQL cleanup claim lost its locked scheduler row');
+        return { deckId, leaseToken: options.leaseToken, leaseUntil: options.leaseUntil };
+      });
+    },
+
+    async finish(lease, options): Promise<boolean> {
+      const now = requireIso(options.now, 'now');
+      const leaseUntil = requireIso(lease.leaseUntil, 'leaseUntil');
+      if (typeof options.retry !== 'boolean') throw new TypeError('retry must be a boolean');
+      if (!isDeckId(lease.deckId) || !validUuid(lease.leaseToken)) return false;
+      if (leaseUntil <= now) return false;
+      const result = await pool.query(
+        `UPDATE hub_publication_job_cleanup
+         SET pending = pending OR $4::boolean, lease_token = NULL, lease_until = NULL
+         WHERE deck_id = $1 AND lease_token = $2::uuid
+           AND lease_until = $3::timestamptz AND lease_until > $5::timestamptz`,
+        [lease.deckId, lease.leaseToken, lease.leaseUntil, options.retry, options.now],
+      );
+      return result.rowCount === 1;
+    },
+  };
   const publications = {
     async begin(deckId: string): Promise<string> {
       return withTransaction(pool, async (client) => {
@@ -460,12 +634,162 @@ export function createPostgresPublicationJobStore(options: { pool: Pool }): Publ
     },
   };
 
+  const maintenance = {
+    automatic,
+    async isExpired(identity: JobIdentity): Promise<boolean> {
+      if (!isJobId(identity.jobId)) return false;
+      const result = await pool.query(
+        'SELECT 1 FROM hub_publication_job_tombstones WHERE deck_id = $1 AND job_id = $2::uuid',
+        [identity.deckId, identity.jobId],
+      );
+      return result.rowCount === 1;
+    },
+    async cleanup(options: {
+      deckId: string;
+      cutoff: string;
+      limit: number;
+      dryRun: boolean;
+    }): Promise<{ jobs: { jobId: string; finishedAt: string }[]; more: boolean }> {
+      requireIso(options.cutoff, 'cutoff');
+      if (!Number.isSafeInteger(options.limit) || options.limit < 1 || options.limit > 100)
+        throw new RangeError('Job cleanup limit must be between 1 and 100');
+      return withTransaction(pool, async (client) => {
+        if (options.dryRun) {
+          await client.query(
+            'SELECT generation FROM hub_publications WHERE deck_id = $1 FOR UPDATE',
+            [options.deckId],
+          );
+        } else {
+          await lockDeck(client, options.deckId);
+        }
+        const candidates = await client.query<{
+          job_id: string;
+          input_key: string | null;
+          finished_at: Date | string;
+        }>(
+          `SELECT job.job_id::text AS job_id, job.input_key, job.finished_at
+           FROM hub_publication_jobs AS job
+           WHERE job.deck_id = $1
+             AND job.status IN ('succeeded', 'partial', 'failed', 'superseded')
+             AND job.finished_at <= $2::timestamptz
+             AND NOT EXISTS (
+               SELECT 1 FROM hub_publication_jobs AS child
+               WHERE child.deck_id = job.deck_id AND child.parent_job_id = job.job_id
+             )
+           ORDER BY job.finished_at ASC, job.job_id ASC
+           LIMIT $3 FOR UPDATE OF job`,
+          [options.deckId, options.cutoff, options.limit + 1],
+        );
+        const selected = candidates.rows.slice(0, options.limit);
+        const jobs: { jobId: string; finishedAt: string }[] = [];
+        if (!options.dryRun) {
+          for (const candidate of selected) {
+            const deleted = await client.query(
+              'DELETE FROM hub_publication_jobs WHERE deck_id = $1 AND job_id = $2::uuid',
+              [options.deckId, candidate.job_id],
+            );
+            if (deleted.rowCount !== 1) continue;
+            await client.query(
+              `INSERT INTO hub_publication_job_tombstones (deck_id, job_id)
+               VALUES ($1, $2::uuid) ON CONFLICT DO NOTHING`,
+              [options.deckId, candidate.job_id],
+            );
+            await enqueueUnusedInput(client, options.deckId, candidate.input_key ?? undefined);
+            jobs.push({ jobId: candidate.job_id, finishedAt: toIso(candidate.finished_at) });
+          }
+        } else {
+          jobs.push(
+            ...selected.map((candidate) => ({
+              jobId: candidate.job_id,
+              finishedAt: toIso(candidate.finished_at),
+            })),
+          );
+        }
+        const excluded = options.dryRun ? selected.map((candidate) => candidate.job_id) : [];
+        const moreResult = await client.query<{ more: boolean }>(
+          `SELECT EXISTS (
+             SELECT 1 FROM hub_publication_jobs AS job
+             WHERE job.deck_id = $1
+               AND job.status IN ('succeeded', 'partial', 'failed', 'superseded')
+               AND job.finished_at <= $2::timestamptz
+               AND NOT (job.job_id = ANY($3::uuid[]))
+               AND NOT EXISTS (
+                 SELECT 1 FROM hub_publication_jobs AS child
+                 WHERE child.deck_id = job.deck_id AND child.parent_job_id = job.job_id
+                   AND NOT (child.job_id = ANY($3::uuid[]))
+               )
+           ) AS more`,
+          [options.deckId, options.cutoff, excluded],
+        );
+        const more = moreResult.rows[0]?.more ?? false;
+        return { jobs, more };
+      });
+    },
+    async listPendingInputDeletes(options: { deckId: string; limit: number }): Promise<{
+      items: PendingJobInputDelete[];
+      pendingCount: number;
+    }> {
+      if (!Number.isSafeInteger(options.limit) || options.limit < 1 || options.limit > 100)
+        throw new RangeError('Pending input deletion limit must be between 1 and 100');
+      const [count, rows] = await Promise.all([
+        pool.query<{ count: number }>(
+          'SELECT COUNT(*)::integer AS count FROM hub_publication_job_input_outbox WHERE deck_id = $1',
+          [options.deckId],
+        ),
+        pool.query<PendingInputDeleteRow>(
+          `SELECT deck_id, job_id::text AS job_id, input_key, token::text AS token
+           FROM hub_publication_job_input_outbox WHERE deck_id = $1
+           ORDER BY created_at, input_key LIMIT $2`,
+          [options.deckId, options.limit],
+        ),
+      ]);
+      return {
+        items: rows.rows.map((row) => ({
+          deckId: row.deck_id,
+          jobId: row.job_id,
+          inputKey: row.input_key,
+          token: row.token,
+        })),
+        pendingCount: count.rows[0]?.count ?? 0,
+      };
+    },
+    async acknowledgeInputDelete(item: PendingJobInputDelete): Promise<boolean> {
+      if (
+        !validUuid(item.token) ||
+        exactInputJobId(item.deckId, item.inputKey)?.toLowerCase() !== item.jobId.toLowerCase()
+      )
+        return false;
+      const result = await pool.query(
+        `DELETE FROM hub_publication_job_input_outbox
+         WHERE deck_id = $1 AND job_id = $2::uuid AND input_key = $3 AND token = $4::uuid`,
+        [item.deckId, item.jobId, item.inputKey, item.token],
+      );
+      return result.rowCount === 1;
+    },
+  };
+
   return {
     publications,
+    maintenance,
 
     async submit(job): Promise<JobAdmissionResult> {
       return withTransaction(pool, async (client) => {
         const currentGeneration = await lockDeck(client, job.snapshot.deckId);
+        const expired = await client.query(
+          `SELECT 1 FROM hub_publication_job_tombstones
+           WHERE deck_id = $1 AND job_id = $2::uuid`,
+          [job.snapshot.deckId, job.snapshot.id],
+        );
+        if (expired.rowCount) {
+          await enqueueUnusedInput(
+            client,
+            job.snapshot.deckId,
+            job.inputKey,
+            job.snapshot.id,
+            true,
+          );
+          return { outcome: 'expired' };
+        }
         const existing = await readRecord(client, {
           deckId: job.snapshot.deckId,
           jobId: job.snapshot.id,
@@ -640,40 +964,69 @@ export function createPostgresPublicationJobStore(options: { pool: Pool }): Publ
 
     async finish(lease, update: JobFinish): Promise<boolean> {
       requireIso(lease.now, 'now');
-      if (!validUuid(lease.leaseToken)) return false;
+      if (!isDeckId(lease.deckId) || !isJobId(lease.jobId) || !validUuid(lease.leaseToken))
+        return false;
       const isRetry = update.status === 'retry_wait';
       const nextRunAt = isRetry ? (update.nextRunAt ?? lease.now) : null;
       if (nextRunAt !== null) requireIso(nextRunAt, 'nextRunAt');
-      const result = await pool.query(
-        `UPDATE hub_publication_jobs
-         SET status = $4, phase = COALESCE($5, phase), version = version + 1,
-             stages = $6::jsonb,
-             result = CASE WHEN $7::jsonb IS NULL THEN result ELSE $7::jsonb END,
-             error = $8::jsonb, next_run_at = $9::timestamptz,
-             finished_at = CASE WHEN $4 = 'retry_wait' THEN NULL ELSE GREATEST(updated_at, $10::timestamptz) END,
-             lease_token = NULL, lease_until = NULL,
-             updated_at = GREATEST(updated_at, $10::timestamptz)
-         WHERE deck_id = $1 AND job_id = $2::uuid AND lease_token = $3::uuid
-           AND status = 'running' AND lease_until > $10::timestamptz`,
-        [
-          lease.deckId,
-          lease.jobId,
-          lease.leaseToken,
-          update.status,
-          update.phase ?? null,
-          asJson(update.stages),
-          asJson(update.result),
-          asJson(update.error),
-          nextRunAt,
-          lease.now,
-        ],
-      );
-      return result.rowCount === 1;
+      return withTransaction(pool, async (client) => {
+        // Deck rows are always locked before their jobs by publication and admission transactions.
+        const deck = await client.query(
+          'SELECT generation FROM hub_publications WHERE deck_id = $1 FOR UPDATE',
+          [lease.deckId],
+        );
+        if (deck.rowCount !== 1) return false;
+        const result = await client.query<{ kind: 'publication' | 'thumbnail' }>(
+          `UPDATE hub_publication_jobs
+           SET status = $4, phase = COALESCE($5, phase), version = version + 1,
+               stages = $6::jsonb,
+               result = CASE WHEN $7::jsonb IS NULL THEN result ELSE $7::jsonb END,
+               error = $8::jsonb, next_run_at = $9::timestamptz,
+               finished_at = CASE WHEN $4 = 'retry_wait' THEN NULL ELSE GREATEST(updated_at, $10::timestamptz) END,
+               lease_token = NULL, lease_until = NULL,
+               updated_at = GREATEST(updated_at, $10::timestamptz)
+           WHERE deck_id = $1 AND job_id = $2::uuid AND lease_token = $3::uuid
+             AND status = 'running' AND lease_until > $10::timestamptz
+           RETURNING kind`,
+          [
+            lease.deckId,
+            lease.jobId,
+            lease.leaseToken,
+            update.status,
+            update.phase ?? null,
+            asJson(update.stages),
+            asJson(update.result),
+            asJson(update.error),
+            nextRunAt,
+            lease.now,
+          ],
+        );
+        const kind = result.rows[0]?.kind;
+        if (kind === undefined) return false;
+        if (kind === 'publication' && TERMINAL_STATUSES.has(update.status)) {
+          await client.query(
+            `INSERT INTO hub_publication_job_cleanup (deck_id, pending)
+             VALUES ($1, true)
+             ON CONFLICT (deck_id) DO UPDATE SET pending = true`,
+            [lease.deckId],
+          );
+        }
+        return true;
+      });
     },
 
     async retry(parent, stage, job): Promise<JobAdmissionResult> {
       return withTransaction(pool, async (client) => {
         const generation = await lockDeck(client, parent.deckId);
+        const expired = await client.query(
+          `SELECT job_id FROM hub_publication_job_tombstones
+           WHERE deck_id = $1 AND job_id = ANY($2::uuid[])`,
+          [parent.deckId, [parent.jobId, job.snapshot.id]],
+        );
+        if (expired.rowCount) {
+          await enqueueUnusedInput(client, parent.deckId, job.inputKey, undefined, true);
+          return { outcome: 'expired' };
+        }
         const existing = await readRecord(client, {
           deckId: parent.deckId,
           jobId: job.snapshot.id,

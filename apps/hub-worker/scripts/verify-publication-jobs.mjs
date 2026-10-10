@@ -1905,6 +1905,7 @@ async function main() {
       });
     await rm(receiptStateDirectory, { recursive: true, force: true });
     const report = evidenceReport(finalError ? 'failed' : 'passed', finalError);
+    await mkdir(runDirectory, { recursive: true, mode: 0o700 });
     await writeFile(join(runDirectory, 'evidence.json'), JSON.stringify(report, null, 2) + '\n', {
       mode: 0o600,
     });

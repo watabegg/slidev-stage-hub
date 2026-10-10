@@ -53,6 +53,9 @@ export function createGcsArtifactStore(options: GcsArtifactStoreOptions): Artifa
   const bucket = storage.bucket(options.bucket);
 
   return {
+    async delete(key): Promise<void> {
+      await bucket.file(key).delete({ ignoreNotFound: true });
+    },
     async get(key): Promise<ArtifactObject | null> {
       const file = bucket.file(key);
       let metadata: File['metadata'];

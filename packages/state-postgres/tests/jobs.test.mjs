@@ -59,6 +59,9 @@ function lease(deckId, jobId, leaseToken, at = now) {
 }
 
 async function clean(pool, decks) {
+  await pool.query('DELETE FROM hub_publication_job_cleanup WHERE deck_id = ANY($1::text[])', [
+    decks,
+  ]);
   await pool.query('DELETE FROM hub_publication_jobs WHERE deck_id = ANY($1::text[])', [decks]);
   await pool.query('DELETE FROM hub_publications WHERE deck_id = ANY($1::text[])', [decks]);
 }
@@ -139,10 +142,25 @@ databaseTest(
       assert.equal((await firstStore.submit(pending)).job.generation, '3');
       const pendingToken = randomUUID();
       await firstStore.claim({ now, leaseUntil: later(2), leaseToken: pendingToken, deckId });
+      const pendingStages = pending.snapshot.stages.map((stage, index) =>
+        index === 0 ? { ...stage, status: 'running' } : stage,
+      );
+      await firstStore.checkpoint(lease(deckId, pending.snapshot.id, pendingToken), {
+        progress: { completed: 1, total: 3, unit: 'slides' },
+        stages: pendingStages,
+      });
       assert.equal(await secondStore.publications.begin(deckId), '4');
       const superseded = await firstStore.get({ deckId, jobId: pending.snapshot.id });
       assert.equal(superseded.snapshot.status, 'superseded');
       assert.equal(superseded.leaseToken, undefined);
+      assert.equal(superseded.snapshot.progress, undefined);
+      assert.equal(superseded.snapshot.error, undefined);
+      assert.ok(superseded.snapshot.stages.every((stage) => stage.status === 'skipped'));
+      assert.ok(
+        superseded.snapshot.stages.every(
+          (stage) => stage.finishedAt === superseded.snapshot.finishedAt,
+        ),
+      );
       assert.equal(
         await firstStore.checkpoint(lease(deckId, pending.snapshot.id, pendingToken), {
           phase: 'compile',
@@ -159,6 +177,40 @@ databaseTest(
         'superseded',
       );
       assert.deepEqual(await firstStore.publications.current(deckId), manifest);
+
+      const retryWait = makeJob(deckId);
+      await firstStore.submit(retryWait);
+      const retryWaitToken = randomUUID();
+      const retryClaim = await firstStore.claim({
+        now,
+        leaseUntil: later(2),
+        leaseToken: retryWaitToken,
+        deckId,
+      });
+      const retryStages = retryClaim.snapshot.stages.map((stage, index) =>
+        index === 1 ? { ...stage, status: 'running' } : stage,
+      );
+      await firstStore.checkpoint(lease(deckId, retryWait.snapshot.id, retryWaitToken), {
+        progress: { completed: 1, total: 3, unit: 'slides' },
+        stages: retryStages,
+      });
+      await firstStore.finish(lease(deckId, retryWait.snapshot.id, retryWaitToken), {
+        status: 'retry_wait',
+        nextRunAt: later(5),
+        stages: retryStages,
+        error: { code: 'STORE_FAILED', message: 'Private failure', retryable: true },
+      });
+      await firstStore.submit(makeJob(deckId));
+      const normalizedRetry = await firstStore.get({ deckId, jobId: retryWait.snapshot.id });
+      assert.equal(normalizedRetry.snapshot.status, 'superseded');
+      assert.equal(normalizedRetry.snapshot.nextRunAt, undefined);
+      assert.equal(normalizedRetry.snapshot.progress, undefined);
+      assert.equal(normalizedRetry.snapshot.error, undefined);
+      assert.equal(normalizedRetry.snapshot.stages[1].status, 'skipped');
+      assert.equal(
+        normalizedRetry.snapshot.stages[1].finishedAt,
+        normalizedRetry.snapshot.finishedAt,
+      );
     } finally {
       await clean(pool, [deckId]);
       await Promise.all([pool.end(), otherPool.end()]);

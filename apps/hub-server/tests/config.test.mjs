@@ -243,3 +243,27 @@ test('renderer configuration requires an explicit trusted origin and executable'
     await assert.rejects(createConfiguredHub(envFor(staticRoot, extra)), message);
   }
 });
+
+test('local mutation bypass is rejected before initialization on public listeners or production', async () => {
+  for (const HOST of ['0.0.0.0', '::', '192.0.2.1', 'hub.example', 'localhost']) {
+    await assert.rejects(
+      createConfiguredHub({ HUB_ALLOW_LOCAL_MUTATIONS: 'true', HOST }),
+      /requires a loopback listener outside production/u,
+    );
+  }
+  await assert.rejects(
+    createConfiguredHub({
+      HUB_ALLOW_LOCAL_MUTATIONS: 'true',
+      NODE_ENV: 'production',
+      HOST: '127.0.0.1',
+    }),
+    /requires a loopback listener outside production/u,
+  );
+  const staticRoot = await runtimeDirectory();
+  for (const HOST of ['127.0.0.1', '::1']) {
+    const app = await createConfiguredHub(
+      envFor(staticRoot, { HOST, HUB_ALLOW_LOCAL_MUTATIONS: 'true' }),
+    );
+    await app.close();
+  }
+});

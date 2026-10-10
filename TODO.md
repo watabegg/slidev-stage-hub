@@ -15,3 +15,7 @@
 既存機能の集約・パッケージ分離・CLI・Web 拡張点の整備は完了。[最終回帰記録](docs/results/final-regression.json) にローカルの検証範囲を記載しています。
 
 - [x] 公開ジョブ・CLI / Web 進捗確認を実装し、ローカル統合検証を完了する（[実装台帳](docs/plans/publication-jobs-todo.md)）
+
+- [x] 公開ジョブのレビュー修正・クリーンDocker導入検証・完了から30日後の手動整理を実装する（[検証記録](docs/results/publication-jobs-followup.json)）
+
+- [x] 公開ジョブの完了を契機に、30日経過した履歴・再試行用入力を非同期で自動整理する（デッキごと24時間に1回、残作業・失敗は翌日へ継続。[検証記録](docs/results/publication-jobs-auto-retention.json)）

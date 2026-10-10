@@ -1,6 +1,9 @@
 import type { Pool } from 'pg';
 import type { PublicationStore } from '@slidev-stage-hub/server';
-import { POSTGRES_PUBLICATION_JOBS_SCHEMA } from './jobs.js';
+import {
+  POSTGRES_PUBLICATION_JOBS_SCHEMA,
+  POSTGRES_PUBLICATION_JOB_CLEANUP_SCHEMA,
+} from './jobs.js';
 
 export const POSTGRES_PUBLICATIONS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS hub_publications (
@@ -39,7 +42,11 @@ export async function initializePostgresPublicationStore(pool: Pool): Promise<vo
 
 /** Creates both tables while leaving ownership of the caller's pool unchanged. */
 export async function initializePostgresPublicationJobStore(pool: Pool): Promise<void> {
-  await initializeSchemas(pool, [POSTGRES_PUBLICATIONS_SCHEMA, POSTGRES_PUBLICATION_JOBS_SCHEMA]);
+  await initializeSchemas(pool, [
+    POSTGRES_PUBLICATIONS_SCHEMA,
+    POSTGRES_PUBLICATION_JOBS_SCHEMA,
+    POSTGRES_PUBLICATION_JOB_CLEANUP_SCHEMA,
+  ]);
 }
 
 function validToken(token: string): boolean {
@@ -89,4 +96,8 @@ export function createPostgresPublicationStore(options: { pool: Pool }): Publica
   };
 }
 
-export { createPostgresPublicationJobStore, POSTGRES_PUBLICATION_JOBS_SCHEMA } from './jobs.js';
+export {
+  createPostgresPublicationJobStore,
+  POSTGRES_PUBLICATION_JOBS_SCHEMA,
+  POSTGRES_PUBLICATION_JOB_CLEANUP_SCHEMA,
+} from './jobs.js';

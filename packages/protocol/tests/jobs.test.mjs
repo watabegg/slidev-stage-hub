@@ -7,6 +7,8 @@ import {
   isPublicationJobSubmitResponse,
   isPublicationJobListResponse,
   isPublicationJobsCapabilities,
+  isJobCleanupRequest,
+  isJobCleanupResponse,
 } from '../dist/contracts/index.js';
 const id = '550e8400-e29b-41d4-a716-446655440000';
 const revision = 'a'.repeat(64);
@@ -105,4 +107,41 @@ test('wire envelopes validate contained snapshots and configuration capability',
     }),
     true,
   );
+});
+
+test('cleanup request and response guards enforce the fixed public contract', () => {
+  const response = {
+    schemaVersion: 1,
+    deckId: 'demo/overview',
+    dryRun: true,
+    retentionDays: 30,
+    cutoff: '2026-09-10T00:00:00.000Z',
+    jobs: [{ jobId: id, finishedAt: '2026-09-09T23:59:59.999Z' }],
+    deletedJobs: 0,
+    deletedInputs: 0,
+    pendingInputs: 0,
+    more: true,
+  };
+  assert.equal(isJobCleanupRequest({ deckId: 'demo/overview' }), true);
+  assert.equal(isJobCleanupRequest({ deckId: 'demo/overview', apply: false, limit: 100 }), true);
+  for (const invalid of [
+    { deckId: 'demo/overview', viewToken: 'secret' },
+    { deckId: 'demo/overview', apply: 'false' },
+    { deckId: 'demo/overview', limit: 0 },
+    { deckId: 'demo/overview', limit: 101 },
+    { deckId: 'bad//deck' },
+  ])
+    assert.equal(isJobCleanupRequest(invalid), false);
+
+  assert.equal(isJobCleanupResponse(response), true);
+  for (const invalid of [
+    { ...response, source: 'private' },
+    { ...response, deckId: 'bad//deck' },
+    { ...response, retentionDays: 31 },
+    { ...response, cutoff: 'yesterday' },
+    { ...response, jobs: [{ jobId: 'not-a-uuid', finishedAt: response.cutoff }] },
+    { ...response, jobs: [{ jobId: id, finishedAt: response.cutoff, viewToken: 'secret' }] },
+    { ...response, pendingInputs: -1 },
+  ])
+    assert.equal(isJobCleanupResponse(invalid), false);
 });

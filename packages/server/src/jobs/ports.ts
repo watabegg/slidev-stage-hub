@@ -40,6 +40,48 @@ export interface JobIdentity {
   deckId: string;
   jobId: string;
 }
+export interface PendingJobInputDelete extends JobIdentity {
+  inputKey: string;
+  /** Fences acknowledgements against a concurrent re-enqueue for the same key. */
+  token: string;
+}
+export const JOB_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+export interface JobCleanupLease {
+  deckId: string;
+  leaseToken: string;
+  leaseUntil: string;
+}
+export interface AutomaticJobCleanupStore {
+  /** Claim one persisted request, at most once per deck per 24 hours, including crash recovery. */
+  claim(options: {
+    now: string;
+    leaseUntil: string;
+    leaseToken: string;
+    deckId?: string;
+  }): Promise<JobCleanupLease | null>;
+  /** Token-fenced completion preserves requests made while this batch was running. */
+  finish(lease: JobCleanupLease, options: { now: string; retry: boolean }): Promise<boolean>;
+}
+export interface PublicationJobMaintenanceStore {
+  /** Optional for compatibility with custom stores. First-party stores enqueue atomically on terminal publication finish. */
+  readonly automatic?: AutomaticJobCleanupStore;
+  /** Checks permanent identity tombstones before the service writes private input. */
+  isExpired(identity: JobIdentity): Promise<boolean>;
+  /** Atomically selects/deletes eligible leaves and records tombstones plus input outbox entries. */
+  cleanup(options: {
+    deckId: string;
+    cutoff: string;
+    limit: number;
+    dryRun: boolean;
+  }): Promise<{ jobs: { jobId: string; finishedAt: string }[]; more: boolean }>;
+  /** Reads a bounded per-deck outbox batch and exact remaining count. */
+  listPendingInputDeletes(options: {
+    deckId: string;
+    limit: number;
+  }): Promise<{ items: PendingJobInputDelete[]; pendingCount: number }>;
+  /** Removes only the outbox version which was actually processed. */
+  acknowledgeInputDelete(item: PendingJobInputDelete): Promise<boolean>;
+}
 export interface JobLease extends JobIdentity {
   leaseToken: string;
   now: string;
@@ -47,7 +89,14 @@ export interface JobLease extends JobIdentity {
 export type JobAdmissionResult =
   | { outcome: 'accepted' | 'replayed'; job: PublicationJobRecord }
   | {
-      outcome: 'conflict' | 'limit' | 'not_found' | 'invalid_retry' | 'superseded' | 'active_retry';
+      outcome:
+        | 'conflict'
+        | 'limit'
+        | 'not_found'
+        | 'invalid_retry'
+        | 'superseded'
+        | 'active_retry'
+        | 'expired';
     };
 export interface JobCheckpoint {
   phase?: JobPhase;
@@ -71,6 +120,8 @@ export interface JobFinish {
 /** Must share one transaction authority with publications, including legacy begin. */
 export interface PublicationJobStore {
   readonly publications: PublicationStore;
+  /** Optional maintenance support keeps existing third-party stores source compatible. */
+  readonly maintenance?: PublicationJobMaintenanceStore;
   /** Allocate generation, insert job, supersede unpublished predecessors and persist wake atomically. Same hash replays without allocating. */
   submit(job: NewPublicationJob): Promise<JobAdmissionResult>;
   get(identity: JobIdentity): Promise<PublicationJobRecord | null>;

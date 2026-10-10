@@ -238,6 +238,32 @@ test('commit failure retries publish without exposing an unpublished result as p
   assert.equal(r.snapshot.result, undefined);
   assert.equal(f.current.size, 0);
 });
+test('profile change after a prepared checkpoint preserves completed stages on recovery', async () => {
+  const f = jobOptions();
+  await submit(f, 0, { thumbnail: 'none' });
+  let time = Date.now();
+  const checkpoint = f.jobs.checkpoint;
+  f.jobs.checkpoint = async (lease, update) => {
+    const applied = await checkpoint(lease, update);
+    return update.preparedManifest ? false : applied;
+  };
+  await runPublicationJob(f.options, { ...worker, now: () => time });
+  const prepared = await stored(f);
+  assert.ok(prepared.preparedManifest);
+  assert.equal(prepared.snapshot.phase, 'store');
+  assert.equal(prepared.snapshot.stages.find((s) => s.phase === 'store').status, 'succeeded');
+  f.jobs.checkpoint = checkpoint;
+  f.options.profile.digest = 'new-deployment';
+  time += 120001;
+  await runPublicationJob(f.options, { ...worker, now: () => time });
+  const recovered = await stored(f);
+  assert.equal(recovered.snapshot.status, 'failed');
+  assert.equal(recovered.snapshot.error.code, 'RUNTIME_CHANGED');
+  assert.equal(recovered.snapshot.phase, 'publish');
+  assert.deepEqual(recovered.snapshot.stages.slice(0, 3), prepared.snapshot.stages.slice(0, 3));
+  assert.equal(recovered.snapshot.stages.find((s) => s.phase === 'publish').status, 'failed');
+  assert.equal(f.current.size, 0);
+});
 test('crash after atomic commit resumes thumbnail without compiling or changing generation', async () => {
   const f = jobOptions();
   await submit(f);

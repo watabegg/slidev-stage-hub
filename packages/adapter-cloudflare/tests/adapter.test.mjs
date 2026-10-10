@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   createCloudflareOptions,
+  createDurableObjectPublicationJobStore,
   createDurableObjectPublicationStore,
   createR2ArtifactStore,
 } from '../dist/index.js';
@@ -178,4 +179,74 @@ test('Cloudflare runtime loader reads static metadata and does not downgrade mal
   await assert.rejects(options.loadRuntime());
   response = new Response('unavailable', { status: 503 });
   await assert.rejects(options.loadRuntime(), /unavailable/);
+});
+
+test('R2 deletion forwards the exact key and keeps failures retryable', async () => {
+  const calls = [];
+  const store = createR2ArtifactStore({
+    delete: async (key) => {
+      calls.push(key);
+    },
+  });
+  await store.delete('private/jobs/deck/input.json');
+  assert.deepEqual(calls, ['private/jobs/deck/input.json']);
+  await assert.rejects(
+    createR2ArtifactStore({
+      delete: async () => {
+        throw new Error('unavailable');
+      },
+    }).delete('x'),
+    /unavailable/u,
+  );
+});
+
+test('automatic cleanup claims require a deck scope and use deck-scoped RPCs', async () => {
+  const calls = [];
+  const lease = {
+    deckId: 'jobs/cleanup-adapter',
+    leaseToken: '11111111-1111-4111-8111-111111111111',
+    leaseUntil: '2026-10-10T00:02:00.000Z',
+  };
+  const store = createDurableObjectPublicationJobStore({
+    getByName(deckId) {
+      calls.push({ method: 'getByName', deckId });
+      return {
+        async jobsCleanupClaim(optionsJson) {
+          calls.push({ method: 'jobsCleanupClaim', options: JSON.parse(optionsJson) });
+          return JSON.stringify(lease);
+        },
+        async jobsCleanupFinish(leaseJson, optionsJson) {
+          calls.push({
+            method: 'jobsCleanupFinish',
+            lease: JSON.parse(leaseJson),
+            options: JSON.parse(optionsJson),
+          });
+          return true;
+        },
+      };
+    },
+  });
+  const automatic = store.maintenance.automatic;
+  const request = {
+    now: '2026-10-10T00:00:00.000Z',
+    leaseUntil: lease.leaseUntil,
+    leaseToken: lease.leaseToken,
+  };
+
+  assert.equal(await automatic.claim(request), null);
+  assert.deepEqual(calls, []);
+  assert.deepEqual(await automatic.claim({ ...request, deckId: lease.deckId }), lease);
+  assert.deepEqual(calls, [
+    { method: 'getByName', deckId: lease.deckId },
+    { method: 'jobsCleanupClaim', options: { ...request, deckId: lease.deckId } },
+  ]);
+  assert.equal(await automatic.finish(lease, { now: request.now, retry: false }), true);
+  assert.deepEqual(calls.slice(2), [
+    { method: 'getByName', deckId: lease.deckId },
+    {
+      method: 'jobsCleanupFinish',
+      lease,
+      options: { now: request.now, retry: false },
+    },
+  ]);
 });

@@ -187,3 +187,22 @@ test('HTTP server streams Fetch request and response bodies on an ephemeral port
   }
   await assert.rejects(fetch(running.origin), /fetch failed/i);
 });
+
+test('artifact deletion is idempotent and cannot unlink outside the store', async () => {
+  const root = await temporaryDirectory();
+  const outside = await temporaryDirectory();
+  const store = createFileArtifactStore({ root });
+  await store.put('private/jobs/deck/input.json', 'private');
+  await store.put('releases/deck/public.json', 'public');
+  await store.delete('private/jobs/deck/input.json');
+  await store.delete('private/jobs/deck/input.json');
+  assert.equal(await store.get('private/jobs/deck/input.json'), null);
+  assert.ok(await store.get('releases/deck/public.json'));
+  await assert.rejects(store.delete('../outside'), /Invalid artifact key/u);
+  await writeFile(join(outside, 'keep.obj'), 'untouched');
+  await symlink(outside, join(root, 'escape'));
+  await assert.rejects(store.delete('escape/keep'), /non-directory/u);
+  await symlink(join(outside, 'keep.obj'), join(root, 'linked.obj'));
+  await assert.rejects(store.delete('linked'), /regular file/u);
+  assert.equal(await readFile(join(outside, 'keep.obj'), 'utf8'), 'untouched');
+});

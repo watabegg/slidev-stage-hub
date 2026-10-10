@@ -111,6 +111,17 @@ export function createFileArtifactStore({ root }: { root: string }): ArtifactSto
   }
 
   return {
+    async delete(key): Promise<void> {
+      const path = await objectPath(key, false);
+      try {
+        const stat = await lstat(path);
+        if (!stat.isFile() || stat.isSymbolicLink())
+          throw new Error('Artifact path is not a regular file');
+        await unlink(path);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+    },
     async get(key): Promise<ArtifactObject | null> {
       const found = await readObject(await objectPath(key, false));
       if (!found) return null;

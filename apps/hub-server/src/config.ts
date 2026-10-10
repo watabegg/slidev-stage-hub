@@ -43,6 +43,11 @@ function names(value: unknown, label: string): string {
 
 /** Compose the reference application. Library users can inject their own drivers directly. */
 export async function createConfiguredHub(env: Environment = process.env) {
+  if (
+    env.HUB_ALLOW_LOCAL_MUTATIONS === 'true' &&
+    (env.NODE_ENV === 'production' || !['127.0.0.1', '::1'].includes(env.HOST ?? '127.0.0.1'))
+  )
+    throw new Error('HUB_ALLOW_LOCAL_MUTATIONS requires a loopback listener outside production');
   const staticRoot = resolve(
     env.HUB_STATIC_DIR ??
       fileURLToPath(new URL('../../hub-worker/artifacts/site/', import.meta.url)),

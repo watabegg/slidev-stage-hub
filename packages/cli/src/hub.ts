@@ -435,7 +435,7 @@ function hubHelp(): string {
     '  publish     Publish Markdown through the configured Hub API',
     '  init        Create a remote Hub profile without overwriting one',
     '  doctor      Check remote config, auth file, and API capabilities',
-    '  jobs        Read, watch, list, or retry publication jobs',
+    '  jobs        Read, watch, retry, or clean up publication jobs',
     '',
     'Common options: --config PATH, --json, --help (-h), --version',
     'build/check: --source-root PATH --out-dir PATH --theme PATH --dependency-root PATH',
@@ -449,12 +449,14 @@ function hubHelp(): string {
     'doctor:      [--remote-config PATH] [--origin ORIGIN] [--headers-file PATH]',
     'jobs:        status|watch --id ID --job UUID | list --id ID [--limit N] [--cursor CURSOR]',
     '             retry --id ID --job UUID --stage thumbnail|all [--timeout 300]',
+    '             cleanup --id ID [--apply] [--limit N] (dry-run by default; retention: 30 days)',
     'Remote settings: ./hub.remote.json; auth headers live in a separate private file.',
     'Settings: ./hub.config.json; defaults: ./slides -> ./dist',
     'Publish requires explicit inputs and never reads hub.config.json.',
     'Examples: hub check --config ./hub.config.json; hub serve --site ./dist',
     '          hub init --origin https://hub.example; hub publish --id course/topic --source slides.md',
     '          hub jobs watch --id course/topic --job 00000000-0000-4000-8000-000000000000',
+    '          hub jobs cleanup --id course/topic --apply',
   ].join('\n');
 }
 

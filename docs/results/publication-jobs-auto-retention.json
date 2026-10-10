@@ -1,0 +1,100 @@
+{
+  "date": "2026-10-10",
+  "status": "passed",
+  "scope": "Automatic publication-job retention after terminal publication completion",
+  "behavior": {
+    "retentionDays": 30,
+    "perDeckIntervalHours": 24,
+    "jobBatchLimit": 100,
+    "inputDeleteBatchLimit": 100,
+    "trigger": "Terminal kind=publication finish, or re-enqueued deletion from expired admission",
+    "continuesBacklogWithoutNewPublication": true,
+    "globalPeriodicSweep": false,
+    "manualCleanupUnchanged": true,
+    "publicArtifactsRetained": true,
+    "customStoresOptInViaOptionalAutomaticPort": true
+  },
+  "checks": {
+    "coreAndNodeWorker": {
+      "status": "passed",
+      "tests": 15,
+      "scope": "7 core automatic-cleanup tests, 3 existing cleanup HTTP tests, 5 Node worker tests"
+    },
+    "postgresNodeIntegration": {
+      "status": "passed",
+      "realPostgres": true,
+      "httpAdmission": true,
+      "publicationWorker": true,
+      "freshStoreInstance": true,
+      "oldHistoryAndInputDeleted": true,
+      "publishedArtifactsAndLatestJobRetained": true,
+      "log": "artifacts/implementation/jobs-auto-retention/check.log",
+      "compiler": "injected deterministic test compiler",
+      "artifactStore": "real filesystem adapter in a temporary directory",
+      "thumbnails": "disabled for this retention integration test"
+    },
+    "migration004": {
+      "status": "passed",
+      "migration": "004 applied twice after baseline/002/003",
+      "preservesPublication": true,
+      "existingDecksNotScheduled": true,
+      "dueIndex": true,
+      "isolatedSchemaRolledBack": true
+    },
+    "rootCheck": {
+      "status": "passed",
+      "command": "pnpm check (with local PostgreSQL test database)",
+      "tests": 361,
+      "passed": 361,
+      "failed": 0,
+      "skipped": 0,
+      "boundaryViolations": 0,
+      "log": "artifacts/implementation/jobs-auto-retention/check.log"
+    },
+    "durableObjectRetention": {
+      "status": "passed",
+      "invariants": 24,
+      "runtime": "local workerd",
+      "log": "artifacts/implementation/jobs-auto-retention/workerd-retention.log"
+    },
+    "publicationJobsE2E": {
+      "status": "passed",
+      "passed": 16,
+      "failed": 0,
+      "scope": "Local PostgreSQL worker, CLI, browser progress viewer, real Playwright thumbnail capture and Durable Object verifier",
+      "evidence": "apps/hub-worker/artifacts/publication-jobs/2026-10-10T09-39-26-303Z-5001b789/evidence.json",
+      "log": "artifacts/implementation/jobs-auto-retention/publication-jobs.log",
+      "cloudDeployed": false
+    }
+  },
+  "limitations": [
+    "No real cloud deployment or acceptance test.",
+    "Previously completed idle decks need a new publication or manual cleanup to start a sweep.",
+    "Thumbnail-only jobs and legacy synchronous publication do not trigger a sweep.",
+    "Retries and crash recovery wait for the next 24-hour slot.",
+    "No new Docker-image build for this automatic-retention change; previous manual-retention container evidence remains historical."
+  ],
+  "review": {
+    "mode": "targeted agent-native followup",
+    "findings": [
+      {
+        "id": "C-AUTO-01",
+        "finding": "Late expired-admission re-enqueue could strand private input deletion",
+        "resolution": "Expired submit/retry re-enqueues also mark automatic cleanup pending atomically, without resetting the daily throttle",
+        "status": "resolved"
+      },
+      {
+        "id": "C-AUTO-02",
+        "finding": "Refreshing the first pending alarm could postpone cleanup under repeated writes",
+        "resolution": "Use a stable first due timestamp rather than recomputing Date.now on every refresh",
+        "status": "resolved"
+      }
+    ],
+    "verification": "Storage race regression tests and local workerd alarm checks passed; targeted followup found no further actionable issue."
+  },
+  "documentation": {
+    "writer": "agy-writer (Gemini), fact-checked against implementation",
+    "run": "20261010T093010-rc7lpiqw",
+    "correctionRun": "20261010T093415-k5n07_h2"
+  }
+}
