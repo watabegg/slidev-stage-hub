@@ -115,4 +115,4 @@ CI のワークフロー定義は [../.github/workflows/checks.yml](../.github/w
 
 `SLIDEV_LAB_DEPENDENCY_ROOT` は実験用です。新しい API や CLI ではこれらを使用せず、明示的な設定を参照してください。
 
-また、検証用に保持されている比較用ハーネス（`packages/hub/bundle-sharing/experiments/` および `examples/legacy-native-baseline/`）を本番コードへインポートすることは禁止されています。過去の検証記録については、[DECISIONS.md](DECISIONS.md) 内の固定 Git リンクを参照してください。
+現行 Stage のフレーム維持・描画待ち・競合処理は `apps/stage/scripts/verify-flicker.mjs` で検証します。過去版の比較ハーネスと計測記録は [DECISIONS.md](DECISIONS.md) 内の固定 Git リンクから参照できます。

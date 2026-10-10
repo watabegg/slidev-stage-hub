@@ -104,7 +104,7 @@ Slidev は 52.15.2 と 53.0.0 を個別の互換性グループとして共存�
 
 ## ビルド処理の流れと耐障害性
 
-ビルドエンジンの内部実装は `packages/hub/src/node/internal` 配下にあり、従来のラッパーは `packages/hub/scripts` および `bundle-sharing/experiments/module-graph` に残されています。フロントエンドの構成とは分離されています。
+ビルドエンジンの内部実装は `packages/hub/src/node/internal` 配下にあり、CLI 用のラッパーは `packages/hub/scripts` にあります。フロントエンドの構成とは分離されています。
 
 - プロセス分離: Slidev のグローバル設定が相互に干渉することを防ぐため、処理は子プロセス上で実行されます。
 - 進捗フェーズ: `onProgress` には `build`、`thumbnails`、`offline`、`promote` の各段階が通知されます。

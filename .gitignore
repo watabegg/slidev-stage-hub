@@ -21,6 +21,3 @@ artifacts/
 Thumbs.db
 
 __pycache__/
-
-# Migrated Hub generated entry
-/packages/hub/bundle-sharing/experiments/module-graph/index.html

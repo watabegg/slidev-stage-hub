@@ -101,3 +101,5 @@ pnpm ワークスペース全体で Oxlint、Oxfmt、strict TypeScript、`vue-ts
 - [整理前の設計資料](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/docs)
 - [バンドル共有の実験結果](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/packages/hub/bundle-sharing/results)
 - [Stage 初期検証記録](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/apps/stage/results)
+- [旧比較ハーネス](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/packages/hub/bundle-sharing)
+- [過去版 Stage の比較用コピー](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/examples/legacy-native-baseline)

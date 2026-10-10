@@ -11,7 +11,6 @@ for (const key of Object.keys(env)) {
 const commands = [
   ['pnpm', ['typecheck']],
   ['pnpm', ['test']],
-  ['node', ['packages/hub/bundle-sharing/experiments/multi-profile/scripts/prepare.mjs']],
   ['pnpm', ['build:hub']],
   ['pnpm', ['verify:hub']],
   ['pnpm', ['verify:web-customization']],

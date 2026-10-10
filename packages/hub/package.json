@@ -7,7 +7,6 @@
     "build": "pnpm --filter @slidev-stage-hub/protocol build && pnpm --filter @slidev-stage-hub/slidev-adapter build && pnpm build:node && pnpm build:client && node scripts/build.mjs",
     "serve": "node scripts/serve.mjs artifacts/module-graph-offline/site 4174",
     "test": "node --test scripts/fingerprint-offline.test.mjs scripts/native-player.test.mjs tests/catalog.test.mjs tests/runtime-environment.test.mjs tests/service.test.mjs tests/client.test.mjs",
-    "baseline": "node scripts/baseline-build.mjs",
     "verify:library": "node scripts/verify-library.mjs artifacts/module-graph-offline/site",
     "thumbnails": "node scripts/thumbnails.mjs artifacts/module-graph-offline/site",
     "build:node": "tsc -p tsconfig.node.json",

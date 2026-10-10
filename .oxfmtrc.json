@@ -14,7 +14,6 @@
     "**/target/**",
     "**/generated/**",
     "**/results/**",
-    "examples/legacy-native-baseline/**",
     "**/*.md",
     "pnpm-lock.yaml",
     "**/*.toml",

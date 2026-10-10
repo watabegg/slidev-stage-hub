@@ -21,7 +21,6 @@
     "**/target/**",
     "**/generated/**",
     "**/results/**",
-    "examples/legacy-native-baseline/**",
     "apps/hub-worker/worker-configuration.d.ts"
   ]
 }

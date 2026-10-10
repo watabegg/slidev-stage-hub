@@ -188,9 +188,7 @@ function packageForPath(packages, fullPath) {
   );
 }
 
-function shouldSkipDirectory(root, dir) {
-  const relative = relativePath(root, dir);
-  if (relative === 'examples/legacy-native-baseline') return true;
+function shouldSkipDirectory(dir) {
   return SKIP_DIRECTORY_NAMES.has(path.basename(dir));
 }
 
@@ -199,7 +197,7 @@ async function collectFiles(root, packages) {
   const childPackageDirs = packages.filter((pkg) => pkg.dir !== root).map((pkg) => pkg.dir);
 
   async function walk(dir, ownerDir) {
-    if (shouldSkipDirectory(root, dir)) return;
+    if (shouldSkipDirectory(dir)) return;
     let entries;
     try {
       entries = await readdir(dir, { withFileTypes: true });
@@ -211,7 +209,7 @@ async function collectFiles(root, packages) {
       if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
         if (childPackageDirs.some((pkgDir) => pkgDir !== ownerDir && pkgDir === fullPath)) continue;
-        if (!shouldSkipDirectory(root, fullPath)) await walk(fullPath, ownerDir);
+        if (!shouldSkipDirectory(fullPath)) await walk(fullPath, ownerDir);
       } else if (entry.isFile() && SOURCE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
         files.add(fullPath);
       }
