@@ -100,7 +100,7 @@ Cloudflare 環境（Workers、Durable Objects、R2）への過度な依存によ
 
 ### 9.4 ローカルと本番の分離
 
-ローカル開発用のファイルシステム成果物保存やインメモリ配信ストアは本番環境での利用を明示的に禁止し、本番向けには S3/GCS および PostgreSQL を選定した。キューによる非同期再試行機構や DynamoDB/Firestore、AWS Lambda/API Gateway 向けアダプターの採用は見送っている。
+ローカル開発用のファイルシステム成果物保存やインメモリ配信ストアは本番環境での利用を明示的に禁止し、本番向けには S3/GCS および PostgreSQL を選定した。SQS、Pub/Sub、Redis など外部メッセージブローカーや DynamoDB/Firestore、AWS Lambda/API Gateway 向けアダプターの採用は見送っている。公開ジョブは公開状態と同じトランザクションで更新できる既存の保存先に置く。
 
 ### 9.5 ランタイム固定による過去リビジョンの表示互換性維持
 
@@ -111,6 +111,12 @@ Cloudflare 環境（Workers、Durable Objects、R2）への過度な依存によ
 ### 9.6 検証状況とスコープ境界
 
 実環境の AWS、GCP、Cloudflare Access における受け入れ検証やクラウド環境への実デプロイは未実施であり、今回の決定範囲から除外している。最新のローカル検証結果は [platform-portability.json](results/platform-portability.json) に集約されており、既存の [final-regression.json](results/final-regression.json) に含まれるネイティブ検証結果は過去のスナップショットである。各プラットフォームの詳細な構成仕様については [プラットフォーム導入ガイド](guides/platforms.md) を参照のこと。
+
+## 10. 公開状態とジョブを同じトランザクションで更新
+
+非同期公開では、ジョブの受付、公開世代の割り当て、既存ジョブの supersede、公開 pointer の更新を整合させる必要がある。そのため provider-free な `packages/server` に API と runner を置き、各アダプターでは公開 commit とジョブ状態を同じトランザクションで更新できる保存先を使う。Cloudflare は既存 `DeckVersions` Durable Object の SQLite トランザクション内で公開状態とジョブを扱い、alarm で起床する。Node/PostgreSQL は公開ストアとジョブストアを同じ PostgreSQL トランザクションに参加させ、worker は `SKIP LOCKED` polling で job を claim する。
+
+カスタムアダプターの実装者は、publication commit と job transitions が同じトランザクションに参加する store を用意する必要がある。データベース接続情報を共有するだけでは、公開状態とジョブ状態の原子性は保証されない。外部メッセージブローカーの運用やプロバイダー固有の upload/notification 経路を追加しない代わりに、ジョブ metadata と private input の自動 GC は行わない。Cloudflare alarm と PostgreSQL worker の運用、状態・retry 契約、未実施の live cloud acceptance は[公開ジョブガイド](guides/publication-jobs.md)を参照してください。
 
 ## 検証記録と過去の技術資料
 

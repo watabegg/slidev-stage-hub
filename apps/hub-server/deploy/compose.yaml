@@ -1,22 +1,56 @@
+x-hub-build: &hub-build
+  context: ../../..
+  dockerfile: apps/hub-server/Dockerfile
+  args:
+    INSTALL_CHROMIUM: ${HUB_INSTALL_CHROMIUM:-false}
+x-hub-environment: &hub-environment
+  NODE_ENV: development
+  HUB_STORAGE: filesystem
+  HUB_ARTIFACT_DIR: /app/data/objects
+  HUB_PUBLICATIONS: postgres
+  HUB_DATABASE_URL: postgres://hub:local-dev-only-password@postgres:5432/hub
+  HUB_DATABASE_INIT: 'false'
+  HUB_JOBS_ENABLED: ${HUB_JOBS_ENABLED:-true}
+  HUB_THUMBNAIL_RENDERER: ${HUB_THUMBNAIL_RENDERER:-none}
+  HUB_CHROMIUM_EXECUTABLE: ${HUB_CHROMIUM_EXECUTABLE:-/usr/bin/chromium}
+  HUB_PUBLIC_ORIGIN: http://localhost:8080
+
 services:
   hub:
-    build:
-      context: ../../..
-      dockerfile: apps/hub-server/Dockerfile
+    build: *hub-build
     ports:
       - '127.0.0.1:8080:8080'
     environment:
-      NODE_ENV: development
-      HUB_STORAGE: filesystem
-      HUB_ARTIFACT_DIR: /app/data/objects
-      HUB_PUBLICATIONS: postgres
-      HUB_DATABASE_URL: postgres://hub:local-dev-only-password@postgres:5432/hub
+      <<: *hub-environment
       HUB_DATABASE_INIT: 'true'
       HUB_PUBLISH_TOKEN: local-dev-only-publish-token
     volumes:
       - hub-artifacts:/app/data
     depends_on:
       postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/api/capabilities').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+  worker:
+    build: *hub-build
+    command: ['node', 'dist/worker.js']
+    environment:
+      <<: *hub-environment
+      HUB_PUBLIC_ORIGIN: http://hub:8080
+    volumes:
+      - hub-artifacts:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      hub:
         condition: service_healthy
   postgres:
     image: postgres:17-bookworm

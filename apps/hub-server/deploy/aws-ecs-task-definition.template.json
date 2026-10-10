@@ -2,8 +2,8 @@
   "family": "replace-hub-task-family",
   "requiresCompatibilities": ["FARGATE"],
   "networkMode": "awsvpc",
-  "cpu": "512",
-  "memory": "1024",
+  "cpu": "1024",
+  "memory": "2048",
   "runtimePlatform": {
     "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
@@ -25,7 +25,11 @@
         { "name": "HUB_BUCKET", "value": "REPLACE_EXISTING_S3_BUCKET" },
         { "name": "AWS_REGION", "value": "REPLACE_REGION" },
         { "name": "HUB_PUBLICATIONS", "value": "postgres" },
-        { "name": "HUB_DATABASE_INIT", "value": "false" }
+        { "name": "HUB_DATABASE_INIT", "value": "false" },
+        { "name": "HUB_JOBS_ENABLED", "value": "true" },
+        { "name": "HUB_THUMBNAIL_RENDERER", "value": "none" },
+        { "name": "HUB_CHROMIUM_EXECUTABLE", "value": "/usr/bin/chromium" },
+        { "name": "HUB_PUBLIC_ORIGIN", "value": "REPLACE_PUBLIC_HTTPS_ORIGIN" }
       ],
       "secrets": [
         {
@@ -43,6 +47,38 @@
           "awslogs-group": "REPLACE_EXISTING_LOG_GROUP",
           "awslogs-region": "REPLACE_REGION",
           "awslogs-stream-prefix": "hub"
+        }
+      }
+    },
+    {
+      "name": "hub-worker",
+      "image": "REPLACE_ACCOUNT_ID.dkr.ecr.REPLACE_REGION.amazonaws.com/REPLACE_REPOSITORY:REPLACE_TAG",
+      "essential": true,
+      "command": ["node", "dist/worker.js"],
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "HUB_STORAGE", "value": "s3" },
+        { "name": "HUB_BUCKET", "value": "REPLACE_EXISTING_S3_BUCKET" },
+        { "name": "AWS_REGION", "value": "REPLACE_REGION" },
+        { "name": "HUB_PUBLICATIONS", "value": "postgres" },
+        { "name": "HUB_DATABASE_INIT", "value": "false" },
+        { "name": "HUB_JOBS_ENABLED", "value": "true" },
+        { "name": "HUB_THUMBNAIL_RENDERER", "value": "none" },
+        { "name": "HUB_CHROMIUM_EXECUTABLE", "value": "/usr/bin/chromium" },
+        { "name": "HUB_PUBLIC_ORIGIN", "value": "REPLACE_PUBLIC_HTTPS_ORIGIN" }
+      ],
+      "secrets": [
+        {
+          "name": "HUB_DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT_ID:secret:REPLACE_DATABASE_URL_SECRET_ARN_SUFFIX"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "REPLACE_EXISTING_LOG_GROUP",
+          "awslogs-region": "REPLACE_REGION",
+          "awslogs-stream-prefix": "hub-worker"
         }
       }
     }

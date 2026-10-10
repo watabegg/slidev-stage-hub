@@ -1,3 +1,5 @@
+import type { JobPhase, JobStatus } from '@slidev-stage-hub/protocol';
+import type { PublicationJobStore } from './jobs/ports.js';
 /** Provider-independent storage metadata; ETags are opaque HTTP entity tags. */
 export interface ArtifactMetadata {
   contentType?: string;
@@ -49,8 +51,26 @@ export interface RuntimeSnapshot {
   id: string;
   files: RuntimeSnapshotFile[];
 }
+export interface PublicationJobEvent {
+  event: 'claimed' | 'stage_done' | 'published' | 'finished' | 'retry_wait';
+  jobId: string;
+  deckId: string;
+  phase: JobPhase;
+  attempt: number;
+  durationMs?: number;
+  queueAgeMs?: number;
+  code?: string;
+  status?: JobStatus;
+}
 export interface HubServerOptions {
   artifacts: ArtifactStore;
+  jobs?: PublicationJobStore;
+  /** Disable new admission while keeping status reads and worker draining available. */
+  jobsEnabled?: boolean;
+  /** Safe structured events for provider telemetry; failures never affect execution. */
+  onJobEvent?: (event: PublicationJobEvent) => void | Promise<void>;
+  /** Configured origin used for background rendering; never derived from request Host. */
+  publicOrigin?: string;
   publications: PublicationStore;
   staticAssets: { fetch(request: Request): Promise<Response> };
   profile: RuntimeProfile;

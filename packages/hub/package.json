@@ -38,7 +38,8 @@
       "import": "./dist/client/index.js"
     },
     "./frontend": "./src/frontend/index.ts",
-    "./frontend/style.css": "./src/frontend/style.css"
+    "./frontend/style.css": "./src/frontend/style.css",
+    "./frontend/job-status.css": "./src/frontend/job-status.css"
   },
   "version": "0.1.0",
   "files": [

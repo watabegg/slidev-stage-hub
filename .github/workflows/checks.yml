@@ -27,12 +27,13 @@ jobs:
           node-version: 24.15.0
       - run: npm install --global pnpm@12.3.4
       - run: pnpm install --frozen-lockfile
-      - run: pnpm check
       - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm check
       - run: pnpm verify:portable
       - run: pnpm verify:packed-cli
       - run: pnpm verify:packed-server
       - run: pnpm verify:server
+      - run: pnpm verify:publication-jobs
   rust-core:
     needs: portable
     env:

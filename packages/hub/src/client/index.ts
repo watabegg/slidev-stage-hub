@@ -9,6 +9,26 @@ export type {
   PublicFrontmatter,
 } from '@slidev-stage-hub/protocol/contracts';
 
+export { createPublicationJobClient, PublicationJobClientError } from './jobs.js';
+export type {
+  JobPhase,
+  JobSnapshot,
+  JobStatus,
+  PublicationJobClient,
+  PublicationJobClientErrorCode,
+  PublicationJobClientOptions,
+  PublicationJobGetResponse,
+  PublicationJobKey,
+  PublicationJobListInput,
+  PublicationJobListResponse,
+  PublicationJobRequest,
+  PublicationJobRequestOptions,
+  PublicationJobRetryInput,
+  PublicationJobRetryRequest,
+  PublicationJobSubmitResponse,
+  PublicationJobWatchOptions,
+} from './jobs.js';
+
 export type CatalogClientErrorCode =
   | 'ABORTED'
   | 'NETWORK'

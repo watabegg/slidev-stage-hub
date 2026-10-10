@@ -68,6 +68,7 @@ export interface CompileDeckInput {
   deckId: string;
   assetBase?: string;
   runtimeBase?: string;
+  onProgress?: (completed: number, total: number) => Promise<void>;
 }
 
 interface NamedSlotSection {
@@ -100,6 +101,7 @@ export async function compileDeck({
   deckId,
   assetBase = defaultAssetBase(deckId),
   runtimeBase = '/_runtime/',
+  onProgress,
 }: CompileDeckInput): Promise<CompileDeckResult> {
   if (typeof source !== 'string') throw new DeckCompileError('markdown must be a string');
   validateDeckId(deckId);
@@ -184,6 +186,7 @@ export async function compileDeck({
         ),
       }),
     );
+    await onProgress?.(index + 1, parsedSlides.length);
   }
 
   const first = parsedSlides[0];

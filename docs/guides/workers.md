@@ -26,9 +26,11 @@ node packages/cli/dist/bin/hub.js publish --origin http://127.0.0.1:4180 --id de
 
 保存先は自動推測されないため、明示的な引数指定が必要です。接続先オリジンは HTTP ループバックまたは HTTPS に限られます。リクエスト本文は 512KiB の JSON、スライド数は最大 100 枚までであり、任意のバイナリ送信には対応していません。オプションとして `--assets path/to/assets.json`、`--headers-file path/to/auth.json`、`--json` を指定できます。アセット JSON はファイル名からテキストへのオブジェクトであり、キーには ASCII のスラッシュ区切りパス（拡張子は `.svg`、`.txt`、`.css` 限定）、値には文字列を指定します。認証は任意であり、指定する場合は Stage のオリジン紐付けに対応したファイル権限 0600 のヘッダーファイルを使用します。
 
+ジョブ API が有効な Workers サーバーでは、この CLI コマンドは HTTP 経由で `POST /api/jobs` に公開要求を送り、Durable Object の `DeckVersions` が公開状態とジョブを同じ SQLite transaction で更新します。Durable Object alarm が実行を起こすため、R2 直接アップロード通知や webhook は使いません。`HUB_JOBS_ENABLED` は新規受付の切替です。自動サムネイル生成には、Cloudflare Browser Rendering の `BROWSER` binding と Wrangler 変数 `PUBLIC_ORIGIN` の両方が必要です。CLI のジョブ状態、確認リンク、制約は[公開ジョブガイド](publication-jobs.md)を参照してください。
+
 公開成果物からはソースノートが除去され、プライベートストレージが HTTP 経由で公開されることはありません。テーマ、レイアウト、コンポーネントは事前ビルド済みランタイムに含まれる必要があります。未対応の数式やコード描画に関する警告は残り、Slidev の完全な互換性は保証されません。
 
-ソース、アセット、コンパイラ、ランタイムプロファイルの変更により、不変なリビジョンが生成されます。保存処理は書き込み、インデックスマーカー配置、Durable Objects コミットの順序で実行され、最新の開始処理が優先されます。競合時は 409（superseded）が返され、書き込み失敗時に既存リビジョンが置き換わることはありません。ストレージでは R2 の `FILES`、Durable Objects の `VERSIONS` および `DeckVersions` を扱い、migration v1 と SQL の状態は維持されます。
+ソース、アセット、コンパイラ、ランタイムプロファイルの変更により、不変なリビジョンが生成されます。保存処理は書き込み、インデックスマーカー配置、Durable Objects コミットの順序で実行され、最新の開始処理が優先されます。従来の同期公開 API（`POST /api/decks/:id`）では競合時に HTTP 409（`superseded`）が返され、書き込み失敗時に既存リビジョンが置き換わることはありません。一方、非同期ジョブ受付 API（`POST /api/jobs`）は受付時に HTTP 202 を返し、その後の処理ステータスが `superseded` になる場合があります。ストレージでは R2 の `FILES`、Durable Objects の `VERSIONS` および `DeckVersions` を扱い、migration v1 と SQL の状態は維持されます。
 
 ## カタログ提供と Stage 連携
 

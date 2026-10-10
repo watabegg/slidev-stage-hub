@@ -291,6 +291,8 @@ test('published documents work with reserved category names while private files 
     'releases/deck',
     'api/group',
     'runtimes/group',
+    '_hub/group',
+    '_hub/jobs',
   ]) {
     const published = await server.fetch(
       new Request(`http://localhost/api/decks/${id}`, {

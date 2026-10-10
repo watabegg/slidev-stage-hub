@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-10",
+  "status": "passed",
+  "baseCommit": "2d96e53",
+  "cloudDeployed": false,
+  "checks": {
+    "serverApp": {
+      "status": "passed",
+      "tests": 13
+    },
+    "rendererPlaywright": {
+      "status": "passed",
+      "tests": 3,
+      "realLocalChromium": true
+    },
+    "packedServer": {
+      "status": "passed",
+      "packages": 9,
+      "legacyPublication": true,
+      "publicationJob": true
+    },
+    "rootCheck": {
+      "status": "passed",
+      "tests": 323,
+      "passed": 323,
+      "failed": 0,
+      "skipped": 0,
+      "localPostgres": true
+    },
+    "publicationJobsIntegration": {
+      "status": "passed",
+      "scenarios": 16,
+      "cloudflareWorkerdChecks": 16,
+      "evidence": "apps/hub-worker/artifacts/publication-jobs/2026-10-10T08-31-23-447Z-72cf475b/evidence.json",
+      "additionalUiFixtures": {
+        "status": "passed",
+        "source": "browser-intercepted synthetic snapshots; backend job state unchanged",
+        "cases": [
+          "compile retry_wait countdown",
+          "published thumbnail retry_wait and revision link",
+          "sensitive error message omitted from DOM and execution"
+        ]
+      }
+    },
+    "runtimeUpgrade": {
+      "status": "passed",
+      "checks": 29,
+      "evidence": "artifacts/runtime-pinning/2026-10-10T08-24-28.905Z/result.json"
+    },
+    "packedCli": {
+      "status": "passed",
+      "checks": 20,
+      "newCommands": [
+        "hub init",
+        "hub doctor",
+        "hub jobs list"
+      ]
+    },
+    "server": {
+      "status": "passed",
+      "tests": 53,
+      "skipped": 0
+    },
+    "protocolJobs": {
+      "status": "passed",
+      "tests": 5
+    },
+    "nodeAdapter": {
+      "status": "passed",
+      "tests": 13
+    },
+    "postgres": {
+      "status": "passed",
+      "tests": 5,
+      "realLocalDatabase": true
+    },
+    "workersTypecheck": {
+      "status": "passed"
+    },
+    "boundaries": {
+      "status": "passed",
+      "violations": 0,
+      "exceptions": 0
+    },
+    "cloudflareWorkerd": {
+      "status": "passed",
+      "checks": 16,
+      "browserRun": "synthetic-binding"
+    },
+    "web": {
+      "status": "passed",
+      "tests": 5,
+      "visualReview": [
+        "desktop",
+        "390px mobile",
+        "retry_wait"
+      ],
+      "externalBrowserResponses": 0
+    }
+  },
+  "limitations": [
+    "Cloudflare Browser Run verification uses a local binding fixture; the live service is outside this run.",
+    "AWS and GCP deployment templates have not been deployed.",
+    "Production render origin and outer authentication require environment-specific configuration."
+  ]
+}

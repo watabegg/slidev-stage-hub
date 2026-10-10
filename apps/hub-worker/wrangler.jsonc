@@ -12,10 +12,12 @@
   },
   "r2_buckets": [{ "binding": "FILES", "bucket_name": "slidev-workers-poc" }],
   "durable_objects": {
+    // DeckVersions keeps migration v1; publication jobs add an internal SQLite schema marker.
     "bindings": [{ "name": "VERSIONS", "class_name": "DeckVersions" }],
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DeckVersions"] }],
   "vars": {
+    "HUB_JOBS_ENABLED": "true",
     "LOCAL_MUTATIONS": "false",
     "PROFILE_DIGEST": "configure-from-built-runtime-and-compiler-before-remote-use",
   },

@@ -5,18 +5,22 @@ metadata:
   namespace: 'REPLACE_PROJECT_NUMBER'
   labels:
     cloud.googleapis.com/location: REPLACE_REGION
+  annotations:
+    run.googleapis.com/minScale: '1'
 spec:
   template:
     metadata:
       annotations:
         autoscaling.knative.dev/maxScale: '10'
         run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/cpu-throttling: 'false'
     spec:
       serviceAccountName: REPLACE_SERVICE_ACCOUNT@REPLACE_PROJECT_ID.iam.gserviceaccount.com
       containerConcurrency: 20
       timeoutSeconds: 300
       containers:
         - image: REPLACE_REGION-docker.pkg.dev/REPLACE_PROJECT_ID/REPLACE_REPOSITORY/hub:REPLACE_TAG
+          name: hub
           ports:
             - name: http1
               containerPort: 8080
@@ -35,8 +39,16 @@ spec:
               value: REPLACE_PROJECT_ID
             - name: HUB_PUBLICATIONS
               value: postgres
+            - name: HUB_JOBS_ENABLED
+              value: 'true'
             - name: HUB_DATABASE_INIT
               value: 'false'
+            - name: HUB_THUMBNAIL_RENDERER
+              value: none
+            - name: HUB_CHROMIUM_EXECUTABLE
+              value: /usr/bin/chromium
+            - name: HUB_PUBLIC_ORIGIN
+              value: REPLACE_PUBLIC_HTTPS_ORIGIN
             - name: HUB_DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -51,6 +63,40 @@ spec:
             limits:
               cpu: '1'
               memory: 512Mi
+        - image: REPLACE_REGION-docker.pkg.dev/REPLACE_PROJECT_ID/REPLACE_REPOSITORY/hub:REPLACE_TAG
+          name: hub-worker
+          command: ['node']
+          args: ['dist/worker.js']
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: HUB_STORAGE
+              value: gcs
+            - name: HUB_BUCKET
+              value: REPLACE_EXISTING_GCS_BUCKET
+            - name: GOOGLE_CLOUD_PROJECT
+              value: REPLACE_PROJECT_ID
+            - name: HUB_PUBLICATIONS
+              value: postgres
+            - name: HUB_JOBS_ENABLED
+              value: 'true'
+            - name: HUB_DATABASE_INIT
+              value: 'false'
+            - name: HUB_THUMBNAIL_RENDERER
+              value: none
+            - name: HUB_CHROMIUM_EXECUTABLE
+              value: /usr/bin/chromium
+            - name: HUB_PUBLIC_ORIGIN
+              value: REPLACE_PUBLIC_HTTPS_ORIGIN
+            - name: HUB_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: REPLACE_DATABASE_URL_SECRET
+                  key: 'REPLACE_DATABASE_URL_SECRET_VERSION'
+          resources:
+            limits:
+              cpu: '1'
+              memory: 1Gi
   traffic:
     - latestRevision: true
       percent: 100

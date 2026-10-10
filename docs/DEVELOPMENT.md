@@ -65,6 +65,7 @@ pnpm exec playwright install --with-deps chromium
 - `guides/hub-service.md`
 - `guides/stage-tools.md`
 - `guides/cli.md`
+- `guides/publication-jobs.md`
 - `guides/workers.md`
 - `guides/web-customization.md`
 
@@ -76,7 +77,7 @@ pnpm exec playwright install --with-deps chromium
 | :--- | :--- | :--- |
 | コア | `packages/server` | 共通 HTTP 処理、配信処理、コンパイラ（プロバイダー SDK 依存なし） |
 | アダプター | `packages/adapter-cloudflare`, `packages/adapter-node` | Cloudflare Worker および Node.js 環境向けバインディング接続 |
-| 永続化層 | `packages/storage-s3`, `packages/storage-gcs`, `packages/state-postgres` | S3 / GCS 成果物保存、PostgreSQL 配信ストア実装 |
+| 永続化層 | `packages/storage-s3`, `packages/storage-gcs`, `packages/state-postgres` | S3 / GCS 成果物保存、PostgreSQL の配信・公開ジョブストア実装 |
 | アプリ | `apps/hub-server`, `apps/hub-worker` | 各プラットフォーム向けサーバーのエントリーポイント |
 | ランタイム | `apps/hub-worker/scripts/build-runtime.mjs` | 共有ランタイムアセットの生成 |
 
@@ -84,20 +85,24 @@ pnpm exec playwright install --with-deps chromium
 
 ```bash
 pnpm build:server-runtime
-HUB_ALLOW_LOCAL_MUTATIONS=true pnpm dev:server
+HUB_ALLOW_LOCAL_MUTATIONS=true HUB_JOBS_ENABLED=true pnpm dev:server
 ```
 
-パッケージング検証は CLI（`pnpm pack:cli`、既存5パッケージ）とサーバーライブラリ（`pnpm pack:server`、新設8パッケージ）で独立しています。コード変更時は以下の検証ゲートを実行します。ローカル検証結果は [platform-portability.json](results/platform-portability.json) に記録されています（実クラウド受入、CI、ネイティブ検証は含まれません）。
+パッケージング検証は CLI（`pnpm pack:cli`、既存5パッケージ）とサーバーライブラリ（`pnpm pack:server`、9パッケージ）で独立しています。コード変更時は以下の検証ゲートを実行します。ローカル検証結果は [platform-portability.json](results/platform-portability.json) に記録されています（実クラウド受入、CI、ネイティブ検証は含まれません）。
 
 - `pnpm check`: リント、フォーマット、型検査、テスト、パッケージ境界検証を実施。
 - `pnpm verify:server`: Node アプリ、ブラウザ、CLI の E2E 検証（`HUB_TEST_DATABASE_URL` 設定時に PostgreSQL を使用したアプリ再起動後の復元検証を実行、未設定時は DB 検査をスキップ）。
 - `pnpm verify:packed-server`: ワークスペース外での独立8パッケージ導入と HTTP 配信検証。
+- `pnpm verify:publication-jobs`: Node/PostgreSQL とローカル Workers の公開ジョブフローを検証します。Chromium と専用の使い捨て PostgreSQL が必要です。`HUB_TEST_DATABASE_URL` には他用途と共有しないローカルテスト DB を指定してください。
 
 ```bash
-export HUB_TEST_DATABASE_URL='postgres://USER:PASSWORD@127.0.0.1:5432/DATABASE'
+export HUB_TEST_DATABASE_URL='postgres://USER:PASSWORD@127.0.0.1:5432/hub_jobs'
 pnpm check
 pnpm verify:server
+pnpm verify:publication-jobs
 ```
+
+GitHub Actions の portable job では `verify:server` の後に `verify:publication-jobs` を実行する設定です。ワークフロー定義は成功結果を意味しません。実際のローカル検証状況は [publication-jobs.json](results/publication-jobs.json) を参照してください。
 
 ## 回帰テストと検証
 
@@ -134,7 +139,7 @@ CARGO_BUILD_JOBS=2 cargo test --locked --manifest-path apps/stage/Cargo.toml -p 
 
 ## CI パイプラインと検証記録の扱い
 
-CI のワークフロー定義は [../.github/workflows/checks.yml](../.github/workflows/checks.yml) に記載されており、portable 検証、Rust ビルド、Linux 上の Xvfb を用いたネイティブ検証の順で実行される設定となっています。GitHub Actions 上の実際の実行環境とローカル環境での計測結果は異なるため、本文書では CI が成功したとは記載しません。また、リポジトリ内の `results/final-regression.json` は 2026-10-10 時点のローカル検証スナップショットであり、現在の CI 成功を証明する記録ではありません。
+CI のワークフロー定義は [../.github/workflows/checks.yml](../.github/workflows/checks.yml) に記載されており、portable job 内で `verify:server` と `verify:publication-jobs` の後、Rust ビルド、Linux 上の Xvfb を用いたネイティブ検証を実行する設定です。GitHub Actions 上の実際の実行環境とローカル環境での計測結果は異なるため、本文書では CI が成功したとは記載しません。また、リポジトリ内の `results/final-regression.json` は 2026-10-10 時点のローカル検証スナップショットであり、現在の CI 成功を証明する記録ではありません。
 
 ## 互換用環境変数と実験コードの分離
 

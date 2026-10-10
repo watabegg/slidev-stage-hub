@@ -7,6 +7,8 @@ import Home from './Home.vue';
 
 export { mountNavigation } from './navigation.js';
 export type { MountNavigationOptions } from './navigation.js';
+export { mountJobStatus } from './job-status.js';
+export type { JobStatusClient, MountJobStatusOptions } from './job-status.js';
 
 export interface HubNavigationOptions {
   homeHref?: string;

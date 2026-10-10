@@ -6,12 +6,12 @@ import {
 } from './compiler.js';
 import { WorkerError } from './errors.js';
 import { isRecord, isReleaseManifest, type ReleaseManifest } from './manifest.js';
-import { markDeckIndexed, putArtifacts, putJson, readJson, type ArtifactWrite } from './storage.js';
+import { markDeckIndexed, putImmutableArtifacts, readJson, type ArtifactWrite } from './storage.js';
 import type { HubServerOptions } from './ports.js';
 import { archiveRuntime } from './runtime.js';
 
 const MAX_SLIDES = 100;
-const REVISION_METADATA_VERSION = 'native-click-metadata-v1';
+export const REVISION_METADATA_VERSION = 'native-click-metadata-v1';
 const DEFAULT_THEME = '@slidev/theme-default';
 
 export interface PublishResult {
@@ -20,7 +20,7 @@ export interface PublishResult {
   cached: boolean;
 }
 
-type CompileFunction = (input: CompileDeckInput) => Promise<CompileDeckResult>;
+export type CompileFunction = (input: CompileDeckInput) => Promise<CompileDeckResult>;
 
 export async function publishDeck(
   env: HubServerOptions,
@@ -28,6 +28,34 @@ export async function publishDeck(
   input: unknown,
   compile: CompileFunction = compileDeck,
 ): Promise<PublishResult> {
+  validatePublicationInput(id, input);
+  let generation: string;
+  try {
+    generation = await env.publications.begin(id);
+  } catch {
+    throw new WorkerError(500, 'commit', 'Could not reserve a publication generation');
+  }
+  const { manifest, cached } = await preparePublication(env, id, input, compile);
+  let published: boolean;
+  try {
+    published = await env.publications.commit(id, generation, manifest);
+  } catch {
+    throw new WorkerError(500, 'commit', 'Could not commit publication');
+  }
+  return { manifest, published, cached };
+}
+
+export interface PublicationInput {
+  markdown: string;
+  assets: Record<string, string>;
+}
+export interface PreparationHooks {
+  runtime?: (runtimeId: string | undefined) => Promise<void>;
+  phase?: (phase: 'runtime' | 'compile' | 'store') => Promise<void>;
+  completed?: (phase: 'runtime' | 'compile' | 'store') => Promise<void>;
+  progress?: (completed: number, total: number, unit?: 'slides' | 'objects') => Promise<void>;
+}
+export function validatePublicationInput(id: string, input: unknown): PublicationInput {
   if (!isDeckId(id)) throw new WorkerError(400, 'request', 'Invalid deck id');
   if (!isRecord(input)) throw new WorkerError(400, 'request', 'JSON body must be an object');
   if (typeof input.markdown !== 'string' || !input.markdown.trim()) {
@@ -49,21 +77,26 @@ export async function publishDeck(
   const orderedAssets = Object.fromEntries(
     Object.entries(assets).sort(([left], [right]) => left.localeCompare(right)),
   );
+  return { markdown: input.markdown, assets: orderedAssets };
+}
+export async function preparePublication(
+  env: HubServerOptions,
+  id: string,
+  value: unknown,
+  compile: CompileFunction = compileDeck,
+  hooks: PreparationHooks = {},
+): Promise<{ manifest: ReleaseManifest; cached: boolean }> {
+  const input = validatePublicationInput(id, value);
+  const orderedAssets = input.assets;
   let revision = await calculateRevision(env.profile.digest, input.markdown, orderedAssets);
-
-  let generation: string;
-  try {
-    generation = await env.publications.begin(id);
-  } catch {
-    throw new WorkerError(500, 'commit', 'Could not reserve a publication generation');
-  }
-
+  await hooks.phase?.('runtime');
   let snapshot;
   try {
     snapshot = await env.loadRuntime?.();
   } catch {
     throw new WorkerError(500, 'storage', 'Could not load the publication runtime');
   }
+  await hooks.runtime?.(snapshot?.id);
   if (snapshot !== undefined) {
     snapshot = await archiveRuntime(env, snapshot);
     revision = await calculateRevision(
@@ -73,6 +106,8 @@ export async function publishDeck(
       snapshot.id,
     );
   }
+  await hooks.completed?.('runtime');
+  await hooks.phase?.('compile');
   const prefix = `releases/${id}/${revision}`;
 
   const existing = await readJson(env.artifacts, `${prefix}/manifest.json`);
@@ -89,9 +124,12 @@ export async function publishDeck(
     }
     manifest = existing;
     cached = true;
+    await hooks.completed?.('compile');
+    await hooks.phase?.('store');
   } else {
     const result = await compileForPublication(compile, {
       markdown: input.markdown,
+      onProgress: hooks.progress,
       deckId: id,
       assetBase: `/${prefix}/assets/`,
       ...(snapshot ? { runtimeBase: `/runtimes/${snapshot.id}/_runtime/` } : {}),
@@ -103,7 +141,9 @@ export async function publishDeck(
     validateThemeAndComponents(result, env, themeName);
 
     const artifacts = makeArtifacts(id, revision, prefix, input, orderedAssets, result);
-    await putArtifacts(env.artifacts, artifacts);
+    await hooks.completed?.('compile');
+    await hooks.phase?.('store');
+    await putImmutableArtifacts(env.artifacts, artifacts, hooks.progress);
 
     manifest = {
       id,
@@ -125,20 +165,21 @@ export async function publishDeck(
       runtimeVersion: '53.0.0',
       theme: themeName,
     };
-    await putJson(env.artifacts, `${prefix}/manifest.json`, manifest);
+    await putImmutableArtifacts(env.artifacts, [
+      {
+        key: `${prefix}/manifest.json`,
+        body: JSON.stringify(manifest),
+        options: { contentType: 'application/json' },
+      },
+    ]);
   }
 
   // The index marker is written first: an orphan marker is safe because reads
   // resolve the current manifest through the publication store, while a failed
   // marker write must never advance the current revision.
   await markDeckIndexed(env.artifacts, id);
-  let published: boolean;
-  try {
-    published = await env.publications.commit(id, generation, manifest);
-  } catch {
-    throw new WorkerError(500, 'commit', 'Could not commit publication');
-  }
-  return { manifest, published, cached };
+  await hooks.completed?.('store');
+  return { manifest, cached };
 }
 
 async function compileForPublication(
@@ -159,7 +200,7 @@ function makeArtifacts(
   id: string,
   revision: string,
   prefix: string,
-  input: Record<string, unknown>,
+  input: PublicationInput,
   assets: Record<string, string>,
   result: CompileDeckResult,
 ): ArtifactWrite[] {

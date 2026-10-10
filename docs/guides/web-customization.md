@@ -181,6 +181,25 @@ await buildHub({
 
 ---
 
+## 公開ジョブクライアントと読み取り専用画面
+
+`@slidev-stage-hub/hub/client` は `createPublicationJobClient` を公開し、ジョブの submit、status、list、retry、polling を行います。標準の進捗画面は `@slidev-stage-hub/hub/frontend` の `mountJobStatus` でマウントでき、スタイルは `@slidev-stage-hub/hub/frontend/job-status.css` を明示的に読み込みます。画面は読み取り専用です。
+
+```typescript
+import { createPublicationJobClient } from '@slidev-stage-hub/hub/client';
+import { mountJobStatus } from '@slidev-stage-hub/hub/frontend';
+import '@slidev-stage-hub/hub/frontend/job-status.css';
+
+const client = createPublicationJobClient({ baseUrl: window.location.origin });
+const unmount = mountJobStatus('#job-status', {
+  client,
+  deckId: 'talks/intro',
+  jobId: new URLSearchParams(location.search).get('jobId')!,
+});
+```
+
+CLI が出力する確認リンクには view token が URL fragment に含まれます。標準画面は fetch の前に fragment を取り除き、token を `sessionStorage` に移して、最長 7 日間の該当 job status だけを取得します。リンク自体は capability として秘密に扱ってください。利用例と状態・認証の契約は[公開ジョブガイド](publication-jobs.md)を参照してください。
+
 ## 実行コマンドと構成例
 
 リポジトリ内で提供されているビルドおよび配信コマンドの例です。

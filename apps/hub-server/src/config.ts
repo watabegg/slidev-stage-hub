@@ -7,10 +7,13 @@ import {
   runtimeSnapshotFromManifest,
   type ArtifactStore,
   type PublicationStore,
+  type PublicationJobStore,
+  type HubServerOptions,
 } from '@slidev-stage-hub/server';
 import {
   createFileArtifactStore,
   createMemoryPublicationStore,
+  createMemoryPublicationJobStore,
   createStaticAssets,
 } from '@slidev-stage-hub/adapter-node';
 import { createS3ArtifactStore } from '@slidev-stage-hub/storage-s3';
@@ -18,7 +21,10 @@ import { createGcsArtifactStore } from '@slidev-stage-hub/storage-gcs';
 import {
   createPostgresPublicationStore,
   initializePostgresPublicationStore,
+  createPostgresPublicationJobStore,
+  initializePostgresPublicationJobStore,
 } from '@slidev-stage-hub/state-postgres';
+import { startPublicationJobWorker } from './job-worker.js';
 
 type Environment = Readonly<Record<string, string | undefined>>;
 function required(env: Environment, key: string): string {
@@ -85,30 +91,97 @@ export async function createConfiguredHub(env: Environment = process.env) {
   else throw new Error('HUB_STORAGE must be filesystem, s3 or gcs');
   let publications: PublicationStore;
   let pool: Pool | undefined;
+  let jobs: PublicationJobStore | undefined;
+  let renderer:
+    | Awaited<
+        ReturnType<
+          typeof import('@slidev-stage-hub/renderer-playwright').createPlaywrightThumbnailRenderer
+        >
+      >
+    | undefined;
+  let worker: ReturnType<typeof startPublicationJobWorker> | undefined;
+  const jobsConfigured = env.HUB_JOBS_ENABLED !== undefined;
+  if (jobsConfigured && !['true', 'false'].includes(env.HUB_JOBS_ENABLED!))
+    throw new Error('HUB_JOBS_ENABLED must be true or false');
+  const rendererName = env.HUB_THUMBNAIL_RENDERER ?? 'none';
+  if (!['none', 'playwright'].includes(rendererName))
+    throw new Error('HUB_THUMBNAIL_RENDERER must be none or playwright');
+  let publicOrigin: string | undefined;
+  if (env.HUB_PUBLIC_ORIGIN) {
+    const parsed = new URL(env.HUB_PUBLIC_ORIGIN);
+    if (
+      !['http:', 'https:'].includes(parsed.protocol) ||
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== '/' ||
+      parsed.search ||
+      parsed.hash
+    )
+      throw new Error('HUB_PUBLIC_ORIGIN must be an HTTP(S) origin');
+    publicOrigin = parsed.origin;
+  }
   try {
-    if (state === 'memory') publications = createMemoryPublicationStore();
-    else if (state === 'postgres') {
+    if (state === 'memory') {
+      jobs = jobsConfigured ? createMemoryPublicationJobStore() : undefined;
+      publications = jobs?.publications ?? createMemoryPublicationStore();
+    } else if (state === 'postgres') {
       pool = new Pool({ connectionString: required(env, 'HUB_DATABASE_URL'), max: 5 });
-      if (env.HUB_DATABASE_INIT === 'true') await initializePostgresPublicationStore(pool);
-      publications = createPostgresPublicationStore({ pool });
+      if (env.HUB_DATABASE_INIT === 'true') {
+        if (jobsConfigured) await initializePostgresPublicationJobStore(pool);
+        else await initializePostgresPublicationStore(pool);
+      }
+      jobs = jobsConfigured ? createPostgresPublicationJobStore({ pool }) : undefined;
+      publications = jobs?.publications ?? createPostgresPublicationStore({ pool });
     } else throw new Error('HUB_PUBLICATIONS must be memory or postgres');
-    const server = createHubServer({
+    if (rendererName === 'playwright') {
+      if (!publicOrigin) throw new Error('HUB_PUBLIC_ORIGIN is required for the renderer');
+      const { createPlaywrightThumbnailRenderer } =
+        await import('@slidev-stage-hub/renderer-playwright');
+      renderer = createPlaywrightThumbnailRenderer({
+        executablePath: required(env, 'HUB_CHROMIUM_EXECUTABLE'),
+        publicOrigin,
+      });
+    }
+    const options: HubServerOptions = {
       artifacts,
       publications,
+      onJobEvent: (event) => console.log(JSON.stringify(event)),
       staticAssets: createStaticAssets({ root: staticRoot }),
       profile,
       loadRuntime: async () => runtime,
       publishToken: env.HUB_PUBLISH_TOKEN,
       allowLocalMutations: env.HUB_ALLOW_LOCAL_MUTATIONS === 'true',
-    });
+      ...(jobs ? { jobs, jobsEnabled: env.HUB_JOBS_ENABLED === 'true' } : {}),
+      ...(publicOrigin ? { publicOrigin } : {}),
+      ...(renderer ? { renderThumbnail: renderer.renderThumbnail } : {}),
+    };
+    const server = createHubServer(options);
+    let closing: Promise<void> | undefined;
     return {
       server,
       staticRoot,
-      close: async () => {
-        await pool?.end();
+      startWorker: () => {
+        if (closing) throw new Error('The application is closing');
+        if (worker) throw new Error('A job worker is already running');
+        worker = startPublicationJobWorker(options, {
+          onError: () => console.error(JSON.stringify({ event: 'hub.worker.attempt_failed' })),
+        });
       },
+      close: () =>
+        (closing ??= (async () => {
+          try {
+            await worker?.close();
+          } finally {
+            try {
+              await renderer?.close();
+            } finally {
+              await pool?.end();
+            }
+          }
+        })()),
     };
   } catch (error) {
+    await renderer?.close();
     await pool?.end();
     throw error;
   }

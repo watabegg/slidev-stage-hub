@@ -1,0 +1,32 @@
+{
+  "name": "@slidev-stage-hub/renderer-playwright",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "pnpm build && node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@slidev-stage-hub/server": "workspace:*",
+    "playwright-core": "1.63.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "playwright-chromium": "1.63.0",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=24.15.0"
+  }
+}

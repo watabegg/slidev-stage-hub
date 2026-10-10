@@ -10,6 +10,7 @@ export const serverPackageNames = [
   'storage-s3',
   'storage-gcs',
   'state-postgres',
+  'renderer-playwright',
 ];
 export function packServer(destination) {
   return packPackages(destination, serverPackageNames);

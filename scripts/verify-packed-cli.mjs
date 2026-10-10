@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative, sep } from 'node:path';
@@ -58,6 +59,38 @@ try {
   await cli('stage', ['--version']);
   await cli('hub', ['publish'], 2);
   await cli('stage', ['prepare', '--unknown-option'], 2);
+  const jobsFixture = createServer((request, response) => {
+    response.setHeader('content-type', 'application/json');
+    if (request.url === '/api/capabilities') {
+      response.end(
+        JSON.stringify({
+          schemaVersion: 1,
+          publicationJobs: { enabled: true, pollAfterMs: 2000 },
+          thumbnail: { available: false },
+          limits: { requestBytes: 524288, maxSlides: 100 },
+        }),
+      );
+    } else if (request.url?.startsWith('/api/decks/packed/jobs?')) {
+      response.end(JSON.stringify({ schemaVersion: 1, items: [] }));
+    } else response.writeHead(404).end();
+  });
+  await new Promise((resolve, reject) => {
+    jobsFixture.once('error', reject);
+    jobsFixture.listen(0, '127.0.0.1', resolve);
+  });
+  try {
+    const jobsOrigin = 'http://127.0.0.1:' + jobsFixture.address().port;
+    const remote = join(project, 'packed.remote.json');
+    await cli('hub', ['init', '--origin', jobsOrigin, '--remote-config', remote]);
+    await cli('hub', ['doctor', '--remote-config', remote]);
+    await cli('hub', ['jobs', 'list', '--id', 'packed', '--remote-config', remote]);
+    checks.push('packed remote profile, doctor and publication job client run outside workspace');
+  } finally {
+    await new Promise((resolve) => {
+      jobsFixture.close(resolve);
+      jobsFixture.closeAllConnections();
+    });
+  }
   await writeFile(
     join(project, 'slides/demo/slides.md'),
     '---\ntheme: default\ntitle: Packed CLI\nfonts:\n  webfonts: []\n  sans: Arial\n  mono: monospace\n---\n\n# Packed CLI\n\n<!-- PRIVATE_NOTE_PACKED -->\n\n---\n\n# Second page\n',
@@ -140,7 +173,8 @@ try {
       '--eval',
       `
     delete globalThis.window; delete globalThis.document; delete globalThis.fetch;
-    const { getCatalog } = await import('@slidev-stage-hub/hub/client');
+    const { getCatalog, createPublicationJobClient } = await import('@slidev-stage-hub/hub/client');
+    if (typeof createPublicationJobClient !== 'function') throw new Error('Missing publication client export');
     const value = await getCatalog({ load: async () => ({ schemaVersion: 1, decks: [], categories: [] }) });
     if (value.decks.length !== 0) throw new Error('Unexpected catalog');
   `,

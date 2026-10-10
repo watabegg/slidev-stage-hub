@@ -85,6 +85,7 @@ HUB_ALLOW_LOCAL_MUTATIONS=true pnpm dev:server
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): 開発および検証の手順
 - [docs/DECISIONS.md](docs/DECISIONS.md): 設計方針と採択理由
 - [docs/guides/cli.md](docs/guides/cli.md): CLI の利用方法と導入手順
+- [docs/guides/publication-jobs.md](docs/guides/publication-jobs.md): CLI からの非同期公開、ジョブ運用、確認リンク
 - [docs/guides/web-customization.md](docs/guides/web-customization.md): Web 画面の差し替え手順
 - [docs/guides/workers.md](docs/guides/workers.md): Worker のローカル検証と公開 API
 - [docs/guides/hub-service.md](docs/guides/hub-service.md): Hub サービスの API 詳細

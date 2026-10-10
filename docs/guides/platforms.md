@@ -41,7 +41,7 @@ Node.js 環境上で手軽にサーバーを起動し、CLI からスライド�
 
 2. ローカルでの変更操作を許可して開発サーバーを起動します。
    ```bash
-   HUB_ALLOW_LOCAL_MUTATIONS=true pnpm dev:server
+   HUB_ALLOW_LOCAL_MUTATIONS=true HUB_JOBS_ENABLED=true pnpm dev:server
    ```
    サーバーはデフォルトで `127.0.0.1:4180` で待機します。
 
@@ -52,7 +52,7 @@ Node.js 環境上で手軽にサーバーを起動し、CLI からスライド�
 
 ### ローカル起動時の挙動と留意事項
 
-- ローカルのデフォルト構成では、インメモリ配信ストア（`HUB_PUBLICATIONS=memory`）とファイルシステム成果物保存（`HUB_STORAGE=filesystem`）が使用されます。
+- ローカルのデフォルト構成では、インメモリ配信ストア（`HUB_PUBLICATIONS=memory`）とファイルシステム成果物保存（`HUB_STORAGE=filesystem`）が使用されます。上記の `HUB_JOBS_ENABLED=true` はジョブ受付を明示的に有効にし、インメモリ構成では API と同一 Node プロセス内に開発用 worker を起動します。再起動後も残るジョブ処理には PostgreSQL 構成を使用してください。
 - サーバーを再起動すると、インメモリに保持されていた配信ポインタ（`current`）は失われますが、ファイルシステム上の成果物実体（`artifacts/hub-server/objects` 配下）は残存します。
 - `HUB_ALLOW_LOCAL_MUTATIONS=true` は、公開トークン未設定かつループバック接続時に限って変更操作を許可する開発向けのフラグです。本番環境（`NODE_ENV=production`）では本フラグ自体が自動で無効化されるのではなく、ファイルシステム保存やインメモリ配信ストアの利用自体が起動時に拒否されます。
 - 認証が必要な環境に対して CLI から配信を行う場合は、パーミッション `0600` の設定ファイル（`--headers-file`）を介して Bearer トークンを渡してください。詳細は [cli.md](cli.md) を参照してください。
@@ -77,6 +77,10 @@ Node.js 環境上で手軽にサーバーを起動し、CLI からスライド�
 | `HUB_PUBLICATIONS` | `memory` | `memory` / `postgres` | 配信状態ストアのドライバー |
 | `HUB_DATABASE_URL` | なし | 接続 URL 文字列 | `postgres` 利用時に必須となる PostgreSQL 接続文字列 |
 | `HUB_DATABASE_INIT` | なし | `true` / `false` | `true` の場合、サーバー起動時にテーブル初期化を実行します（リクエストごとではありません）。未指定または `false` の場合は初期化を行いません |
+| `HUB_JOBS_ENABLED` | 未設定 | `true` / `false` | 設定するとジョブストアを構成します。`true` は新規受付を有効化し、`false` は新規受付を止めつつ設定済みストアを worker が読み取り、既存ジョブを drain できるようにします |
+| `HUB_THUMBNAIL_RENDERER` | `none` | `none` / `playwright` | Node の自動サムネイル生成は既定で無効です。`playwright` の場合は Chromium 実行ファイルと `HUB_PUBLIC_ORIGIN` も必要です |
+| `HUB_CHROMIUM_EXECUTABLE` | なし | 実行ファイルパス | Playwright renderer が起動する Chromium の明示的なパス |
+| `HUB_PUBLIC_ORIGIN` | なし | HTTP(S) origin | 任意 renderer が接続するスライドの origin。`playwright` 使用時は必須で、API リクエストから推測しません |
 | `HUB_PUBLISH_TOKEN` | なし | 文字列 | 設定時、Bearer トークンによる変更操作（mutation）を有効化 |
 | `HUB_ALLOW_LOCAL_MUTATIONS` | なし | `true` / `false` | 正確に `true` かつループバック通信、トークン未設定の場合のみ有効 |
 
@@ -95,7 +99,7 @@ PostgreSQL ストアでは、デッキ単位の最新マニフェストと世代
 - **`commit`（配信確定）**: 直前の `begin` で発行された最新トークンと合致する場合に限り、条件付き UPDATE を実行して `current_manifest` を更新します。同一の最新トークンを用いた再コミットは許容されます。
 - **競合調停規則（latest-begin-wins）**: 最新の `begin` が常に優先されます。新しく開始された `begin` が正常に発行された後に公開処理が失敗した場合、その新しい世代によってそれ以前の古いトークンは無効化されます。一方で、データベース接続失敗などでストレージ更新に至らず失敗した `begin` は、既存のトークンを無効化しません。
 - **障害時の保護**: 処理の失敗時や HTTP 409 競合が発生した場合も、既存の `current` 状態は保護されます。
-- **設計境界**: デッキをまたぐグローバルトランザクション、オブジェクトストレージの CAS（Compare-And-Swap）による配信ドライバー、キューによる非同期再試行機構は存在しません。
+- **設計境界**: デッキをまたぐグローバルトランザクション、オブジェクトストレージの CAS（Compare-And-Swap）による配信ドライバー、外部 broker の導入は行いません。PostgreSQL では公開状態と公開ジョブを同じトランザクションで更新し、worker は `SKIP LOCKED` によるポーリングで処理します。
 
 ### データベーススキーマ
 
@@ -106,6 +110,8 @@ CREATE TABLE IF NOT EXISTS hub_publications (
   current_manifest jsonb
 );
 ```
+
+公開ジョブを有効にする場合は `HUB_JOBS_ENABLED=true` を設定し、既存の `hub_publications` テーブルを用意した上で、デプロイ前に追加 migration `packages/state-postgres/migrations/002-publication-jobs.sql` を適用します。PostgreSQL 構成では API（`node dist/start.js`）と worker（`node dist/worker.js`）を別プロセスで起動し、同じ DB と ArtifactStore を使います。worker の既定並列数は 2 です。`HUB_JOBS_ENABLED=false` は新規受付を止めても job store を構成したままにし、worker は既存ジョブを drain できます。ローカル memory は再起動でジョブ状態が失われるため開発用です。詳細は[公開ジョブガイド](publication-jobs.md)を参照してください。
 
 ## コンテナ環境とデプロイ用テンプレート
 
@@ -130,6 +136,8 @@ docker compose -f apps/hub-server/deploy/compose.yaml up --build
 
 - 開発用構成（`HUB_STORAGE=filesystem` + PostgreSQL）で動作し、`localhost:8080` で待機します。
 - テスト用の固定トークン `local-dev-only-publish-token` が設定されており、CLI からの接続には `--headers-file` による認証が必要です。この固定認証情報を本番環境で使用してはなりません。なお、今回の開発工程では構文確認のみを行っており、Docker Compose プラグインによる実起動テストは未実行です。
+- API と `node dist/worker.js` は別サービスで同じ PostgreSQL と成果物 volume を使います。両方に `HUB_JOBS_ENABLED` を設定し、`HUB_JOBS_ENABLED=false` に切り替えると新規受付を止めて worker の drain を続けられます。
+- Compose は `HUB_THUMBNAIL_RENDERER=none` を既定とします。任意で Playwright を使う場合は `HUB_INSTALL_CHROMIUM=true` でイメージをビルドし、`HUB_THUMBNAIL_RENDERER=playwright` を設定します。イメージの build は browser を自動ダウンロードせず、Compose の API はクライアント向け localhost origin、renderer worker は内部 `http://hub:8080` origin を使います。
 
 ### クラウドデプロイ用テンプレート
 
@@ -138,9 +146,9 @@ docker compose -f apps/hub-server/deploy/compose.yaml up --build
 - **AWS ECS Fargate向け**: `apps/hub-server/deploy/aws-ecs-task-definition.template.json`（ECS Fargate + S3 + PostgreSQL）
 - **Google Cloud Run向け**: `apps/hub-server/deploy/gcp-cloud-run-service.template.yaml`（Cloud Run + GCS + PostgreSQL）
 
-`apps/hub-server/deploy/aws-ecs-task-definition.template.json` および `apps/hub-server/deploy/gcp-cloud-run-service.template.yaml` は、リソースをプロビジョニングするコマンドではなく参照用の設定テンプレートであるため、含まれるすべての `REPLACE_*` プレースホルダーを運用者の実際の値に置き換える必要があります。また、クラウド環境の自動構築には対応しておらず、実際の AWS や GCP における受け入れ検証、デプロイ、IAM やネットワークの設定検証は実施されていないため、利用側で既存のバケット、接続可能な PostgreSQL データベース、実行・サービスアカウントの IAM 権限、シークレット連携、ネットワーク設定、イメージレジストリとイメージを事前に準備し、デプロイ前にテーブル初期化を完了しておく必要があります。
+`apps/hub-server/deploy/aws-ecs-task-definition.template.json` および `apps/hub-server/deploy/gcp-cloud-run-service.template.yaml` は、リソースをプロビジョニングするコマンドではなく参照用の設定テンプレートであるため、含まれるすべての `REPLACE_*` プレースホルダーを運用者の実際の値に置き換える必要があります。テンプレートは PostgreSQL の API と別 worker を `HUB_PUBLICATIONS=postgres`、`HUB_JOBS_ENABLED=true` で構成し、両方に同じ database と ArtifactStore の設定を渡します。`HUB_DATABASE_INIT=false` のため、既存の `hub_publications` テーブルを用意した上で追加 migration `packages/state-postgres/migrations/002-publication-jobs.sql` をデプロイ前に適用してください。また、実際の AWS/GCP 受け入れ検証、デプロイ、IAM やネットワークの設定検証は実施されていないため、利用側で既存の bucket、接続可能な PostgreSQL database、実行・サービスアカウントの IAM 権限、シークレット連携、ネットワーク設定、イメージレジストリとイメージを事前に準備してください。
 
-いずれのテンプレートも `HUB_DATABASE_INIT` は明示的に `false` と設定されており、デプロイ前にテーブルが作成されていることを前提とします。認証情報はテンプレートやイメージ内に含めず、各種シークレット管理サービスから注入してください。テンプレート単体でのデプロイコマンドや実環境での展開テストは提供されていません。
+いずれのテンプレートも `HUB_DATABASE_INIT=false`、`HUB_THUMBNAIL_RENDERER=none` を設定しています。レンダラーを有効にする場合は Chromium を明示的に含むイメージをビルドして `HUB_THUMBNAIL_RENDERER=playwright`、`HUB_CHROMIUM_EXECUTABLE`、`HUB_PUBLIC_ORIGIN` を構成してください。Playwright のインストールはブラウザを自動ダウンロードしません。認証情報はテンプレートやイメージ内に含めず、各種シークレット管理サービスから注入してください。テンプレート単体でのデプロイコマンドや実環境での展開テストは提供されていません。
 
 ## プライベートtarballパッケージの利用
 
@@ -151,7 +159,7 @@ docker compose -f apps/hub-server/deploy/compose.yaml up --build
 ```bash
 pnpm pack:server
 ```
-出力先 `artifacts/server-package/` には、`package.json`、`pnpm-workspace.yaml`、および `tarballs/` ディレクトリ配下に8つのパッケージ（`protocol`、`slidev-adapter`、`server`、`adapter-cloudflare`、`adapter-node`、`storage-s3`、`storage-gcs`、`state-postgres`）が生成されます。
+出力先 `artifacts/server-package/` には、`package.json`、`pnpm-workspace.yaml`、および `tarballs/` ディレクトリ配下に9つのパッケージ（`protocol`、`slidev-adapter`、`server`、`adapter-cloudflare`、`adapter-node`、`storage-s3`、`storage-gcs`、`state-postgres`、`renderer-playwright`）が生成されます。
 
 ### パッケージの制約と導入手順
 
@@ -172,8 +180,11 @@ pnpm pack:server
 中核ロジックの契約および制限事項の概要は以下のとおりです（詳細な背景は [../DECISIONS.md](../DECISIONS.md) を参照）。
 
 - **HTTP エンドポイント**: `/catalog.json`（カタログ v1、カーソル対応）、`/native-player.json`（再生方式として `revision` クエリパラメータ指定を案内するネイティブプレイヤー文書 v2）、`/api/catalog`（レガシー）、`/api/decks/:id`（GET/POST、リビジョン指定対応）、`/api/thumbnail/:id`（PUT/POST）、`/releases/...`（不変アセット配信）。デッキドキュメントの GET/HEAD 要求は `revision` クエリを保持して固定済みリビジョンではアーカイブ済み HTML、旧形式では `/index.html` を取得して返却し、外部リダイレクトは行いません。存在しない API 等への SPA フォールバックは行いません。
+- **公開ジョブ API**: `GET /api/capabilities`、`POST /api/jobs`、status、deck jobs list、retry を提供します。submit は CLI からの HTTP リクエストで受け付け、直接オブジェクトストレージへのアップロードや通知 webhook は使いません。状態遷移と運用は[公開ジョブガイド](publication-jobs.md)を参照してください。
 - **コンパイラ制約**: JSON 本文上限 512 KiB、スライド数最大 100 枚（Cloudflare / Node.js 共通）。テキスト形式（`.svg`, `.txt`, `.css`）アセットのみを扱い、任意のスクリプト実行や include は禁止。テーマ等は事前ビルドで固定し、発表者ノートは非公開ストレージにのみ保持されます。
-- **サムネイル生成の環境差分**: Cloudflare Workers では `BROWSER` バインディング設定時のみ Browser Rendering（quickAction）による自動生成が利用可能です。Node.js リファレンス環境は動的レンダリング機能を持たないため、`POST /api/thumbnail/:id` は既存画像がキャッシュされていれば 200 を返しますが、未生成画像に対しては 503 を返します（1200×675、4 MiB 以下の有効な PNG による直接 `PUT` 登録、またはローカルアップローダーを使用）。なお、ライブラリの呼び出し元は `renderThumbnail` を注入可能です。
+- **サムネイル生成の環境差分**: Cloudflare Workers の自動生成には Browser Rendering の `BROWSER` バインディングと Wrangler 変数 `PUBLIC_ORIGIN` の両方が必要で、どちらかがなければ生成結果は利用不可になります。Node.js リファレンス環境では `HUB_THUMBNAIL_RENDERER=playwright`、Chromium 実行ファイル、`HUB_PUBLIC_ORIGIN` を明示した場合に自動生成を利用できます。どちらも renderer がない場合、`POST /api/thumbnail/:id` は画像がキャッシュ済みなら利用できますが、未生成画像では 503 を返します。レンダラーを使わない場合も、1200×675・4 MiB 以下の有効な PNG を直接 `PUT` 登録できます。ライブラリ利用側は `renderThumbnail` を注入できます。
+
+Hub のカスタムサーバーは `HubServerOptions.onJobEvent` に telemetry callback を渡せます。イベントには phase、attempt、queue age、duration、status、error code が含まれ、Node.js / Cloudflare の参照アダプターは機密内容を含めず JSON として記録します。
 
 ## 検証状況とスコープ・制約事項
 
@@ -188,7 +199,7 @@ pnpm pack:server
 
 ### 運用上の制約とスコープ外事項
 
-- **スコープ外の機能**: npm レジストリへのパッケージ公開、汎用バイナリ配布、DynamoDB / Firestore や AWS Lambda / API Gateway 向けアダプター、オブジェクトストレージ CAS による配信ドライバー、キューによる非同期再試行機構は対象外です。
+- **スコープ外の機能**: npm レジストリへのパッケージ公開、汎用バイナリ配布、DynamoDB / Firestore や AWS Lambda / API Gateway 向けアダプター、オブジェクトストレージ CAS による配信ドライバー、外部メッセージブローカーとの統合は対象外です。公開ジョブとその有界再試行については[公開ジョブガイド](publication-jobs.md)を参照してください。
 
 ## ランタイムの固定と保持
 

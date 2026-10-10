@@ -15,19 +15,28 @@ try {
     join(destination, 'verify.mjs'),
     `
 import assert from 'node:assert/strict';
-import { createHubServer } from '@slidev-stage-hub/server';
-import { createFileArtifactStore, createMemoryPublicationStore, startHubServer } from '@slidev-stage-hub/adapter-node';
+import { createHubServer, runPublicationJob } from '@slidev-stage-hub/server';
+import { createFileArtifactStore, createMemoryPublicationJobStore, startHubServer } from '@slidev-stage-hub/adapter-node';
 import { createS3ArtifactStore } from '@slidev-stage-hub/storage-s3';
 import { createGcsArtifactStore } from '@slidev-stage-hub/storage-gcs';
 import { createPostgresPublicationStore } from '@slidev-stage-hub/state-postgres';
+import { createPlaywrightThumbnailRenderer } from '@slidev-stage-hub/renderer-playwright';
 import { createCloudflareOptions } from '@slidev-stage-hub/adapter-cloudflare';
-for (const factory of [createS3ArtifactStore,createGcsArtifactStore,createPostgresPublicationStore,createCloudflareOptions]) assert.equal(typeof factory,'function');
-const server=createHubServer({artifacts:createFileArtifactStore({root:'./objects'}),publications:createMemoryPublicationStore(),staticAssets:{fetch:async()=>new Response('static')},profile:{digest:'packed-profile'},allowLocalMutations:true});
+for (const factory of [createS3ArtifactStore,createGcsArtifactStore,createPostgresPublicationStore,createCloudflareOptions,createPlaywrightThumbnailRenderer]) assert.equal(typeof factory,'function');
+const jobs=createMemoryPublicationJobStore();
+const options={artifacts:createFileArtifactStore({root:'./objects'}),publications:jobs.publications,jobs,staticAssets:{fetch:async()=>new Response('static')},profile:{digest:'packed-profile'},allowLocalMutations:true};
+const server=createHubServer(options);
 const http=await startHubServer({server,port:0});
 try {
 const response=await fetch(http.origin+'/api/decks/packed',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({markdown:'# Packed server'})});
 assert.equal(response.status,200,await response.clone().text());
 const manifest=await response.json(); assert.ok(manifest.published); assert.equal((await fetch(http.origin+manifest.slides[0].module)).status,200);
+const jobId=crypto.randomUUID();
+const accepted=await fetch(http.origin+'/api/jobs',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jobId,deckId:'packed',markdown:'# Packed job',thumbnail:'none',viewToken:'A'.repeat(43)})});
+assert.equal(accepted.status,202,await accepted.clone().text());
+assert.equal(await runPublicationJob(options),true);
+const status=await fetch(http.origin+'/api/jobs/'+jobId+'?deckId=packed');
+assert.equal(status.status,200); assert.equal((await status.json()).job.status,'succeeded');
 } finally {await http.close();}
 console.log('Packed server publication passed');
 `,

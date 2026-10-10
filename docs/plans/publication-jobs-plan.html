@@ -1,0 +1,3916 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>公開ジョブ・進捗確認の実装計画</title>
+    <style>
+      :root{
+        --bg:#FAFAF7;--surface:#FFF;--ink:#20242E;--ink2:#5A6372;
+        --accent:#31567F;--accent-soft:#EAF0F6;--border:#E2E3DE;
+        --code-bg:#EFF1F3;--ok:#2E7D4F;--warn:#A8741A;--bad:#B03A2E;
+      }
+      @media (prefers-color-scheme: dark){
+        :root{--bg:#15181D;--surface:#1C2026;--ink:#E4E6E9;--ink2:#9AA3AF;
+        --accent:#8AAED6;--accent-soft:#243244;--border:#2C313A;
+        --code-bg:#262B33;--ok:#6FBF8F;--warn:#D2A24C;--bad:#E08578;}
+      }
+      *{box-sizing:border-box}
+      body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic Medium",sans-serif;
+        background:var(--bg);color:var(--ink);line-height:1.8;margin:0;font-feature-settings:"palt"}
+      main{max-width:900px;margin:0 auto;padding:40px 24px 80px}
+      h1{font-size:1.5rem;line-height:1.5;margin:.2em 0}
+      h2{font-size:1.2rem;margin:2.2em 0 .6em;padding-top:1em;border-top:1px solid var(--border)}
+      h3{font-size:1.02rem;margin:1.6em 0 .4em}
+      a{color:var(--accent)}
+      code{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:.84em;
+        background:var(--code-bg);padding:.1em .35em;border-radius:3px;word-break:break-all}
+      pre{background:var(--code-bg);padding:12px 16px;overflow-x:auto;font-size:.84rem;line-height:1.6}
+      pre code{background:none;padding:0}
+      pre.mermaid{background:var(--surface);border:1px solid var(--border)}
+      .tablewrap{overflow-x:auto;margin:.8em 0;border:1px solid var(--border)}
+      table{border-collapse:collapse;width:100%;font-size:.87rem}
+      th{text-align:left;font-size:.78rem;color:var(--ink2);background:var(--surface);
+        padding:7px 11px;border-bottom:2px solid var(--border);white-space:nowrap}
+      td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:top;background:var(--surface)}
+      tr:last-child td{border-bottom:none}
+      .meta{color:var(--ink2);font-size:.83rem}
+      .toc{background:var(--surface);border:1px solid var(--border);padding:10px 20px;font-size:.9rem;margin:16px 0;columns:2}
+      .toc a{text-decoration:none}
+      .progress{height:8px;background:var(--code-bg);border-radius:4px;overflow:hidden;margin:6px 0}
+      .progress>div{height:100%;background:var(--ok);width:0%}
+      ul.tasks{padding-left:1.2em}
+      li.task{list-style:none;margin-left:-1.2em}
+      li.task input{accent-color:var(--accent);margin-right:.4em}
+      li.task.done{color:var(--ink2);text-decoration:line-through}
+      .note{font-size:.8rem;color:var(--ink2)}
+      .gate{background:var(--accent-soft);border-left:3px solid var(--accent);padding:8px 14px;margin:.6em 0;font-size:.9rem}
+      @media (max-width:640px){main{padding:24px 14px 60px}.toc{columns:1}}
+
+      /* PR俯瞰レポートと共通の情報設計 */
+      .layout{display:grid;grid-template-columns:232px minmax(0,1fr);gap:28px;max-width:1360px;margin:0 auto;padding:28px 24px 80px}
+      aside{position:sticky;top:28px;align-self:start;max-height:calc(100vh - 56px);overflow:auto;font-size:13px}
+      .brand{margin:4px 0 14px;color:var(--ink2);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+      .toc{margin:0;padding:0;border:0;background:transparent;columns:1}.toc>strong{display:none}.toc ol{margin:0;padding:0;list-style:none}
+      .toc a{display:block;margin:1px 0;padding:5px 10px;border-left:2px solid transparent;border-radius:6px;color:var(--ink2)}
+      .toc a:hover,.toc a.active{background:var(--accent-soft);color:var(--accent)}
+      .sidemeta{margin-top:18px;padding-top:12px;border-top:1px solid var(--border);color:var(--ink2);font-size:11.5px}
+      main{min-width:0;max-width:1040px;margin:0;padding:0}
+      header.hero,section{padding:24px 28px;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+      section{margin-top:20px}header.hero h1{margin:0 0 10px;font-size:1.55rem}
+      section>h2{margin:0 0 14px;padding:0 0 10px;border-top:0;border-bottom:1px solid var(--border);font-size:1.08rem}
+      .tablewrap{border-radius:10px}.diagram-card{margin:12px 0;padding:16px;overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+      .screen-redline{display:grid;grid-template-columns:minmax(280px,1.25fr) minmax(240px,.75fr);gap:16px;align-items:start;margin:16px 0}
+      .shot{margin:0}.shot-stage{position:relative;overflow:hidden;border:1px solid var(--border);border-radius:10px;background:var(--code-bg)}
+      .shot-stage img{display:block;width:100%;height:auto}.shot figcaption{margin-top:6px;color:var(--ink2);font-size:.75rem}
+      .redbox{position:absolute;border:3px solid var(--bad);border-radius:8px;background:color-mix(in srgb,var(--bad) 7%,transparent);box-shadow:0 0 0 2px rgba(255,255,255,.82)}
+      .pin{position:absolute;display:grid;width:26px;height:26px;place-items:center;border:2px solid #fff;border-radius:50%;background:var(--bad);color:#fff;font-size:.78rem;font-weight:800;box-shadow:0 2px 7px rgba(0,0,0,.28)}
+      .annotation-list{margin:0;padding:0;list-style:none;counter-reset:annotation}.annotation-list li{position:relative;margin:0 0 10px;padding:10px 12px 10px 42px;border:1px solid var(--border);border-radius:9px;background:var(--bg)}
+      .annotation-list li::before{counter-increment:annotation;content:counter(annotation);position:absolute;left:10px;top:10px;display:grid;width:22px;height:22px;place-items:center;border-radius:50%;background:var(--bad);color:#fff;font-size:.72rem;font-weight:800}
+      .annotation-list strong,.annotation-list span{display:block}.annotation-list span{margin-top:3px;color:var(--ink2);font-size:.82rem}
+      .step-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}.step-no{display:grid;flex:0 0 30px;width:30px;height:30px;place-items:center;border-radius:8px;background:var(--accent);color:#fff;font-weight:800}
+      .step-layer{padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:.7rem;font-weight:700;text-transform:uppercase}
+      .problem-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+      .problem-card{padding:15px 16px;border:1px solid var(--border);border-radius:10px;background:var(--bg)}
+      .problem-card.asis{border-top:4px solid var(--bad)}.problem-card.tobe{border-top:4px solid var(--ok)}
+      .problem-card h3{margin:0 0 8px}.state-label{display:inline-block;margin-bottom:8px;padding:2px 9px;border-radius:999px;font-size:.7rem;font-weight:800;letter-spacing:.06em}
+      .asis .state-label{background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--bad)}
+      .tobe .state-label{background:color-mix(in srgb,var(--ok) 12%,transparent);color:var(--ok)}
+      .implementation-step{margin:16px 0;padding:18px;border:1px solid var(--border);border-radius:12px;background:var(--bg)}
+      .implementation-step .step-head{padding-bottom:12px;border-bottom:1px solid var(--border)}
+      .implementation-step h3{margin:0}.implementation-step h4{margin:16px 0 7px;font-size:.9rem}
+      .step-purpose{margin:0 0 12px;color:var(--ink2)}.step-gate{margin-top:14px;padding:10px 12px;border-left:3px solid var(--accent);background:var(--accent-soft);font-size:.86rem}
+      @media (max-width:980px){.layout{display:block;padding:16px 12px 60px}aside{position:static;max-height:none;margin-bottom:16px}
+        .toc ol{display:flex;flex-wrap:wrap;gap:4px}.toc a{padding:3px 12px;border:1px solid var(--border);border-radius:999px}
+        .sidemeta{display:none}header.hero,section{padding:16px}.screen-redline,.problem-grid{grid-template-columns:1fr}}
+      @media print{body{background:#fff}.layout{display:block;max-width:none;padding:0}aside{display:none!important}
+        header.hero,section{box-shadow:none;break-inside:avoid;border-right:0;border-left:0;border-radius:0}}
+      .chip{background:var(--accent-soft);border-radius:10px;padding:12px}.chip .n{font-size:24px;font-weight:700}.chip .l{font-size:12px}@media(max-width:640px){aside{max-height:170px;overflow:auto}}pre.mermaid{white-space:pre;min-height:40px}article.step{margin:20px 0;padding:18px;border:1px solid var(--border);border-radius:10px}p,li,td{overflow-wrap:anywhere}svg{max-width:100%}.chips{display:grid;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr))} @media(max-width:640px){.chips{grid-template-columns:repeat(2,minmax(0,1fr))}header.hero,section{padding:20px 16px}}
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside>
+        <div class="brand">Implementation Plan</div>
+        <nav class="toc" id="toc">
+          <ol>
+            <li><a href="#purpose">目的とスコープ</a></li>
+            <li><a href="#current">現状のアーキテクチャと制約</a></li>
+            <li><a href="#problem">課題と解決の方向性</a></li>
+            <li><a href="#design">アーキテクチャ決定と設計方針</a></li>
+            <li><a href="#screens">画面仕様と表示契約</a></li>
+            <li><a href="#api">公開API仕様とデータ契約</a></li>
+            <li><a href="#db">データベース設計と永続化モデル</a></li>
+            <li><a href="#states">ジョブのライフサイクルと状態遷移</a></li>
+            <li><a href="#files">変更ファイル一覧</a></li>
+            <li><a href="#steps">実装ステップと品質ゲート</a></li>
+            <li><a href="#tests">振る舞い検証計画（tests）</a></li>
+            <li><a href="#crosscutting">横断的関心事とセキュリティ（crosscutting）</a></li>
+            <li><a href="#rollout">段階的移行とロールアウト（rollout）</a></li>
+            <li><a href="#risks">運用リスクと技術的対策（risks）</a></li>
+            <li><a href="#unclear">前提条件と未決定事項（unclear）</a></li>
+            <li><a href="#todo">実装タスク一覧（todo）</a></li>
+            <li><a href="#dod">完了の定義（dod）</a></li>
+            <li><a href="#research">調査実績とベースライン（research）</a></li>
+            <li><a href="#gates">品質判定ゲート一覧（gates）</a></li>
+          </ol>
+        </nav>
+        <div class="sidemeta">publication-jobs<br />main@2d96e53</div>
+      </aside>
+      <main>
+        <header class="hero">
+          <h1>公開ジョブ・CLI・進捗確認の実装計画</h1>
+          <p class="meta">
+            2026-10-10 · base: main@2d96e53 · 承認済み計画／全7ステップ実装・ローカル検証完了<br />進捗台帳:
+            <a href="publication-jobs-todo.md">publication-jobs-todo.md</a> ·
+            <a href="publication-jobs-assets/mock/job-status-mock.html"
+              >Webモック（2026-10-10 承認済み）</a
+            ><br />初版: CLI導入・非同期公開・サムネイル自動生成・読み取り専用の進捗確認
+          </p>
+          <div class="chips">
+            <div class="chip">
+              <div class="n">7</div>
+              <div class="l">実装 Step</div>
+            </div>
+            <div class="chip">
+              <div class="n">2</div>
+              <div class="l">実行基盤 DO / Node</div>
+            </div>
+            <div class="chip">
+              <div class="n">2</div>
+              <div class="l">未確定事項</div>
+            </div>
+            <div class="chip">
+              <div class="n">0</div>
+              <div class="l">実クラウド操作</div>
+            </div>
+          </div>
+          <div id="todo-progress"></div>
+        </header>
+        <section>
+          <h2 id="purpose">目的とスコープ</h2>
+          <p>
+            本計画は、スライド公開基盤におけるコマンドラインツール（CLI）からの公開操作とサムネイル画像生成を非同期ジョブとして再設計し、実行中の進捗確認と障害時の再試行を確実に行えるアーキテクチャへの刷新を目的とする。現行の同期的公開処理で生じている接続切断時の状態追跡不能や、手動実行への依存による画像生成の欠落を解消し、Cloudflare
+            WorkersおよびNode.js環境の双方で特定のクラウドサービスに過度に依存しない、移植性の高い実行基盤を確立する。
+          </p>
+          <h4>ユーザー要求の要約と境界</h4>
+          <p>
+            本変更の主眼は、CLI操作の一貫性確保、非同期公開およびサムネイル自動生成の安全な連鎖、ならびにCLIとWebブラウザの双方で閲覧できる耐障害性の高い進捗通知の提供にある。
+          </p>
+          <pre><code>[入力: CLI publish 要求] ---&gt; (非同期受付 /api/jobs) ---&gt; [出力: 永続ジョブID + 閲覧専用URL]
+                                    |
+                                    v (段階的実行)
+                             [成果物公開] ---&gt; [自動サムネイル生成]
+</code></pre>
+          <ul>
+            <li>
+              <strong>スコープ内（In scope）</strong>:
+              <ul>
+                <li>
+                  CLIのリモート接続プロファイル管理（<code>hub.remote.json</code>）、初期化コマンド（<code
+                    >hub init</code
+                  >）、設定診断（<code>hub doctor</code>）、およびジョブ管理サブコマンド（<code
+                    >hub jobs status/watch/list/retry</code
+                  >）の新設。
+                </li>
+                <li>
+                  状態遷移と進行フェーズの監視を司るコアジョブランナーの新設、およびコンパイルと成果物保存を担う
+                  <code>preparePublication</code> 関数の分離抽出。
+                </li>
+                <li>
+                  Cloudflare Durable Objects（DO SQLite +
+                  アラーム機能）およびPostgreSQL（行ロックポーリング）による永続的実行エンジン。
+                </li>
+                <li>
+                  Cloudflare Browser
+                  Rendering（Binding検出時）およびNode.js環境でのPlaywrightを用いたサムネイル自動生成。
+                </li>
+                <li>
+                  閲覧専用トークン（capability
+                  token）により特定ジョブのみを照会できる読み取り専用Web確認画面（<code>/_hub/jobs</code>）と、Vueに依存しないヘッドレスクライアントライブラリの提供。
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>スコープ外（Out scope）</strong>:
+              <ul>
+                <li>
+                  Cloudflare R2、AWS S3、Google Cloud
+                  Storage等のオブジェクトストレージによる直接アップロード通知（Object
+                  Notifications）の導入。
+                </li>
+                <li>
+                  全テナントや全ジョブを横断管理する管理者用ログイン画面および管理コンソール。
+                </li>
+                <li>Webブラウザ上でのスライド編集や直接ファイルアップロード機能。</li>
+                <li>
+                  実行中ジョブの取り消し（cancel）、過去リビジョンの削除、および公開取り消し（ロールバック）。
+                </li>
+                <li>Server-Sent Events（SSE）やWebSocketによる常時接続プロトコル。</li>
+                <li>
+                  AWS SQS、GCP Cloud
+                  Pub/Sub、Redis等の新たなメッセージブローカーやキャッシュミドルウェアの追加導入。
+                </li>
+                <li>既存カタログ画面（<code>Home.vue</code>）のデザイン刷新。</li>
+                <li>
+                  本番クラウド環境への実際のリソースデプロイ、コンテナレジストリ登録、パッケージ公開。
+                </li>
+              </ul>
+            </li>
+          </ul>
+          <h4>オブジェクトストレージ直接通知を採用しない理由</h4>
+          <p>
+            CLIはすでにHTTP経由でサーバーと通信する機構を備えている。オブジェクトストレージへの直接書き込みとバケット通知（Event
+            Notifications）を組み合わせる方式は、クライアントへの署名付きURL発行手順や各クラウド固有の通知キュー連携を必要とし、アーキテクチャの複雑度を大きく引き上げる。さらに、将来オブジェクトイベント連携アダプターを導入する場合でも、安全な不変バージョンの検証、公開世代の整合性、および二重受付を防ぐ冪等性判定を今回定義するジョブ受付層（Admission）に集約しなければ、不整合なオブジェクトの上書きを防止できない。したがって、現行のHTTP受付モデルを維持しつつ非同期化することが最も安全で移植性の高い設計となる。
+          </p>
+          <h4>計画の位置づけと検証ベースライン</h4>
+          <p>
+            本計画に記載されたAPI仕様、ファイル構成、CLIコマンドはすべて新規提案（PROPOSED）であり、計画作成時点では未実装であった。現在の実装・検証状況は進捗台帳を参照。
+            本計画は先行タスクにおいてランタイム固定化コミット（コミットSHA:
+            <code>2d96e53</code
+            >、未プッシュ）が行われた状態を前提としている。先行検証におけるテスト結果（ルート検証265件通過、ランタイム検証29件通過、Worker検証39件通過、Node検証17件通過、パッケージ検証8件通過）は基準値（BASELINE）として記録されており、本計画書の作成にあたって再実行は不要である。本計画の基準日は2026年10月10日である。
+          </p>
+          <hr />
+        </section>
+        <section>
+          <h2 id="current">現状のアーキテクチャと制約</h2>
+          <p>
+            現行のスライド公開処理は、HTTPリクエストの接続時間内にすべての処理を完了させる同期的パイプラインとして実装されている。
+          </p>
+          <h4>同期型公開パイプラインの実装構造</h4>
+          <p>
+            現行のCLI公開コマンド（<code>packages/cli/src/publish.ts</code>）は、対象デックのMarkdownと静的アセットを収集し、サーバーの
+            <code>POST /api/decks/:id</code> に対して一括送信する。サーバー側の
+            <code>packages/server/src/publish.ts</code> に実装されている
+            <code>publishDeck</code>
+            関数は、以下の手順を単一のHTTPリクエスト内で同期的かつ直列に実行する。
+          </p>
+          <ol>
+            <li>
+              <strong>初期化（begin）</strong>:
+              公開処理の開始を宣言し、世代番号（generation）をインクリメントして発行する。
+            </li>
+            <li>
+              <strong>ランタイム退避（archive）</strong>:
+              スライドの実行基盤となるランタイムファイルを収集・保存する（現行のデフォルト環境では
+              <code>archiveRuntime</code>
+              関数により92個のファイルが退避されることが確認されているが、このファイル数は固定値ではない）。
+            </li>
+            <li>
+              <strong>コンパイル（compile）</strong>:
+              スライドソースを解読し、ブラウザで表示可能なESM形式のJavaScriptおよびCSSアセットを生成する。HTMLファイルそのものは生成しない。
+            </li>
+            <li>
+              <strong>成果物配置（put）</strong>:
+              生成されたアセット群およびランタイムファイルを不変ストレージ（Cloudflare R2、AWS
+              S3、Google Cloud Storage、またはローカルファイルシステム）へ書き込む。
+            </li>
+            <li>
+              <strong>索引作成（index）</strong>:
+              公開リビジョンのマニフェストを作成し、ストレージへ配置する。
+            </li>
+            <li>
+              <strong>確定（commit）</strong>: 公開ストア（Cloudflare Durable
+              Objects、PostgreSQL、またはインメモリ）の現在ポインタ（current）を新しいリビジョンへ更新する。
+            </li>
+          </ol>
+          <p>
+            この一連の処理がすべて完了して初めてHTTP
+            200と公開マニフェストがCLIへ返却される。CLI側のHTTPタイムアウト値は10秒に固定されており、スライド枚数の増加やアセットの容量増加、ネットワーク遅延によって容易にタイムアウトが発生する構造となっている。
+          </p>
+          <h4>サムネイル生成機能の分離と未連鎖</h4>
+          <p>
+            サムネイル画像の生成は公開処理と自動連鎖しておらず、独立したエンドポイント
+            <code>POST /api/thumbnail/:id?revision=...</code>
+            として提供されている。サムネイル描画機能は環境変数やバインディングが存在する場合にのみ動作し、Cloudflare
+            Workersの設定ファイル（<code>apps/hub-worker/wrangler.jsonc</code>）には現時点で
+            <code>BROWSER</code> バインディングが設定されていない。
+            ローカル開発環境での実機検証では、スライド公開API（<code>POST /api/decks/:id</code
+            >）はHTTP 200を返すが、続くサムネイル生成API（<code>POST /api/thumbnail/:id</code
+            >）は描画エンジンが存在しないためHTTP
+            503（UNAVAILABLE）を返し、自動的な画像生成は行われない。
+          </p>
+          <h4>永続化層におけるデータ構造の限界</h4>
+          <p>
+            PostgreSQLにおける現行の
+            <code>hub_publications</code> テーブルは、以下の列のみで定義されている。
+          </p>
+          <ul>
+            <li><code>deck_id</code>（text、主キー）</li>
+            <li><code>generation</code>（bigint）</li>
+            <li><code>current_manifest</code>（jsonb）</li>
+          </ul>
+          <p>
+            履歴管理列、リビジョン識別列、更新日時列は存在しない。Cloudflare Durable
+            Objects側の既存クラスも同様に、最新世代番号と現在ポインタのみを保持する構造となっており、過去の公開ログや実行中ジョブの状態を記録する機構を持たない。
+          </p>
+          <h4>現行カタログ画面の観察と制約分析</h4>
+          <figure class="shot">
+            <div class="shot-stage">
+              <img
+                src="../../artifacts/planning/publication-jobs/current-catalog.png"
+                alt="現行の公開済みスライド一覧"
+              /><span class="pin" style="left:22%;top:24%">1</span
+              ><span class="redbox" style="left:22%;top:31%;width:23%;height:20%"></span
+              ><span class="pin" style="left:22%;top:31%">2</span>
+            </div>
+            <figcaption>Node local fixture · / · 2026-10-10T06:49:15Z · 2d96e53</figcaption>
+          </figure>
+          <p>
+            現行のWeb画面（<code>packages/hub/src/frontend/Home.vue</code>）は公開済みデックの一覧を表示するカタログ機能のみを提供しており、進行中のジョブを確認する画面は存在しない。
+            合成環境（Node.js ローカルメモリおよびファイルシステム、コミット
+            <code>2d96e53</code>、取得日時
+            <code>2026-10-10T06:49:15Z</code
+            >）で取得されたカタログ画面のスクリーンショット（<code>../../artifacts/planning/publication-jobs/current-catalog.png</code>）を検証すると、以下の状態が確認できる。
+          </p>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:left">対象位置</th>
+                  <th style="text-align:left">表示内容</th>
+                  <th style="text-align:left">現行実装の制約</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="text-align:left"><strong>注記1</strong>（left: 22%, top: 24%）</td>
+                  <td style="text-align:left">メイン見出し「すべての資料」</td>
+                  <td style="text-align:left">
+                    コミットが完了した公開済みデックのみが表示され、処理中のスライドは表示されない。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <strong>注記2</strong>（left: 22%, top: 31%, width: 23%, height: 20%）
+                  </td>
+                  <td style="text-align:left">プレースホルダー画像</td>
+                  <td style="text-align:left">
+                    サムネイル生成に失敗した、または未実行のデックは一律で灰色の代替画像となり、失敗理由や再試行手段が提示されない。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <hr />
+          <details>
+            <summary>読了ファイル一覧</summary>
+            <ul>
+              <li><code>README.md</code></li>
+              <li><code>docs/DECISIONS.md</code></li>
+              <li><code>TODO.md</code></li>
+              <li><code>packages/cli/src/publish.ts</code></li>
+              <li><code>packages/cli/src/hub.ts</code></li>
+              <li><code>packages/cli/src/cli.ts</code></li>
+              <li><code>packages/cli/src/errors.ts</code></li>
+              <li><code>packages/cli/src/output.ts</code></li>
+              <li><code>packages/server/src/ports.ts</code></li>
+              <li><code>packages/server/src/publish.ts</code></li>
+              <li><code>packages/server/src/worker-handler.ts</code></li>
+              <li><code>packages/server/src/runtime.ts</code></li>
+              <li><code>packages/server/src/compiler.ts</code></li>
+              <li><code>packages/server/src/thumbnail.ts</code></li>
+              <li><code>packages/server/src/catalog.ts</code></li>
+              <li><code>packages/adapter-cloudflare/src/index.ts</code></li>
+              <li><code>packages/adapter-cloudflare/src/thumbnail.ts</code></li>
+              <li><code>apps/hub-worker/src/versions.ts</code></li>
+              <li><code>apps/hub-worker/src/worker.ts</code></li>
+              <li><code>apps/hub-worker/wrangler.jsonc</code></li>
+              <li><code>apps/hub-worker/runtime/entry.ts</code></li>
+              <li><code>apps/hub-worker/runtime/catalog.ts</code></li>
+              <li><code>packages/state-postgres/src/index.ts</code></li>
+              <li><code>apps/hub-server/src/config.ts</code></li>
+              <li><code>apps/hub-server/src/start.ts</code></li>
+              <li><code>packages/hub/src/client/index.ts</code></li>
+              <li><code>packages/hub/src/frontend/Home.vue</code></li>
+              <li><code>packages/hub/src/frontend/index.ts</code></li>
+              <li><code>packages/hub/src/frontend/style.css</code></li>
+            </ul>
+          </details>
+        </section>
+        <section>
+          <h2 id="problem">課題と解決の方向性</h2>
+          <p>
+            現行実装における根本的な課題は、「通信の切断」「処理の失敗」「表示の欠落」に対する耐障害性の不足にある。これを解決するため、以下のように現行方式（AS-IS）から目標方式（TO-BE）への転換を図る。
+          </p>
+          <pre><code>[課題1: タイムアウト]
+AS-IS: 10秒経過でCLI切断 ---&gt; サーバー処理の成否が不明
+TO-BE: 即時202返却 + 永続JobID ---&gt; 切断後も同一IDで進捗再接続
+
+[課題2: サムネイル不整合]
+AS-IS: 手動POSTが必要 ---&gt; 失敗時にスライド本体との関係が断絶
+TO-BE: 公開完了後に自動連鎖 ---&gt; 失敗時は partial（スライドは公開維持）
+
+[課題3: 状態の不可視]
+AS-IS: 画面上にプレースホルダーのみ ---&gt; 原因特定不可
+TO-BE: /_hub/jobs 画面新設 ---&gt; 実進捗カウントと失敗理由を表示
+</code></pre>
+          <h4>対比構造による課題の明確化</h4>
+          <ol>
+            <li>
+              <strong>リクエストタイムアウトに伴う状態の曖昧性</strong>:
+              <ul>
+                <li>
+                  <strong>AS-IS</strong>:
+                  CLIが10秒でタイムアウトした場合、サーバー側でコンパイルや成果物保存が完了したのか、途中で失敗したのかを判別できない。再試行すると二重書き込みや不要なコンパイルが発生する。
+                </li>
+                <li>
+                  <strong>TO-BE</strong>:
+                  CLIはジョブ投入時にUUIDv4を自ら採番し、ローカルに証跡（Receipt）を記録した上で送信する。サーバーは処理を受け付けた時点で即座にHTTP
+                  202
+                  Acceptedを返し、以後はジョブIDを用いていつでも進捗の再照会および再接続を可能にする。
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>サムネイル生成の手動性と連鎖の欠落</strong>:
+              <ul>
+                <li>
+                  <strong>AS-IS</strong>:
+                  スライド公開とサムネイル生成が完全に分離しており、利用者が追加のリクエストを送らなければサムネイルが作られない。また描画環境の有無が公開処理の時点で考慮されない。
+                </li>
+                <li>
+                  <strong>TO-BE</strong>:
+                  公開パイプラインのフェーズとしてサムネイル生成を組み込み、成果物のコミット完了後に同一リビジョンに対して自動実行する。描画エンジンが利用できない場合は、スライド自体の公開を取り消すことなく、ジョブ全体を「部分成功（<code>partial</code>）」として完了させる。
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>不可視な進捗とプレースホルダー表示</strong>:
+              <ul>
+                <li>
+                  <strong>AS-IS</strong>:
+                  カタログ画面には完了したデックしか現れず、画像生成に失敗したデックは理由の説明なくプレースホルダーが表示され続ける。
+                </li>
+                <li>
+                  <strong>TO-BE</strong>:
+                  ジョブ専用の独立した進捗確認画面（<code>/_hub/jobs</code>）を新設する。偽のパーセント表示（0〜100%の推定値）は排除し、コンパイル済みのスライド枚数や保存済みオブジェクト数といった実際の実績値のみを提示する。また、ネットワーク切断時はジョブの失敗とみなさず、最後に受信した状態を維持したまま警告バナーを表示する。
+                </li>
+              </ul>
+            </li>
+          </ol>
+          <p>
+            現在、専用の進捗確認画面としてモックHTML（<code>publication-jobs-assets/mock/job-status-mock.html</code>）が提案されており、2026-10-10
+            にユーザーが画面表示を承認した（利用者によるスコープ承認は完了しており、追加のスコープ確認は行わない）。
+          </p>
+          <hr />
+        </section>
+        <section>
+          <h2 id="design">アーキテクチャ決定と設計方針</h2>
+          <p>システム全体の整合性と運用性を維持するため、以下の設計決定を採用する。</p>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:left">決定項目</th>
+                  <th style="text-align:left">採用方式</th>
+                  <th style="text-align:left">却下された代替案</th>
+                  <th style="text-align:left">採用理由</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="text-align:left"><strong>ジョブ管理モデル</strong></td>
+                  <td style="text-align:left">環境非依存の永続ジョブとフェーズスナップショット</td>
+                  <td style="text-align:left">特定のクラウドキュー（SQS/PubSub）への依存</td>
+                  <td style="text-align:left">
+                    Cloudflare
+                    WorkersとNode.js自前運用の双方で同一のインターフェースと動作契約を保証するため。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>Cloudflare永続化</strong></td>
+                  <td style="text-align:left">デック単位の同一Durable Object（SQLite + Alarms）</td>
+                  <td style="text-align:left">Cloudflare Queuesの新設</td>
+                  <td style="text-align:left">
+                    デックごとの世代管理トランザクションと起床処理を単一の実行主体で完結させ、順序性と整合性を厳格に保つため。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>Node.js永続化</strong></td>
+                  <td style="text-align:left">
+                    PostgreSQLテーブル + 行ロックポーリング（SKIP LOCKED）
+                  </td>
+                  <td style="text-align:left">Redisや外部メッセージブローカー</td>
+                  <td style="text-align:left">
+                    新たなインフラ依存を増やさず、既存のデータベース接続プールとトランザクション権限を共有するため。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>状態同期プロトコル</strong></td>
+                  <td style="text-align:left">クライアント主導の2秒間隔HTTP GETポーリング</td>
+                  <td style="text-align:left">WebSocketまたはServer-Sent Events（SSE）</td>
+                  <td style="text-align:left">
+                    切断時の再接続処理、中継プロキシでのバッファリング問題、およびステートフルな接続維持コストを避けるため。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>Web閲覧権限</strong></td>
+                  <td style="text-align:left">ジョブごとの閲覧専用トークン（Bearer capability）</td>
+                  <td style="text-align:left">管理者ログイン認証の導入</td>
+                  <td style="text-align:left">
+                    外部共有可能な読み取り専用リンクを安全に提供しつつ、他者のジョブやスライドソースの漏洩を防ぐため。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>ジョブメタデータ保持</strong></td>
+                  <td style="text-align:left">
+                    メタデータの永続保持（本スコープでの自動削除なし）
+                  </td>
+                  <td style="text-align:left">TTLによる自動ガベージコレクション</td>
+                  <td style="text-align:left">
+                    障害調査や再試行の証跡を確実に残すため。古いジョブのクリーンアップは将来の運用課題とする。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>非公開ソース保存</strong></td>
+                  <td style="text-align:left">既存の不変ArtifactStoreへの隔離保存</td>
+                  <td style="text-align:left">PostgreSQLへのMarkdown直接格納</td>
+                  <td style="text-align:left">
+                    データベースの容量肥大化を防ぎ、巨大なアセットを含むスライドデータを既存ストレージ抽象で統一管理するため。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>コンパイル処理共通化</strong></td>
+                  <td style="text-align:left">
+                    新設する <code>preparePublication</code> 関数の共有
+                  </td>
+                  <td style="text-align:left">同期用と非同期用で別個のコンパイラ実装</td>
+                  <td style="text-align:left">
+                    コンパイル結果や生成される成果物の構造に差異が生じるのを防ぎ、保守性を高めるため。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>クライアント層</strong></td>
+                  <td style="text-align:left">UIフレームワーク非依存のヘッドレスクライアント</td>
+                  <td style="text-align:left">Vueコンポーネント内への通信ロジック埋め込み</td>
+                  <td style="text-align:left">
+                    CLIとWebフロントエンドで同一の型定義、状態監視ロジック、および再試行バックオフを再利用するため。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>サムネイル抽象</strong></td>
+                  <td style="text-align:left">
+                    既存の <code>options.renderThumbnail</code> ポートの再利用
+                  </td>
+                  <td style="text-align:left">新規プロバイダー抽象層の設計</td>
+                  <td style="text-align:left">
+                    すでに存在する描画関数の注入インターフェースを活用し、不要な概念拡張を避けるため。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <h4>状態遷移とフェーズモデル</h4>
+          <p>ジョブは「状態（Status）」と「進行フェーズ（Phase）」を独立して保持する。</p>
+          <ul>
+            <li>
+              <strong>状態（Status）</strong>:
+              <ul>
+                <li><code>queued</code>: 受付完了、実行待ち。試行回数は0。</li>
+                <li>
+                  <code>running</code>: 実行中。ワーカーがリースを取得した状態。試行回数は1以上。
+                </li>
+                <li>
+                  <code>retry_wait</code>:
+                  一時的な失敗による再試行待ち。次回実行予定時刻（<code>nextRunAt</code>）を保持。
+                </li>
+                <li>
+                  <code>succeeded</code>:
+                  スライド公開およびサムネイル生成が成功、または明示的なスキップ指定（<code
+                    >thumbnail: &quot;none&quot;</code
+                  >）を含めて要求された全フェーズが完了。
+                </li>
+                <li>
+                  <code>partial</code>:
+                  スライド公開は確定したが、サムネイル生成のみが失敗または利用不可。
+                </li>
+                <li><code>failed</code>: スライド公開の確定前に致命的エラーが発生して中断。</li>
+                <li>
+                  <code>superseded</code>:
+                  未公開の状態で、より新しい世代の公開ジョブを受け付けたため無効化。
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>進行フェーズ（Phase）</strong>:
+              <ul>
+                <li>
+                  <code>runtime</code> -&gt; <code>compile</code> -&gt; <code>store</code> -&gt;
+                  <code>publish</code> -&gt; <code>thumbnail</code>
+                </li>
+                <li>
+                  初回受付時のフェーズは <code>runtime</code> とする（UI表示上の受付完了ラベルとして
+                  <code>received</code> を用いる）。
+                </li>
+                <li>
+                  各フェーズ内の進捗情報は、実数カウントが得られる場合のみ
+                  <code>progress</code> オブジェクト（<code>completed</code>, <code>total</code>,
+                  <code>unit: 'slides' | 'objects'</code
+                  >）を含め、不明な場合はオブジェクト全体を省略する。
+                </li>
+              </ul>
+            </li>
+          </ul>
+
+          <h4>実行保証と整合性の維持</h4>
+          <p>
+            システムは「少なくとも1回の実行（at-least-once
+            execution）」を前提として設計され、厳密な1回のみの実行（exactly-once）を仮定しない。
+          </p>
+          <ul>
+            <li>
+              <strong>排他制御とフェンシング</strong>:
+              すべての状態更新は、条件付きリース更新または世代フェンシングトークンを用いて行われる。
+            </li>
+            <li>
+              <strong>成果物の不変性</strong>:
+              成果物の書き込みは存在確認（<code>ifAbsent</code>）とハッシュ検査を伴い、同一ハッシュを持つ不変アセットは安全に再利用される。
+            </li>
+            <li>
+              <strong>描画処理の重複耐性</strong>:
+              プロセスクラッシュやタイムアウトによって同一リビジョンに対するブラウザ描画処理が重複起動する可能性がある。生成されたPNG画像は不変成果物として扱われ、寸法（1200x675ピクセル）および容量（4MiB以下）を満たす最初の正常出力のみが保存される（first
+              validated writer
+              wins）。重複実行に伴う描画コストの発生は許容し、単一課金の保証は行わない。
+            </li>
+            <li>
+              <strong>情報秘匿</strong>:
+              ソースコードのMarkdown本文、生のエラースタックトレース、およびスライド内の非公開ノートは外部オブザーバーへ公開しない。
+            </li>
+          </ul>
+          <h4>トランザクション権限とストレージの整合性</h4>
+          <p>
+            新規に導入される <code>PublicationJobStore</code> は、デック単位で既存の
+            <code>PublicationStore</code>
+            とトランザクション権限を共有しなければならない（Cloudflare環境では同一のDurable
+            Objectインスタンス、Node.js環境では同一のPostgreSQL接続プールおよび同一トランザクション）。独立したストアインスタンスを任意に組み合わせる構成は禁止される。
+          </p>
+          <pre><code>[クライアント POST /api/jobs]
+        |
+        v
+1. 構造・認証検証（失敗時は受付前に拒否）
+        |
+        v
+2. 非公開入力の保存（ArtifactStore ifAbsent）
+        |
+        v
+3. 単一トランザクション実行（DO SQLite / PG）:
+   - 世代番号（generation）のインクリメント
+   - ジョブメタデータ・冪等性レコードの保存
+   - 永続起床（Durable Wake: DOアラーム / PGキュー行）の登録
+        |
+        v
+[HTTP 202 Accepted 返却]
+</code></pre>
+          <p>
+            受付処理（Admission）では、まずスライド本文およびアセットを非公開ストレージ（<code>ArtifactStore</code>）へ保存し、その後に単一トランザクション内で世代番号の更新、ジョブ状態の保存、および永続起床の登録を行う。エンキュー処理が途中で失敗した場合、非公開ストレージに入力ファイルが孤立して残る可能性があるが、受付完了したジョブが失われることはない（孤立入力の自動削除は行わない）。
+          </p>
+          <h4>ランタイム保護と環境の一貫性</h4>
+          <p>
+            ジョブ受付時には、実行環境のランタイムダイジェスト、デプロイプロファイル、およびコンパイラ契約バージョンがジョブメタデータに記録される。HTTP
+            202を返却する前の同期的受付処理において、92個のランタイムファイルを同期的にスナップショットしてはならない。
+            ワーカープロセスは、コンパイルを開始する直前に、ジョブに記録されたダイジェストに一致するランタイム環境を収集・退避する。キューに滞留していたジョブが実行される際、サーバーの再デプロイ等によってランタイムプロファイルが非互換なものへ変更されていた場合、ジョブは
+            <code>RUNTIME_CHANGED</code>
+            エラーとして即座に失敗し、既存の公開リビジョン（current）は変更されない。新しい環境のプロファイルで暗黙的にコンパイルを継続することは禁止される。新規の公開要求または完全再試行（full
+            retry）を行う場合にのみ、新しいプロファイルが記録される。
+          </p>
+          <h4>公開確定とサムネイル生成の分離</h4>
+          <p>
+            不変な成果物群および索引マニフェストの配置が完了した時点で、公開ストアの現在ポインタ（current）が新しいリビジョンへ更新される。サムネイルの描画処理は、このコミットが正常に完了した後に、確定したリビジョン識別子を用いて実行される。
+            サムネイル生成が失敗した場合、または描画環境が存在せず
+            <code>thumbnail: auto</code> が指定されていた場合、ジョブは
+            <code>partial</code>
+            状態となり、公開済みのスライドリビジョンはそのまま維持される。画像生成の失敗を理由としてスライド公開を取り消すことはできない。未コミットの状態で新しい世代のジョブが受け付けられた場合は
+            <code>superseded</code>
+            として停止するが、すでにコミットが完了した古いジョブのサムネイル生成が、新規ジョブの受付によってキャンセルされることはない。
+          </p>
+          <h4>プラットフォーム別の実行制御</h4>
+          <h5>1. Cloudflare Workers / Durable Objects</h5>
+          <ul>
+            <li>
+              <strong>単一オーソリティ</strong>: デックごとに存在する既存の
+              <code>DeckVersions</code> Durable
+              Objectが、公開状態とジョブ状態のトランザクション権限を一元管理する。
+            </li>
+            <li>
+              <strong>SQLite + Alarms</strong>:
+              ジョブの受付、世代番号のインクリメント、およびアラーム設定（起床予約）を単一のストレージトランザクション内で実行する。
+            </li>
+            <li>
+              <strong>アラームの特性</strong>: Durable
+              Objectのアラームはインスタンスごとに最大1件のみ設定可能であり、実行保証は「少なくとも1回（at-least-once）」である。複数の保留中ジョブが存在する場合は、最も早い実行予定時刻に合わせてアラームを更新する。重複呼び出しが発生することを前提に、ジョブの取得にはリース期限と状態の検査を必須とする。将来的な高スループット対応としてCloudflare
+              Queuesの導入を検討する場合でも、ボトルネックの計測後に判断する。
+            </li>
+          </ul>
+          <h5>2. Node.js / PostgreSQL</h5>
+          <ul>
+            <li>
+              <strong>独立ワーカープロセス</strong>: Web
+              APIを受け付けるサーバープロセスとは別に、独立したワーカープロセス（<code>dist/worker.js</code>）を実行する。HTTPリクエスト完了後の
+              <code>setTimeout</code> 等によるバックグラウンド処理は信頼性がないため採用しない。
+            </li>
+            <li>
+              <strong>排他制御とフェンシング</strong>: ワーカーは
+              <code>FOR UPDATE SKIP LOCKED</code>
+              を用いて短時間のトランザクションで行ロックを獲得し、ジョブの実行権（リース）を取得する。実行中は定期的なハートビートによりリース期限を更新し、クラッシュ時は期限切れとなったジョブを別のワーカーが安全に回収する。
+            </li>
+            <li>
+              <strong>開発用インメモリ実行</strong>:
+              ローカル開発および単体テスト用にインメモリ実行器を提供するが、プロセス再起動時にジョブが失われる制約を持つ。本番環境のNode.js運用ではPostgreSQLと常駐ワーカーの稼働を必須とし、サイレントなインメモリフォールバックは禁止する。
+            </li>
+          </ul>
+          <h5>3. Google Cloud Run および AWS ECS での考慮事項</h5>
+          <ul>
+            <li>
+              <strong>GCP Cloud Run</strong>: Cloud Run では、API ingress
+              コンテナと同一イメージを用いてポートをリッスンしないワーカーサイドカー（<code
+                >node dist/worker.js</code
+              >）を構成し、CPU 常時割り当て（<code>alwaysCPU</code>）および最小インスタンス数 1
+              以上（<code>min-instances &gt;= 1</code
+              >）を設定する。デフォルトのリクエスト駆動型スケーリング（Scale to zero）では、HTTP
+              応答後に CPU が抑制されるためバックグラウンドポーリングが停止する。
+            </li>
+            <li>
+              <strong>AWS ECS</strong>: 既存のタスク定義に対し、同一コンテナイメージから
+              <code>node dist/worker.js</code>
+              を実行する専用のワーカーコンテナを定義して並行稼働させる。
+            </li>
+            <li>
+              <strong>クラウド環境の検証状態</strong>:
+              これらクラウド構成の挙動は公式ドキュメントに基づく設計上の推論であり、実際のクラウド環境での動作検証は本計画のスコープ外である。
+            </li>
+          </ul>
+          <h4>参考文献と設計根拠</h4>
+          <p>以下の公式ドキュメントで規定された仕様を根拠として設計を導出している。</p>
+          <ul>
+            <li>
+              <a href="https://developers.cloudflare.com/durable-objects/api/alarms/"
+                >Cloudflare Durable Objects Alarms</a
+              >: 1インスタンスあたり単一のアラーム、at-least-once配送、最大6回の自動再試行。
+            </li>
+            <li>
+              <a href="https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/"
+                >Cloudflare Durable Objects SQLite Storage API</a
+              >: 単一トランザクション内でのSQL実行とアラーム登録の同一権限管理。
+            </li>
+            <li>
+              <a href="https://www.postgresql.org/docs/17/sql-select.html"
+                >PostgreSQL SELECT FOR UPDATE SKIP LOCKED</a
+              >: 高速かつ競合のないキュー処理用ロック取得。
+            </li>
+            <li>
+              <a href="https://developers.cloudflare.com/queues/reference/delivery-guarantees/"
+                >Cloudflare Queues Delivery Guarantees</a
+              >: メッセージ重複配送を前提とした冪等設計の必要性。
+            </li>
+            <li>
+              <a href="https://developers.cloudflare.com/r2/buckets/event-notifications/"
+                >Cloudflare R2 Event Notifications</a
+              >: バケット通知導入時に必要となる追加キューリソースの前提確認。
+            </li>
+            <li>
+              <a href="https://developers.cloudflare.com/browser-run/quick-actions/"
+                >Cloudflare Browser Rendering Quick Actions</a
+              >: Workerバインディング経由でのレンダリング起動仕様。
+            </li>
+            <li>
+              <a href="https://docs.cloud.google.com/run/docs/configuring/billing-settings"
+                >Google Cloud Run CPU Allocation Settings</a
+              >: バックグラウンド処理における常時CPU割り当ての必須要件。
+            </li>
+          </ul>
+          <hr />
+        </section>
+        <section>
+          <h2 id="screens">画面仕様と表示契約</h2>
+          <p>
+            <a href="publication-jobs-assets/mock/job-status-mock.html"
+              >Webモック（GPT-6.1-Sol high／承認済み）</a
+            >
+          </p>
+          <figure class="shot">
+            <div class="shot-stage">
+              <img
+                src="../../artifacts/planning/publication-jobs/current-catalog.png"
+                alt="現行の公開済みスライド一覧"
+              /><span class="pin" style="left:22%;top:24%">1</span
+              ><span class="redbox" style="left:22%;top:31%;width:23%;height:20%"></span
+              ><span class="pin" style="left:22%;top:31%">2</span>
+            </div>
+            <figcaption>Node local fixture · / · 2026-10-10T06:49:15Z · 2d96e53</figcaption>
+          </figure>
+          <p>
+            本変更において、既存のWebページ（<code>Home.vue</code>）にジョブ一覧や管理機能を直接埋め込むことは行わない。カタログ画面とジョブ進捗画面の関心事を明確に分離する。
+          </p>
+          <h4>カタログ画面（<code>Home.vue</code>）の維持方針</h4>
+          <p>
+            既存のカタログ画面は、公開確定済みのデック一覧のみを表示する現行の仕様を完全に維持する。
+          </p>
+          <ul>
+            <li>ジョブの実行中、失敗、再試行待ちといった過渡的状態はカタログ画面に表示しない。</li>
+            <li>
+              サムネイル画像は、ジョブが完全に終了しカタログ画面が再読み込みされた時点で初めて反映される。
+            </li>
+            <li>
+              カタログ画面に「ジョブ確認ボタン」や「管理用リンク」を新設することはしない。ユーザーはCLIが出力したURLから専用画面へ直接アクセスする。
+            </li>
+          </ul>
+          <h4>ジョブ進捗確認画面（<code>/_hub/jobs</code>）</h4>
+          <p>
+            CLIからのアクセスを受け付ける専用画面として
+            <code>/_hub/jobs</code>
+            を新設する。このルートは、デック個別ページのルーティング（<code>/:deckId</code>）よりも前に評価される予約名前空間としてサーバーに登録される。
+          </p>
+          <pre><code>利用者アクセス:
+https://hub.example.com/_hub/jobs?deckId=demo&amp;jobId=550e8400-e29b-41d4-a716-446655440000#view=sec_abc123...
+                                                            |
+                                                            v (初回ロード時)
+                                             1. fragmentからトークン抽出
+                                             2. history.replaceState でURLから即座に消去
+                                             3. sessionStorage に退避
+                                             4. X-Hub-Job-View ヘッダーでAPI照会
+</code></pre>
+          <h5>1. トークンの保護とライフサイクル</h5>
+          <ul>
+            <li>
+              閲覧用シークレットトークンは、URLのハッシュフラグメント（<code>#view=&lt;token&gt;</code>）として渡される。フラグメントはHTTPリクエストヘッダーに乗ってサーバーへ送信されないため、アクセスログや中間プロキシに漏洩しない。
+            </li>
+            <li>
+              画面スクリプト（<code>mountJobStatus</code>）は、起動時にフラグメントからトークンを読み取った直後、<code
+                >history.replaceState</code
+              >
+              を呼び出してブラウザのアドレスバーからフラグメントを消去する。
+            </li>
+            <li>
+              読み取ったトークンは
+              <code>sessionStorage</code
+              >（オリジン、デックID、ジョブIDごとに分離）に保存され、ページのリロードに耐える構造とする。永続的な
+              <code>localStorage</code> には保存しない。
+            </li>
+            <li>
+              外部送信による漏洩を防ぐため、メタタグおよびリクエストに
+              <code>Referrer-Policy: no-referrer</code>
+              を強制し、外部アナリティクスや第三者スクリプトの実行を一切排除する。
+            </li>
+          </ul>
+          <h5>2. 状態表示の4パターン</h5>
+          <p>画面は以下の4つの代表的な状態を判別して描画する。</p>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:left">表示状態</th>
+                  <th style="text-align:left">判定条件</th>
+                  <th style="text-align:left">画面表示仕様</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="text-align:left"><strong>コンパイル中</strong></td>
+                  <td style="text-align:left">
+                    <code>status: &quot;running&quot;</code>,
+                    <code>phase: &quot;compile&quot;</code>
+                  </td>
+                  <td style="text-align:left">
+                    フェーズ経過時間、試行回数、および進捗実績（例:
+                    <code>3 / 8 スライドを変換中</code>）を表示。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>サムネイル再試行中</strong></td>
+                  <td style="text-align:left">
+                    <code>status: &quot;retry_wait&quot;</code>,
+                    <code>phase: &quot;thumbnail&quot;</code>（公開完了後、<code>nextRunAt</code>
+                    あり）
+                  </td>
+                  <td style="text-align:left">
+                    スライド自体の公開完了リンクを提示しつつ、サムネイル生成を再試行待機中である旨を表示。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>完全成功</strong></td>
+                  <td style="text-align:left"><code>status: &quot;succeeded&quot;</code></td>
+                  <td style="text-align:left">
+                    公開リビジョン、ランタイムID、生成ページ数、および公開スライドへのリンクを表示。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><strong>部分成功</strong></td>
+                  <td style="text-align:left"><code>status: &quot;partial&quot;</code></td>
+                  <td style="text-align:left">
+                    スライド自体の公開リンクを有効表示した上で、「サムネイル生成が利用できないか失敗しました」という警告とエラーコード（<code
+                      >THUMBNAIL_UNAVAILABLE</code
+                    >
+                    等）を表示。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <h5>3. 異常系とアクセシビリティ</h5>
+          <ul>
+            <li>
+              <strong>切断検知バナー</strong>:
+              サーバーへのポーリングがネットワーク切断等により途切れた場合、ジョブを即座に失敗扱いとせず、画面上部に「<code>通信が途切れています。最後に確認した状態を表示しています。</code>」というバナーを表示し、バックオフを伴う再試行を継続する。
+            </li>
+            <li>
+              <strong>無効トークン</strong>:
+              存在しないジョブID、誤ったトークン、または有効期限切れ（受付後7日間経過）の場合は、内部詳細を漏洩させず一律で「<code>リンクが無効または期限切れ</code>」というエラーを表示する。
+            </li>
+            <li>
+              <strong>再試行操作</strong>:
+              Web画面上にジョブ再実行用のボタンは配置しない。再試行が必要な場合は、CLIで実行可能なコマンドレシピ（例:
+              <code>hub jobs retry --id demo/overview --job job-example --stage thumbnail</code
+              >）をテキストとして提示する。
+            </li>
+            <li>
+              <strong>アクセシビリティ</strong>: 進行フェーズの更新通知には
+              <code>aria-live=&quot;polite&quot;</code>
+              を適用し、スライド毎の頻繁な数値変動ではなく、フェーズが切り替わったタイミングでのみスクリーンリーダーへ通知を行う。コンポーネント破棄時には監視処理を確実に解除する。
+            </li>
+          </ul>
+          <hr />
+        </section>
+        <section>
+          <h2 id="api">公開API仕様とデータ契約</h2>
+          <p>
+            本基盤におけるHTTP
+            APIは、下位互換性を厳格に維持しつつ、非同期処理と安全な状態照会を行えるよう設計される。
+          </p>
+          <h4>1. 機能情報取得: <code>GET /api/capabilities</code></h4>
+          <p>
+            クライアントがサーバーの対応機能と制約を事前に把握するための公開エンドポイント。認証は不要。
+          </p>
+          <ul>
+            <li><strong>レスポンス（HTTP 200）</strong>:</li>
+          </ul>
+          <pre><code class="language-json">{
+  &quot;schemaVersion&quot;: 1,
+  &quot;publicationJobs&quot;: {
+    &quot;enabled&quot;: true,
+    &quot;pollAfterMs&quot;: 2000
+  },
+  &quot;thumbnail&quot;: {
+    &quot;available&quot;: true
+  },
+  &quot;limits&quot;: {
+    &quot;requestBytes&quot;: 524288,
+    &quot;maxSlides&quot;: 100
+  }
+}
+</code></pre>
+          <p>
+            機密情報は含めず、機能の有効フラグとポーリング推奨間隔（2000ms）、制限値（最大リクエストサイズ512KiB、最大スライド数100枚）を返却する。
+          </p>
+          <h4>2. ジョブ投入: <code>POST /api/jobs</code></h4>
+          <p>
+            非同期公開ジョブを受け付ける。認証は従来の公開トークン（<code>publishToken</code>
+            またはローカル環境の同一権限）を使用する。
+          </p>
+          <ul>
+            <li>
+              <strong>リクエストボディ</strong>:
+              <ul>
+                <li><code>jobId</code>: クライアントが生成したUUIDv4文字列（必須）。</li>
+                <li><code>deckId</code>: 正規化されたデック識別子（必須）。</li>
+                <li><code>markdown</code>: スライドのMarkdown本文（必須）。</li>
+                <li>
+                  <code>assets</code>:
+                  埋め込みアセットのマップ（省略可能。拡張子はsvg/txt/css等、既存の制約に準拠）。
+                </li>
+                <li>
+                  <code>thumbnail</code>: <code>&quot;auto&quot;</code> または
+                  <code>&quot;none&quot;</code>（省略時は <code>&quot;auto&quot;</code>）。
+                </li>
+                <li>
+                  <code>viewToken</code>:
+                  クライアントが生成した暗号学的に安全なランダム32バイトのBase64URL文字列（43文字、必須）。
+                </li>
+                <li>
+                  合計サイズはUTF-8換算で512KiB以下。未知のフィールドが含まれる場合は厳格にバリデーションエラー（HTTP
+                  400）とする。
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>受付処理（Admission）</strong>:
+              <ul>
+                <li>
+                  サーバーは <code>viewToken</code> の生値を保持せず、<code
+                    >SHA-256(viewToken)</code
+                  >
+                  のハッシュ値のみを記録する。
+                </li>
+                <li>
+                  トークンの有効期限は受付日時から7日間（<code>acceptedAt + 7 days</code>）とする。
+                </li>
+                <li>
+                  スライド本文およびアセットは
+                  <code>viewToken</code> を除外した状態でプライベートストレージへ保存される。
+                </li>
+                <li>
+                  カノニカルリクエストハッシュには、ソートされたクライアント入力と
+                  <code>viewToken</code>
+                  のハッシュ値が含まれる（デプロイ環境固有のプロファイル情報は除外されるため、サーバー再デプロイ後の同一リクエスト再送時も安全に同一ジョブへ解決される）。
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>レスポンス</strong>:
+              <ul>
+                <li>
+                  <strong>新規受付（HTTP 202 Accepted）</strong>:
+                  <pre><code class="language-json">{
+  &quot;schemaVersion&quot;: 1,
+  &quot;job&quot;: { /* JobSnapshot */ },
+  &quot;statusUrl&quot;: &quot;/api/jobs/550e8400-e29b-41d4-a716-446655440000?deckId=demo&quot;,
+  &quot;viewPath&quot;: &quot;/_hub/jobs?deckId=demo&amp;jobId=550e8400-e29b-41d4-a716-446655440000&quot;,
+  &quot;replayed&quot;: false
+}
+</code></pre>
+                  ヘッダーに <code>Location: &lt;statusUrl&gt;</code>, <code>Retry-After: 2</code>,
+                  <code>Cache-Control: no-store</code> を付与する。レスポンス内に
+                  <code>viewToken</code> の生値は絶対に返却しない。CLIが保持する生トークンと
+                  <code>viewPath</code> を結合して閲覧用URLを構築する。
+                </li>
+                <li>
+                  <strong>完了後再送（HTTP 200 OK）</strong>: 同一
+                  <code>jobId</code> かつ同一ボディで、すでにジョブが終了状態に達している場合はHTTP
+                  200とともに最終スナップショットを返す（<code>replayed: true</code>）。
+                </li>
+                <li>
+                  <strong>競合（HTTP 409 Conflict）</strong>: 同一
+                  <code>jobId</code> で異なるリクエストボディが送信された場合は即座に拒否する。
+                </li>
+                <li>
+                  <strong>利用不可（HTTP 503）</strong>: ジョブ機能が無効化されている場合は
+                  <code>JOBS_UNAVAILABLE</code
+                  >、ランタイムプロファイルが欠落している場合は受付前にHTTP 503を返す。
+                </li>
+                <li>
+                  <strong>クライアントの責務</strong>: クライアントはPOST送信前にUUIDv4の
+                  <code>jobId</code>
+                  を採番し、ローカルのOSプライベートディレクトリ（<code>XDG_STATE_HOME/slidev-stage-hub/receipts</code>、POSIX
+                  0600権限）に証跡（Receipt）を保存する。これにより通信途絶時でも同一IDでの照会や同一ボディでの安全な再送信が可能となり、サーバー側への投げっぱなし（fire-and-forget）を防ぐ。
+                </li>
+              </ul>
+            </li>
+          </ul>
+          <h4>3. ジョブ状態取得: <code>GET /api/jobs/:jobId?deckId=...</code></h4>
+          <p>ジョブの進行状況および完了結果を取得する。</p>
+          <ul>
+            <li>
+              <strong>認証</strong>:
+              既存の公開認証情報（<code>publishToken</code>）、またはHTTPヘッダー
+              <code>X-Hub-Job-View: &lt;viewToken&gt;</code> のいずれかを要求する。<code
+                >X-Hub-Job-View</code
+              >
+              を用いたアクセスには変更権限を与えず、当該ジョブの読み取りのみを許可する。
+            </li>
+            <li>
+              <strong>レスポンス</strong>:
+              <ul>
+                <li>
+                  <strong>成功（HTTP 200 OK）</strong>:
+                  <code
+                    >{ &quot;schemaVersion&quot;: 1, &quot;job&quot;: { /* JobSnapshot */ } }</code
+                  >。すべての状態で
+                  <code>Cache-Control: no-store</code> を付与し、アクティブなジョブに対してのみ
+                  <code>Retry-After: 2</code> を付与する。
+                </li>
+                <li>
+                  <strong>認証欠落（HTTP 401 Unauthorized）</strong>:
+                  認証ヘッダーが一切存在しない場合。
+                </li>
+                <li>
+                  <strong>未検出・期限切れ（HTTP 404 Not Found）</strong>:
+                  ジョブが存在しない場合、<code>viewToken</code>
+                  が一致しない場合、または受付から7日以上経過して期限切れとなった場合は、ジョブの存在自体の推測を防ぐため一律でHTTP
+                  404を返す。ただし正規の公開認証情報を持つクライアントに対しては、期限切れ後もメタデータの照会を許可する。
+                </li>
+              </ul>
+            </li>
+          </ul>
+          <h4>
+            4. デック別ジョブ一覧取得:
+            <code>GET /api/decks/:deckId/jobs?limit=20&amp;cursor=...</code>
+          </h4>
+          <p>デックに紐づく過去のジョブ履歴をページネーション形式で取得する。</p>
+          <ul>
+            <li>
+              <strong>認証</strong>:
+              公開認証情報（<code>publishToken</code>）が必須。閲覧専用トークン（<code>viewToken</code>）でのアクセスは不可。全テナントの横断一覧は提供しない。
+            </li>
+            <li>
+              <strong>仕様</strong>:
+              <code>(createdAt, jobId)</code> の降順で決定論的に整列される。レスポンスは
+              <code>{schemaVersion: 1, items: JobSnapshot[], nextCursor?: string}</code>
+              のエンベロープ形式とし、スライド本文や機密情報は含めない。取得件数は 1〜100
+              件（デフォルト 20 件）で、デッキおよびフィルタに束縛された任意の
+              <code>cursor</code> を受け付ける。
+            </li>
+          </ul>
+          <h4>5. ジョブ再試行: <code>POST /api/jobs/:jobId/retry?deckId=...</code></h4>
+          <p>終了したジョブを起点として新しい子ジョブを生成し、再実行する。公開認証情報が必須。</p>
+          <ul>
+            <li>
+              <strong>リクエストボディ</strong>:
+              <ul>
+                <li><code>jobId</code>: 新たに生成された子ジョブのUUIDv4（必須）。</li>
+                <li>
+                  <code>stage</code>: <code>&quot;all&quot;</code> または
+                  <code>&quot;thumbnail&quot;</code>（必須）。
+                </li>
+                <li>
+                  <code>viewToken</code>: 子ジョブ用の新しい32バイトランダムトークン（必須）。
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>再試行契約</strong>:
+              <ul>
+                <li>
+                  <strong><code>stage: &quot;thumbnail&quot;</code></strong
+                  >: 親ジョブがすでに公開完了リビジョンを持っており、サムネイルが未完了（<code
+                    >failed</code
+                  >
+                  または
+                  <code>unavailable</code
+                  >）の場合にのみ許可される。サーバーは描画エンジンの利用可能性を検査し、利用不可の場合はジョブを作成せずHTTP
+                  503を返す。世代番号や現在ポインタの更新は行わない。
+                </li>
+                <li>
+                  <strong><code>stage: &quot;all&quot;</code></strong
+                  >:
+                  親ジョブが公開コミット前に失敗（<code>failed</code>）した場合にのみ許可される。親ジョブの世代番号が最新でない場合は、世代の衝突としてHTTP
+                  409（<code>SUPERSEDED</code>）を返し、新規の通常公開を促す。
+                </li>
+                <li>
+                  <strong>排他制御</strong>:
+                  単一の親ジョブに対して同時に実行可能な同一ステージの子ジョブは最大1件であり、すでに実行中の子ジョブが存在する場合はHTTP
+                  409（<code>ACTIVE_RETRY</code>）を返す。
+                </li>
+                <li>
+                  <strong>応答</strong>: 新規子ジョブの受付時はHTTP
+                  202、同一リクエストの再送時はジョブが非終端ならHTTP 202、終端状態ならHTTP
+                  200を返す。元の親ジョブは終了状態のまま保持される。
+                </li>
+              </ul>
+            </li>
+          </ul>
+          <h4>6. 公開データモデル: <code>JobSnapshot</code></h4>
+          <p>
+            クライアントおよびWeb画面へ公開される状態スナップショットの構造定義。観察者に対して内部の世代番号、リース情報、トークンハッシュ、ソース保存キー、例外スタックトレースを露出させない。
+          </p>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:left">フィールド名</th>
+                  <th style="text-align:left">型</th>
+                  <th style="text-align:left">説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="text-align:left"><code>id</code></td>
+                  <td style="text-align:left">string (UUIDv4)</td>
+                  <td style="text-align:left">ジョブの一意識別子。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>deckId</code></td>
+                  <td style="text-align:left">string</td>
+                  <td style="text-align:left">対象スライドのデック識別子。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>parentJobId</code></td>
+                  <td style="text-align:left">string (UUIDv4) | undefined</td>
+                  <td style="text-align:left">再試行子ジョブである場合の親ジョブID。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>kind</code> | <code>&quot;publication&quot;</code> |
+                    <code>&quot;thumbnail&quot;</code>
+                  </td>
+                  <td style="text-align:left">ジョブの種別。</td>
+                  <td style="text-align:left"></td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>status</code></td>
+                  <td style="text-align:left">string</td>
+                  <td style="text-align:left">
+                    ジョブの状態（<code>queued</code>, <code>running</code>,
+                    <code>retry_wait</code>, <code>succeeded</code>, <code>partial</code>,
+                    <code>failed</code>, <code>superseded</code>）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>phase</code></td>
+                  <td style="text-align:left">string</td>
+                  <td style="text-align:left">
+                    実行フェーズ（<code>runtime</code>, <code>compile</code>, <code>store</code>,
+                    <code>publish</code>, <code>thumbnail</code>）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>version</code></td>
+                  <td style="text-align:left">number</td>
+                  <td style="text-align:left">単調増加するジョブ状態の更新バージョン番号。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>createdAt</code></td>
+                  <td style="text-align:left">string (ISO8601)</td>
+                  <td style="text-align:left">ジョブの受付日時。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>updatedAt</code></td>
+                  <td style="text-align:left">string (ISO8601)</td>
+                  <td style="text-align:left">ジョブ情報の最終更新日時。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>startedAt</code></td>
+                  <td style="text-align:left">string (ISO8601) | undefined</td>
+                  <td style="text-align:left">実行開始日時。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>finishedAt</code></td>
+                  <td style="text-align:left">string (ISO8601) | undefined</td>
+                  <td style="text-align:left">終了日時。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>attempt</code></td>
+                  <td style="text-align:left">number</td>
+                  <td style="text-align:left">
+                    現在の試行回数（未実行時は0、実行開始後は1以上）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>nextRunAt</code></td>
+                  <td style="text-align:left">string (ISO8601) | undefined</td>
+                  <td style="text-align:left">再試行待ち状態における次回実行予定日時。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>progress</code></td>
+                  <td style="text-align:left">object | undefined</td>
+                  <td style="text-align:left">
+                    <code
+                      >{ completed: number, total: number, unit: &quot;slides&quot; |
+                      &quot;objects&quot; }</code
+                    >。実数が不明な場合は省略。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>stages</code></td>
+                  <td style="text-align:left">StageSnapshot[]</td>
+                  <td style="text-align:left">
+                    各フェーズのスナップショット（<code>phase</code>, <code>status</code>:
+                    <code>&quot;pending&quot;</code> | <code>&quot;running&quot;</code> |
+                    <code>&quot;succeeded&quot;</code> | <code>&quot;failed&quot;</code> |
+                    <code>&quot;skipped&quot;</code>, 安全な整数値の <code>attempt</code>,
+                    任意のISOタイムスタンプ <code>startedAt</code>,
+                    <code>finishedAt</code>）の配列。全体が
+                    <code>retry_wait</code> の間は該当ステージは
+                    <code>pending</code> を維持し、未確定の任意プロパティは null
+                    を出力せず省略する。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>result</code></td>
+                  <td style="text-align:left">object | undefined</td>
+                  <td style="text-align:left">
+                    公開コミット完了直後から設定される成果物情報（64文字hexの <code>revision</code>,
+                    <code>runtimeId</code>, <code>entry</code>, <code>pages</code>,
+                    <code>cached</code>、および <code>thumbnail</code>:
+                    <code>&quot;pending&quot;</code> | <code>&quot;ready&quot;</code> |
+                    <code>&quot;failed&quot;</code> | <code>&quot;skipped&quot;</code> |
+                    <code>&quot;unavailable&quot;</code>）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>error</code></td>
+                  <td style="text-align:left">object | undefined</td>
+                  <td style="text-align:left">
+                    失敗情報（<code>{ code: string, message: string, retryable: boolean }</code
+                    >）。安全にサニタイズされた文字列。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <h4>7. 既存APIとの互換性とクライアント実装</h4>
+          <ul>
+            <li>
+              <strong>既存エンドポイントの維持</strong>: 同期的な
+              <code>POST /api/decks/:id</code> および既存のサムネイルAPI（<code
+                >POST /api/thumbnail/:id</code
+              >、<code>PUT /api/thumbnail/:id</code
+              >）はそのまま存続させる。スライド成果物の生成には新設の
+              <code>preparePublication</code>
+              を同期公開ラッパーと非同期ランナーで共通利用し、サムネイル処理では既存の
+              <code>renderThumbnail(url: string)</code>
+              ポートを利用した共通のキャプチャ・保存処理を共有する。
+            </li>
+            <li>
+              <strong>CLIのフォールバック動作</strong>: 新しいCLIが古いサーバーに接続した場合、<code
+                >GET /api/capabilities</code
+              >
+              が404を返すか
+              <code>publicationJobs.enabled</code>
+              が偽であれば、標準エラー出力に注意喚起メッセージを表示した上で、レガシーな同期的公開APIへ透過的にフォールバックする。ただし利用者が明示的に
+              <code>--require-jobs</code>
+              フラグを指定していた場合は、フォールバックを行わずにエラー終了する。また、認証エラー（HTTP
+              401）やネットワーク障害、サーバー内部エラー（HTTP
+              5xx）の際にサイレントなフォールバックを行うことは固く禁止する。
+            </li>
+            <li>
+              <strong>ヘッドレスクライアント</strong>: パッケージ
+              <code>packages/hub/src/client/jobs.ts</code>
+              は、Vue等のUI層に依存しない純粋なTypeScript実装として
+              <code>createPublicationJobClient</code> を提供する。
+              <ul>
+                <li>
+                  主な操作: <code>submit</code>, <code>get</code>, <code>list</code>,
+                  <code>retry</code>, <code>watch</code>。
+                </li>
+                <li>
+                  <code>watch</code>
+                  メソッドは非同期イテレータ（AsyncIterator）を提供し、通常2秒間隔（最大15秒のネットワークバックオフ）でポーリングを行いつつ、スナップショットに変更があった場合のみ呼び出し元へ新しい
+                  <code>JobSnapshot</code> を伝達する。Web画面が非表示の際は10秒間隔に抑制する。
+                </li>
+                <li>
+                  HTTPリクエスト単体のタイムアウトは10秒とし、CLIの全体監視タイムアウト（デフォルト300秒）に達しても、サーバー側のジョブ実行を強制中断（Abort）しない契約とする。
+                </li>
+              </ul>
+            </li>
+          </ul>
+          <p>
+            スライドの公開処理を同期処理から非同期処理へと移行し、確実な進捗確認を提供するためには、障害発生時にも状態を喪失しない永続化設計と、段階的で検証可能な実装手順が不可欠です。本章では、PostgreSQL
+            および Cloudflare Durable Objects
+            におけるデータモデル、状態遷移と実行制御のライフサイクル、変更対象となるファイル群の責務、そして
+            7 段階の実装ステップと品質ゲートを定義します。
+          </p>
+          <hr />
+        </section>
+        <section>
+          <h2 id="db">データベース設計と永続化モデル</h2>
+          <p>
+            公開処理の非同期化にあたっては、ワーカープロセスの再起動や異常終了が発生しても、進行中のジョブ状態を正確に復元できる基盤が求められます。特に、スライド公開の確定（コミット）とジョブ状態の更新は不可分に処理される必要があります。整合性を担保するため、公開ストア（<code>PublicationStore</code>）と公開ジョブストア（<code>PublicationJobStore</code>）は、Cloudflare
+            では同一
+            <code>DeckVersions</code> Durable Object の SQLite トランザクション内で、Node.js
+            では公開状態とジョブ状態を同じ PostgreSQL
+            トランザクションで更新できる保存先に置きます（接続プールや認証情報の共有だけでは原子性を保証できません）。
+          </p>
+          <h4>PostgreSQL スキーマ設計</h4>
+          <p>
+            PostgreSQL 環境では、新規テーブル
+            <code>hub_publication_jobs</code> を導入し、デッキごとの複合主キー
+            <code>(deck_id, job_id)</code> で管理します。既存テーブル
+            <code>hub_publications</code>（カラムは <code>deck_id</code>, <code>generation</code>,
+            <code>current_manifest</code>
+            のみで構成）に対する外部キー制約を設定し、再試行などの親子関係を追跡するために同一テーブルへの複合外部キーを設定します。
+          </p>
+          <pre><code class="language-sql">CREATE TABLE hub_publication_jobs (
+  deck_id text NOT NULL,
+  job_id uuid NOT NULL,
+  kind text NOT NULL,
+  parent_job_id uuid,
+  request_hash text NOT NULL,
+  input_key text,
+  target_revision text,
+  generation bigint,
+  profile_digest text NOT NULL,
+  compiler_contract_version text NOT NULL,
+  view_token_hash text NOT NULL,
+  view_expires_at timestamptz NOT NULL,
+  status text NOT NULL,
+  phase text NOT NULL,
+  version bigint NOT NULL DEFAULT 1,
+  attempt integer NOT NULL DEFAULT 0,
+  next_run_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  lease_token uuid,
+  lease_until timestamptz,
+  progress jsonb,
+  stages jsonb,
+  result jsonb,
+  error jsonb,
+  created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  started_at timestamptz,
+  finished_at timestamptz,
+  CONSTRAINT pk_hub_publication_jobs PRIMARY KEY (deck_id, job_id),
+  CONSTRAINT fk_hub_publication_jobs_deck FOREIGN KEY (deck_id)
+    REFERENCES hub_publications (deck_id) ON DELETE RESTRICT,
+  CONSTRAINT fk_hub_publication_jobs_parent FOREIGN KEY (deck_id, parent_job_id)
+    REFERENCES hub_publication_jobs (deck_id, job_id) ON DELETE RESTRICT,
+  CONSTRAINT chk_hub_publication_jobs_kind
+    CHECK (kind IN ('publication', 'thumbnail')),
+  CONSTRAINT chk_hub_publication_jobs_status
+    CHECK (status IN ('queued', 'running', 'retry_wait', 'succeeded', 'partial', 'failed', 'superseded')),
+  CONSTRAINT chk_hub_publication_jobs_phase
+    CHECK (phase IN ('runtime', 'compile', 'store', 'publish', 'thumbnail')),
+  CONSTRAINT chk_hub_publication_jobs_lease
+    CHECK ((lease_token IS NULL AND lease_until IS NULL) OR (lease_token IS NOT NULL AND lease_until IS NOT NULL))
+);
+</code></pre>
+          <p>運用と検索の効率化のため、以下のインデックスを配置します。</p>
+          <ol>
+            <li>
+              <strong>実行対象検索インデックス</strong>:
+              <code>(status, next_run_at, lease_until)</code><br />
+              未処理ジョブ（<code>queued</code>）、再試行待ち（<code>retry_wait</code>）、およびリース期限が切れた実行中ジョブ（<code>running</code>）を速やかに検出し、実行権限を獲得するために使用します。
+            </li>
+            <li>
+              <strong>デッキ別履歴インデックス</strong>:
+              <code>(deck_id, created_at DESC, job_id)</code><br />
+              CLI や API からのデッキ別ジョブ一覧取得を高速化します。
+            </li>
+            <li>
+              <strong>アクティブ子ジョブの部分一意インデックス</strong>:
+              <code>(deck_id, parent_job_id, kind)</code><br />
+              条件
+              <code>status IN ('queued', 'running', 'retry_wait')</code>
+              を指定した部分一意インデックスを設定し、同一親ジョブに対して重複する未完了の子ジョブ（サムネイル再試行など）が同時に生成されることを防止します。
+            </li>
+          </ol>
+          <pre class="mermaid">
+erDiagram
+  hub_publications ||--o{ hub_publication_jobs : "contains"
+  hub_publication_jobs ||--o{ hub_publication_jobs : "retries (parent-child)"
+
+  hub_publications {
+    text deck_id PK
+    bigint generation
+    jsonb current_manifest
+  }
+
+  hub_publication_jobs {
+    text deck_id PK, FK
+    uuid job_id PK
+    text kind
+    uuid parent_job_id FK
+    text request_hash
+    text input_key
+    text target_revision
+    bigint generation
+    text profile_digest
+    text compiler_contract_version
+    text view_token_hash
+    timestamptz view_expires_at
+    text status
+    text phase
+    bigint version
+    integer attempt
+    timestamptz next_run_at
+    uuid lease_token
+    timestamptz lease_until
+    jsonb progress
+    jsonb stages
+    jsonb result
+    jsonb error
+    timestamptz created_at
+    timestamptz updated_at
+    timestamptz started_at
+    timestamptz finished_at
+  }
+</pre>
+          <p>
+            受付時の整合性を保つため、クライアントから送信された入力データ（Markdown
+            やアセット）は、まず非公開ファイル
+            <code>private/jobs/&lt;deckId&gt;/&lt;jobId&gt;.json</code>
+            に保存されます。このファイルには閲覧用トークン（<code>viewToken</code>）を含めません。ファイル書き込みが成功した後にデータベーストランザクションを開始し、デッキレコードが存在しなければ挿入した上で、<code
+              >generation</code
+            >
+            のインクリメントと
+            <code>hub_publication_jobs</code>
+            へのジョブ登録をアトミックに実行します。もしデータベース書き込みで障害が発生した場合、非公開ファイルが孤立して残ることは許容し、自動削除は行いません。
+          </p>
+          <p>
+            運用上の制限として、同一デッキにおいて未完了（終端状態以外）のジョブが 10
+            件以上存在する場合は、11 件目の受付前に HTTP 429（Too Many
+            Requests）を返して新規受付を拒否します。また、ジョブのメタデータや入力ファイルに対するガベージコレクションは実施せず保持しますが、閲覧用トークンには
+            7 日間の有効期限を個別に設けます。
+          </p>
+          <p>
+            既存環境のマイグレーションは
+            <code>packages/state-postgres/migrations/002-publication-jobs.sql</code>
+            で提供します。既存の
+            <code>hub_publications</code>
+            テーブルは一切変更せず、バックフィルも行いません。新規テーブルとインデックスの追加のみで構成し、DDL
+            ロック時間を最小限に抑えます。過去のリリースに対して合成されたジョブ履歴を捏造することはありません。ロールバック時は、新規受付を停止して実行中ジョブを排出した後、古いバイナリに戻します。追加されたテーブルはそのまま残置します。
+          </p>
+          <h4>Cloudflare Durable Objects の永続化設計</h4>
+          <p>
+            Cloudflare Workers 環境では、既存の
+            <code>DeckVersions</code>
+            オブジェクトのクラス同一性およびストレージ構造を維持します。クラス名の変更や Wrangler
+            によるクラスマイグレーションは行いません。オブジェクト内の SQLite に同等のカラムを持つ
+            <code>jobs</code> テーブルを追加し、内部スキーマバージョンを 2 に更新します。
+          </p>
+          <p>
+            Durable Objects
+            内でのタイマー駆動には、<code>storage.transaction</code>（非同期）を使用して SQL
+            の更新と
+            <code>setAlarm</code>
+            の呼び出しを同一トランザクション内で不可分に実行します。公式ドキュメントのとおり SQLite
+            ストレージの非同期トランザクションはアラーム設定に対応していますが、同期版の
+            <code>transactionSync</code>
+            ではアラーム設定の完了を待機（await）できないため使用しません。
+          </p>
+          <p>
+            アラームの期日には、未実行（<code>queued</code>）、再試行待ち（<code>retry_wait</code>）、およびリースが切れたジョブの中で最も早い
+            <code>next_run_at</code> または
+            <code>lease_until</code>
+            を設定します。オブジェクト初期化時のコンストラクタで既存のアラームを誤ってリセットしてはなりません。1
+            つの Durable Object に対して保持できるアラームは常に最大 1
+            つです。外部処理の実行前に復旧用のアラームを設定し、処理リターン前には耐久性のあるアプリケーション再試行アラームを再設定します。未処理のデータベースエラーが発生した場合は
+            Cloudflare 組み込みの 6
+            回リトライに委ね、プラットフォーム全体の障害時に無理に進捗保証を試みることはしません。アラームハンドラ内では、単に
+            <code>waitUntil</code>
+            を呼ぶだけでなく、コアランナーの完了を待機して確実に処理を進行させます。
+          </p>
+          <h4>共通ポート PublicationJobStore と排他制御</h4>
+          <p>
+            抽象ストレージ層として <code>PublicationJobStore</code> ポートを新設します。本ポートは
+            <code>submit</code>, <code>get</code>, <code>list</code>, <code>claim</code>,
+            <code>checkpoint</code>, <code>commitPublication</code>, <code>finish</code>,
+            <code>retry</code>
+            の各メソッドを備え、以下の規則に従って排他制御と状態更新を実施します。
+          </p>
+          <ul>
+            <li>
+              <strong>内部取得と公開スナップショット</strong>:<br />
+              内部メソッド
+              <code>store.get</code>
+              はリクエストハッシュ検証などに必要な非公開フィールドを含むレコードを返します。HTTP
+              サービス層はこれを安全な公開用スナップショット（<code>JobSnapshot</code>）へ変換してクライアントに返します。一覧取得（<code>list</code>）ポートはカーソルによるページングを必須でサポートしますが、初回取得時のカーソル指定は任意です。
+            </li>
+            <li>
+              <strong>実行権の獲得（claim）</strong>:<br />
+              PostgreSQL では
+              <code>FOR UPDATE SKIP LOCKED</code>
+              を用いた極めて短いトランザクションで実行対象をロックし、新規のリース
+              UUID（<code>lease_token</code>）を発行して返却します。リース期間は 120
+              秒、ハートビート間隔は 30 秒とし、トランザクション内での外部 I/O
+              は禁止します。取得対象には未処理および再試行待ちのジョブに加え、リース期限が切れた実行中ジョブも含めます。
+            </li>
+            <li>
+              <strong>楽観的ロックとフェンシング</strong>:<br />
+              進捗の記録（<code>checkpoint</code>）や完了処理（<code>finish</code>）は成否を boolean
+              で返します。更新時は必ず現在の
+              <code>lease_token</code
+              >、有効期限（<code>lease_until</code>）、およびジョブ状態を検証し、更新ごとに
+              <code>version</code> を単調増加させます。チェックポイントの更新結果が false
+              となった場合、ランナーはリースを喪失したと判断して即座に処理を中断します。
+            </li>
+            <li>
+              <strong>公開の確定（commitPublication）</strong>:<br />
+              マニフェストの反映とジョブ状態の確定チェックポイント記録を、同一トランザクション内でアトミックに実行します。戻り値として
+              <code>published</code>, <code>superseded</code>,
+              <code>lease_lost</code> のいずれかを明確に判別して返します。
+            </li>
+            <li>
+              <strong>ローカル開発とテスト</strong>:<br />
+              メモリ実装（<code>MemoryPublicationJobStore</code>）を提供し、単一プロセス内でのテストおよび開発時に
+              <code>PublicationStore</code> と同一メモリ領域を共有して動作させます。
+            </li>
+            <li>
+              <strong>実行プロセスの分離</strong>:<br />
+              Node.js 環境では、API
+              プロセスとは独立した別プロセス（<code>dist/worker.js</code>）としてワーカーを起動し、PostgreSQL
+              をポーリング（デフォルト同時実行数 2）します。API
+              レスポンス後にサーバー内部で非同期タイマーを走らせることはしません。ワーカーが停止していても
+              API は正常にジョブを受け付け、状態
+              <code>queued</code>
+              を正確に応答します。システム診断（<code>doctor</code>）コマンドは設定と機能の有無を確認するのみであり、ワーカーの死活監視は行いません。また、Google
+              Cloud Run 環境では、リクエスト時のみ CPU を割り当てるデフォルト構成（0
+              へのスケール）は非対応とし、常に CPU を割り当てて最小インスタンス数を 1
+              に設定するか、独立したワーカープールを配置します。
+            </li>
+          </ul>
+          <hr />
+        </section>
+        <section>
+          <h2 id="states">ジョブのライフサイクルと状態遷移</h2>
+          <p>
+            ジョブは、事前検証から公開、サムネイル生成に至るまで明確に定義されたフェーズを順次実行し、不変な生成物の管理と失敗の局所化を徹底します。
+          </p>
+          <h4>実行フェーズとランナーの協調</h4>
+          <p>共通ランナーは以下の 5 つのフェーズを順番に進行します。</p>
+          <pre><code>runtime (ランタイム準備)
+  ↓
+compile (スライド変換)
+  ↓
+store (生成物保存)
+  ↓
+publish (公開確定)
+  ↓
+thumbnail (サムネイル生成)
+</code></pre>
+          <p>
+            受付トランザクション（202 応答）の前に 92
+            ファイルに及ぶランタイムのスナップショットを同期取得することはありません。受付時にはランタイムおよびプロファイルのダイジェスト、コンパイラ契約バージョンを記録します。
+          </p>
+          <p>
+            同期処理を行っていた従来の
+            <code>publishDeck</code>
+            からコアロジックを抽出し、マニフェストとキャッシュ済み生成物情報を返す
+            <code>preparePublication</code>
+            を新設します。従来の同期公開エンドポイントはこの抽出された処理を呼び出しますが、非同期ランナーから既存の
+            <code>publishDeck</code>
+            を直接呼び出してはなりません。直接呼び出すと、実行時に意図しない新しい
+            <code>generation</code> が発行されてしまうためです。
+          </p>
+          <p>
+            コンパイラは HTML ではなく ESM JavaScript および CSS
+            を生成します。コンパイラには任意の進捗通知コールバック（<code>onProgress</code>）を渡し、実際のスライド処理数を取得するとともに、ページ間で
+            await
+            処理を挟むことで重い同期処理の合間に進捗チェックポイントを保存できるようにします。進捗のデータベース保存は最大
+            1 秒に 1
+            回へとスロットル処理し、過度な負荷を防ぎます。チェックポイントの保存に失敗した場合、以降のコミット処理へ進むことはできません。
+          </p>
+          <p>
+            コミット直前のクラッシュに備え、確定対象となるマニフェスト参照を事前にチェックポイントとして永続化しておきます。これにより、コミット直後に障害が起きた場合でも、保存されたジョブ結果から状態を復旧できます。また、受付時に記録されたランタイムやプロファイルのダイジェストが、ワーカー実行時の環境と異なる場合、ランナーは再試行を行わずに
+            <code>RUNTIME_CHANGED</code>
+            エラーとしてジョブを即座に失敗させ、現在の公開状態（<code>current</code>）を保護します。環境変更に対応するには、新規公開または完全な再試行を実行して現在のプロファイルを再取得する必要があります。
+          </p>
+          <p>
+            サムネイルの生成成否はスライド公開自体の成否から完全に切り離されています。スライドの生成物が不変ストレージに配置され、マニフェストが公開確定（コミット）された時点でスライド公開は成功とみなされます。その後のサムネイル生成が失敗した場合、公開リビジョンは維持されたままジョブ全体は
+            <code>partial</code
+            >（部分的成功）となります。画像生成の失敗を理由にスライド公開をロールバックしてはなりません。
+          </p>
+          <h4>状態遷移図と遷移表</h4>
+          <p>
+            ジョブの状態（<code>status</code>）は、受付時の
+            <code>queued</code> から開始し、実行、再試行待ちを経て終端状態へと遷移します。
+          </p>
+          <pre class="mermaid">
+stateDiagram-v2
+  [*] --> queued : 受付完了 (attempt=0)
+  queued --> running : ワーカーがクレーム (attempt=1)
+  queued --> superseded : 未公開のまま新しい公開を受付
+
+  running --> retry_wait : 一時的エラー (attempt &lt; 3)
+  running --> succeeded : 全フェーズ完了
+  running --> partial : 公開完了かつ画像失敗・不在
+  running --> failed : 公開前の恒久エラーまたは試行枯渇
+  running --> superseded : 未公開のまま新しい公開を受付 (コミット不可)
+
+  retry_wait --> running : 再試行期日到来 (next_run_at)
+  retry_wait --> superseded : 未公開のまま新しい公開を受付
+
+  succeeded --> [*]
+  partial --> [*]
+  failed --> [*]
+  superseded --> [*]
+</pre>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:left">現在の状態</th>
+                  <th style="text-align:left">契機 / 条件</th>
+                  <th style="text-align:left">遷移後の状態</th>
+                  <th style="text-align:left">動作詳細と不変条件</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="text-align:left"><code>queued</code></td>
+                  <td style="text-align:left">ワーカーによるクレーム成功</td>
+                  <td style="text-align:left"><code>running</code></td>
+                  <td style="text-align:left">
+                    リース UUID を発行し、<code>attempt</code> を 1 に設定して実行を開始する。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>queued</code></td>
+                  <td style="text-align:left">同一デッキで新規公開ジョブを受付</td>
+                  <td style="text-align:left"><code>superseded</code></td>
+                  <td style="text-align:left">
+                    未公開の保留中ジョブは即座に無効化され、実行対象から除外される。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>running</code></td>
+                  <td style="text-align:left">一時的エラー発生（試行回数 &lt; 3）</td>
+                  <td style="text-align:left"><code>retry_wait</code></td>
+                  <td style="text-align:left">
+                    5秒、30秒（ジッター加算）の指数バックオフを設定し、実行を待機する。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>running</code></td>
+                  <td style="text-align:left">
+                    全要求フェーズ完了（サムネイル成功または明示的スキップ）
+                  </td>
+                  <td style="text-align:left"><code>succeeded</code></td>
+                  <td style="text-align:left">要求されたすべての処理が正常に完了した終端状態。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>running</code></td>
+                  <td style="text-align:left">
+                    スライド公開完了、画像生成失敗またはレンダラー不在
+                  </td>
+                  <td style="text-align:left"><code>partial</code></td>
+                  <td style="text-align:left">
+                    公開リビジョンは確定・維持され、サムネイルのみが欠落した状態。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>running</code></td>
+                  <td style="text-align:left">
+                    公開コミット前の恒久エラー発生、またはステージあたり最大3回の試行をすべて失敗して枯渇
+                  </td>
+                  <td style="text-align:left"><code>failed</code></td>
+                  <td style="text-align:left">
+                    公開コミット前の入力不正、コンパイルエラー、環境変更、あるいはリトライ枯渇により終了する終端状態。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>running</code></td>
+                  <td style="text-align:left">同一デッキで新規公開ジョブを受付（コミット前）</td>
+                  <td style="text-align:left"><code>superseded</code></td>
+                  <td style="text-align:left">
+                    ランナーは不変生成物を書き込めるが、マニフェストのコミットは拒否される。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>retry_wait</code></td>
+                  <td style="text-align:left">再試行期日（<code>next_run_at</code>）の到来</td>
+                  <td style="text-align:left"><code>running</code></td>
+                  <td style="text-align:left">
+                    ワーカーが再度クレームし、失敗したフェーズから処理を再開する。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>retry_wait</code></td>
+                  <td style="text-align:left">
+                    同一デッキで新規公開ジョブを受付（未公開ジョブのみ）
+                  </td>
+                  <td style="text-align:left"><code>superseded</code></td>
+                  <td style="text-align:left">
+                    未公開のジョブは再試行を待たずに即座に無効化される（公開コミット済みのサムネイル再試行ジョブは無効化されない）。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            終端状態（<code>succeeded</code>, <code>partial</code>, <code>failed</code>,
+            <code>superseded</code>）に達したジョブが再び
+            <code>running</code>
+            へ戻ることはありません。サムネイルのみを再試行する場合は、元の公開リビジョンを正確に対象とする新しい子ジョブ（<code
+              >kind = 'thumbnail'</code
+            >）を発行します。既に公開コミット済みの古いリビジョンに対するサムネイル再試行は許可されますが、古い世代（generation）を指定した完全再試行（full
+            retry）は 409 Conflict で拒否されます。
+          </p>
+          <p>
+            また、後続の新規公開によって無効化（<code>superseded</code>）されるのは<strong>未公開の保留中ジョブのみ</strong>です。既に公開がコミットされた古いリビジョンに対するサムネイルジョブは、後続の公開によって無効化されず、そのまま処理を継続します。なお、クライアントとの通信切断は単なる観測者の状態変化に過ぎず、ジョブ自体の状態遷移には影響しません。
+          </p>
+          <h4>エラー分類と再試行制御</h4>
+          <p>エラーはその性質に応じて明確に分類され、制御されます。</p>
+          <ol>
+            <li>
+              <strong>一時的エラー（自動再試行対象）</strong>:<br />
+              ストレージの一時的なタイムアウトやネットワーク瞬断などの障害は、ステージごとに初回を含めて最大
+              3 回まで試行（再試行は最大 2 回）します。再試行間隔は 1 回目が 5 秒、2 回目が 30
+              秒を基準とし、ランダムなジッターを加算して分散させます。ブラウザ実行環境で HTTP
+              429（Rate Limit）を受け取った場合、レスポンスヘッダーの <code>Retry-After</code> が
+              300 秒以内であればその指示に従って待機します。
+            </li>
+            <li>
+              <strong>恒久的エラー（再試行不可）</strong>:<br />
+              入力不正、コンパイルエラー、レンダラー不在（<code>thumbnail: auto</code>
+              時にレンダラーが構成されていない場合は再試行なしで
+              <code>partial</code
+              >）、およびデプロイ時のプロファイル不一致（<code>RUNTIME_CHANGED</code>）は、再試行を行わずに即座に終了します。
+            </li>
+            <li>
+              <strong>ブラウザ実行の保護と不変生成物の検証</strong>:<br />
+              Playwright または Cloudflare Browser Rendering によるキャプチャ処理には、120
+              秒のリース期間内で 90
+              秒の厳格なタイムアウトを設けます。クラッシュ復旧等に伴いブラウザ処理が重複実行される可能性があり、厳密に
+              1 回のみの課金となる保証は行いません。新規生成された PNG
+              画像は、解像度（1200x675）およびファイルサイズ（4MiB
+              以下）のバリデーションを通過した最初の書き込みのみが不変ストレージへコミットされます。進捗カウントは試行（<code>attempt</code>）ごとに再設定されますが、ジョブの
+              <code>version</code> は単調増加を維持します。
+            </li>
+          </ol>
+          <hr />
+        </section>
+        <section>
+          <h2 id="files">変更ファイル一覧</h2>
+          <p>
+            本実装計画において追加および変更が必要となる全ファイルの一覧と、それぞれの責務および変更理由は以下のとおりです。
+          </p>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:left">ファイルパス</th>
+                  <th style="text-align:left">変更区分</th>
+                  <th style="text-align:left">責務と主な変更理由</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/protocol/src/contracts/jobs.ts</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    ジョブスナップショット、フェーズ、ステータスの型定義および型ガードの実装（Zod
+                    不使用）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/protocol/src/contracts/index.ts</code>
+                  </td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">ジョブ関連の契約型をパッケージ外部へ公開。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/protocol/tests/jobs.test.mjs</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    プロトコル層の型定義とバリデーションガードの単体テスト。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/hub/src/client/jobs.ts</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    ヘッドレスな
+                    <code>createPublicationJobClient</code>
+                    の実装（ジョブ投入、取得、一覧、再試行、watch イテレータ）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/hub/src/client/index.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    クライアント SDK エントリポイントからジョブクライアントを再エクスポート。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/hub/tests/jobs-client.test.mjs</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    ジョブクライアントのポーリング、ヘッダー付与、中断シグナル制御のテスト。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/server/src/jobs/ports.ts</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    <code>PublicationJobStore</code> ポートおよび関連インターフェースの定義。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/server/src/jobs/service.ts</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    ジョブ受付、冪等性検証、認可チェック、公開マニフェストコミットを統括するサービス層の実装。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/server/src/jobs/runner.ts</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    各フェーズ（runtime, compile, store, publish,
+                    thumbnail）を順次実行する共通ランナーの実装。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/server/src/publish.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    コア公開処理から
+                    <code>preparePublication</code>
+                    を抽出し、同期エンドポイントと非同期ランナーの双方から共有可能にする。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/server/src/compiler.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    スライドコンパイル処理に進捗コールバック（<code>onProgress</code>）を追加し、ページ単位の中断・進捗保存を可能にする。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/server/src/worker-handler.ts</code>
+                  </td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    ジョブ関連 API ルートのハンドラ登録、およびサムネイルエラーのキャプチャ対応。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/server/src/ports.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    サーバー全体のポート定義に <code>PublicationJobStore</code> を追加。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/server/src/index.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">サーバーエクスポート定義の更新。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/server/src/thumbnail.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    従来のサムネイル取得処理とランナー双方で利用可能な共通キャプチャ・保存ロジックの抽出。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/server/tests/jobs.test.mjs</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    コアサービスおよびランナーの単体テスト（世代順序、親再試行、不正ケーパビリティ、ストア失敗時の保護など）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>apps/hub-worker/src/versions.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    Cloudflare Durable Objects のスキーマバージョンを 2
+                    に引き上げ、テーブル定義を追加。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>apps/hub-worker/src/worker.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    Worker
+                    エントリポイントにおいてジョブ用エンドポイントをルーティングし、バインディングおよび
+                    JobStore を各層へ受け渡す構成の実装。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>apps/hub-worker/src/types.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    Cloudflare 環境向け環境変数およびバインディング定義の更新。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>apps/hub-worker/wrangler.jsonc</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    Durable Objects の設定確認（クラス名の変更や新規マイグレーションは行わない）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/adapter-cloudflare/src/jobs.ts</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    Durable Objects の SQLite ストレージおよびアラームを用いた
+                    <code>PublicationJobStore</code> 実装。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/adapter-cloudflare/src/thumbnail.ts</code>
+                  </td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    Cloudflare Browser Rendering
+                    バインディングを利用したサムネイル生成アダプターの整備。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/adapter-cloudflare/src/index.ts</code>
+                  </td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    Cloudflare アダプターからのジョブ関連クラスのエクスポート。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/state-postgres/migrations/002-publication-jobs.sql</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    PostgreSQL 用
+                    <code>hub_publication_jobs</code>
+                    テーブルおよびインデックス作成マイグレーション。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/state-postgres/src/migrations.ts</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">起動時の自動マイグレーション実行ロジックの実装。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/state-postgres/src/jobs.ts</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    PostgreSQL 接続プールを用いた <code>PublicationJobStore</code> 実装（<code
+                      >SKIP LOCKED</code
+                    >、リース管理）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/state-postgres/src/index.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">PostgreSQL アダプターからのエクスポート更新。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/adapter-node/src/jobs.ts</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    メモリ版 <code>PublicationJobStore</code> 実装（開発・単体テスト用）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/adapter-node/src/publication-store.ts</code>
+                  </td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    メモリ公開ストアと同一メモリ領域を共有できるように調整。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>apps/hub-server/src/config.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    サムネイルレンダラー構成（<code>HUB_THUMBNAIL_RENDERER</code>）および公開オリジン環境変数の追加。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>apps/hub-server/src/start.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    HTTP API
+                    サーバーの起動エントリポイント（バックグラウンドタイマーは内包しない）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>apps/hub-server/src/worker.ts</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    PostgreSQL
+                    をポーリングしてジョブを実行する独立ワーカープロセスの起動エントリポイント。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>apps/hub-server/package.json</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    ワーカー起動用スクリプト（<code>pnpm worker</code>）の追加。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>apps/hub-server/deploy/compose.yaml</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    ローカル開発用 Docker Compose において API
+                    コンテナと別プロセスワーカーの構成を追加。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>apps/hub-server/deploy/aws-ecs-task-definition.template.json</code>
+                  </td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    同一イメージを用いて <code>dist/worker.js</code> を実行する ECS
+                    ワーカーコンテナの定義追加。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>apps/hub-server/deploy/gcp-cloud-run-service.template.yaml</code>
+                  </td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    API
+                    イングレスコンテナと同一インスタンス上で稼働するワーカーサイドカーの定義追加。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/renderer-playwright/package.json</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    <code>playwright-core</code>
+                    に依存するオプションレンダラーパッケージの構成定義。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/renderer-playwright/src/index.ts</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    既存ブラウザインスタンスまたは実行可能バイナリを利用した画面キャプチャ実装。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/renderer-playwright/tests/renderer.test.mjs</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">Playwright レンダラーの単体テスト。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/cli/src/remote-config.ts</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    <code>hub.remote.json</code
+                    >（設定プロファイル）の読み込み・生成・検証ロジックの実装。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/cli/src/publish.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    202 レスポンス受け取り後の待機ループ、および非同期公開コマンドの実装。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/cli/src/jobs.ts</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    <code>hub jobs status</code>, <code>watch</code>, <code>list</code>,
+                    <code>retry</code> サブコマンドの実装。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/cli/src/output.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    TTY 向け進捗表示（stderr）と
+                    <code>--json</code> オプション時の単一封筒形式（stdout）の分離。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/cli/src/errors.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    構造化されたジョブ失敗情報を保持する CLI エラー定義の拡張。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/cli/src/hub.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    CLI コマンドライン引数のパース定義にジョブ関連サブコマンドを統合。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/cli/src/cli.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">CLI メインエントリポイントの更新。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/cli/tests/jobs.test.mjs</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    CLI のジョブ操作、待機、エラーハンドリングに関する結合テスト。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/hub/src/frontend/JobStatus.vue</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    Web 画面向けの進捗表示コンポーネント（アクセシビリティ対応）。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/hub/src/frontend/job-status.ts</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    Vue コンポーネントを DOM 要素へマウント・破棄するためのラッパー関数
+                    <code>mountJobStatus</code> の実装。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>packages/hub/src/frontend/job-status.css</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">進捗画面用のオプトインスタイル定義。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>packages/hub/src/frontend/index.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">フロントエンド向けモジュールのエクスポート定義。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>apps/hub-worker/runtime/entry.ts</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    <code>/_hub/jobs</code>
+                    パスをデッキ表示パスより優先してルーティングするように調整。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>apps/hub-worker/runtime/job-status.ts</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    ワーカーランタイムにおける進捗画面 HTML 配信ハンドラ。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left">
+                    <code>apps/hub-worker/scripts/verify-publication-jobs.mjs</code>
+                  </td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">
+                    ブラウザ環境およびワーカー環境を横断した検証スクリプト。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>docs/guides/cli.md</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    新規 CLI コマンド、設定ファイル、レシート機能の利用ガイドの追記。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>docs/guides/platforms.md</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    AWS ECS および GCP Cloud Run でのワーカー運用設定に関する追記。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>docs/guides/workers.md</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    Cloudflare Workers および Durable Objects の運用・制限事項の追記。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>docs/guides/web-customization.md</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">進捗確認用フロントエンドの組み込み方法の追記。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>docs/DECISIONS.md</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">
+                    非同期公開および永続化設計に関する技術的決定事項（ADR）の記録。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>TODO.md</code></td>
+                  <td style="text-align:left">変更</td>
+                  <td style="text-align:left">実装タスクの進捗および残課題の更新。</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left"><code>docs/results/publication-jobs.json</code></td>
+                  <td style="text-align:left">新規</td>
+                  <td style="text-align:left">実際のテスト実行結果を記録する成果物ファイル。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <hr />
+        </section>
+        <section>
+          <h2 id="steps">実装ステップと品質ゲート</h2>
+          <p>
+            安全かつ段階的にシステムを移行するため、実装を 7
+            つのステップに分割し、各ステップの完了時に厳格な品質ゲートを設けます。
+          </p>
+          <article class="step">
+            <h4>Step 1: プロトコル契約とヘッドレスクライアント SDK の確立</h4>
+            <ul>
+              <li>
+                <strong>目的</strong>: サーバー・CLI・Web
+                間で共有されるジョブの型定義、状態・フェーズ定義、および API
+                クライアントを外部依存（Zod 等）なしで確立する。
+              </li>
+              <li>
+                <strong>対象ファイルと理由</strong>:
+                <ul>
+                  <li>
+                    <code>packages/protocol/src/contracts/jobs.ts</code>: 純粋な TypeScript
+                    による型定義と型ガード関数を配置。
+                  </li>
+                  <li>
+                    <code>packages/protocol/src/contracts/index.ts</code>: 型定義のエクスポート。
+                  </li>
+                  <li>
+                    <code>packages/protocol/tests/jobs.test.mjs</code>: 型ガードの整合性テスト。
+                  </li>
+                  <li>
+                    <code>packages/hub/src/client/jobs.ts</code>: fetch
+                    をラップし、ポーリングや中断制御を行う
+                    <code>createPublicationJobClient</code> を配置。
+                  </li>
+                  <li>
+                    <code>packages/hub/src/client/index.ts</code>: クライアント関数のエクスポート。
+                  </li>
+                  <li>
+                    <code>packages/hub/tests/jobs-client.test.mjs</code>: クライアント SDK
+                    の単体テスト。
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <strong>変更手順</strong>:
+                <ol>
+                  <li>
+                    <code>JobSnapshot</code>, <code>JobPhase</code>,
+                    <code>JobStatus</code>
+                    などの共通インターフェースを定義し、値検証ガードを実装する。
+                  </li>
+                  <li>
+                    <code>createPublicationJobClient</code> において <code>submit</code>,
+                    <code>get</code>, <code>list</code>, <code>retry</code>,
+                    <code>watch</code> を実装する。<code>watch</code>
+                    は非同期イテレータとして動作し、通常時は 2 秒、ネットワーク障害時は最大 15
+                    秒のバックオフを適用して終端状態で自動停止する。
+                  </li>
+                  <li>
+                    Web 環境でのバックグラウンドタブ時（非アクティブ時）はポーリング間隔を 10
+                    秒に延長する制御を組み込む。
+                  </li>
+                </ol>
+              </li>
+              <li>
+                <strong>処理シーケンス</strong>:
+                <pre class="mermaid">
+flowchart LR
+ A[Client] --> B[submit] --> C[POST /api/jobs] --> D[202]
+ A --> E[watch] --> F[GET status] --> G[JobSnapshot]</pre>
+              </li>
+              <li>
+                <strong>完了条件 (DoD)</strong>:
+                <ul>
+                  <li>
+                    外部ランタイム検証ライブラリに依存せず、型定義とガードが正しく機能すること。
+                  </li>
+                  <li>
+                    ポーリングの自動停止およびエラー時のバックオフが単体テストで立証されていること。
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <strong>トリアージ方針</strong>:
+                バリデーション漏れが判明した場合は、型ガード関数を拡充しプロトコル層のテストケースを追加する。
+              </li>
+              <li>
+                <strong>品質ゲート G1</strong>:
+                <pre><code class="language-bash">pnpm build:packages &amp;&amp; node --test packages/protocol/tests/jobs.test.mjs packages/hub/tests/jobs-client.test.mjs &amp;&amp; pnpm check:boundaries
+</code></pre>
+              </li>
+            </ul>
+          </article>
+          <article class="step">
+            <h4>Step 2: コアサービス層と実行ランナーの分離</h4>
+            <ul>
+              <li>
+                <strong>目的</strong>:
+                公開処理から非同期実行ロジックを抽出し、入力検証、冪等性制御、および受付トランザクションを構築する。
+              </li>
+              <li>
+                <strong>対象ファイルと理由</strong>:
+                <ul>
+                  <li>
+                    <code>packages/server/src/jobs/ports.ts</code>:
+                    <code>PublicationJobStore</code> のポート仕様を定義。
+                  </li>
+                  <li>
+                    <code>packages/server/src/jobs/service.ts</code>:
+                    受付とコミットを調停するサービスを実装。
+                  </li>
+                  <li>
+                    <code>packages/server/src/jobs/runner.ts</code>:
+                    段階的にフェーズを実行するランナーを実装。
+                  </li>
+                  <li>
+                    <code>packages/server/src/publish.ts</code>: コア処理から
+                    <code>preparePublication</code> を抽出。
+                  </li>
+                  <li>
+                    <code>packages/server/src/compiler.ts</code>:
+                    スライド単位の進捗コールバックを追加。
+                  </li>
+                  <li>
+                    <code>packages/server/src/worker-handler.ts</code>, <code>ports.ts</code>,
+                    <code>index.ts</code>: サービスとルートの接続。
+                  </li>
+                  <li>
+                    <code>packages/server/tests/jobs.test.mjs</code>: コアロジックの単体テスト。
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <strong>変更手順</strong>:
+                <ol>
+                  <li>
+                    <code>publishDeck</code> から不変生成物のコンパイルと保存を担う
+                    <code>preparePublication</code>
+                    を切り出し、同期公開と非同期ランナーの双方が利用できるようにする。
+                  </li>
+                  <li>
+                    <code>PublicationService.submit</code>
+                    を実装し、非公開入力の保存、既存ジョブの重複検証（同一 ID
+                    かつ同一リクエストハッシュなら既存ジョブを返却、異なるハッシュなら 409
+                    Conflict）、および受付登録を実装する。
+                  </li>
+                  <li>
+                    コンパイラに
+                    <code>onProgress</code>
+                    を接続し、各スライドの処理完了ごとにイベントを発火させる。
+                  </li>
+                </ol>
+              </li>
+              <li>
+                <strong>処理シーケンス</strong>:
+                <pre class="mermaid">
+flowchart LR
+ A[CLI] --> B[HTTP validation] --> C[Private input] --> D[Atomic admission] --> E[202]
+ D --> F[Durable runner]</pre>
+              </li>
+              <li>
+                <strong>完了条件 (DoD)</strong>:
+                <ul>
+                  <li>既存の同期型エンドポイントが破壊されることなく動作を継続すること。</li>
+                  <li>
+                    単体テストにおいて世代順序、親ジョブ再試行、不正ケーパビリティ拒否、およびストア失敗時の公開状態保護が確認されていること。
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <strong>トリアージ方針</strong>:
+                世代番号の不整合が発生した場合は、トランザクション開始前のバリデーション順序を見直す。
+              </li>
+              <li>
+                <strong>品質ゲート G2</strong>:
+                <pre><code class="language-bash">pnpm --filter @slidev-stage-hub/server build &amp;&amp; pnpm --filter @slidev-stage-hub/server test
+</code></pre>
+              </li>
+            </ul>
+          </article>
+          <article class="step">
+            <h4>Step 3: 永続化アダプターと実行プロセスの実装</h4>
+            <ul>
+              <li>
+                <strong>目的</strong>: PostgreSQL および Cloudflare Durable Objects
+                向けのストレージアダプターを完成させ、別プロセスワーカーまたはアラーム駆動による実行機構を配備する。
+              </li>
+              <li>
+                <strong>対象ファイルと理由</strong>:
+                <ul>
+                  <li>
+                    <code>packages/state-postgres/migrations/002-publication-jobs.sql</code>,
+                    <code>src/migrations.ts</code>, <code>src/jobs.ts</code>: PostgreSQL
+                    向けマイグレーションとストア実装。
+                  </li>
+                  <li>
+                    <code>packages/adapter-cloudflare/src/jobs.ts</code>,
+                    <code>apps/hub-worker/src/versions.ts</code>, <code>worker.ts</code>: Durable
+                    Objects 向けストアおよびアラームハンドラの実装。
+                  </li>
+                  <li>
+                    <code>packages/adapter-node/src/jobs.ts</code>,
+                    <code>publication-store.ts</code>: メモリ版ストアの実装。
+                  </li>
+                  <li>
+                    <code>apps/hub-server/src/start.ts</code>, <code>worker.ts</code>,
+                    <code>config.ts</code>, <code>package.json</code>:
+                    ワーカープロセス起動スクリプトの追加。
+                  </li>
+                  <li><code>apps/hub-server/deploy/compose.yaml</code>: ローカル実行環境定義。</li>
+                </ul>
+              </li>
+              <li>
+                <strong>変更手順</strong>:
+                <ol>
+                  <li>
+                    PostgreSQL のマイグレーションファイルを記述し、<code>SKIP LOCKED</code>
+                    によるクレーム処理とリース管理を実装する。
+                  </li>
+                  <li>
+                    Durable Objects において <code>storage.transaction</code> を用いた SQL
+                    更新とアラーム予約を実装する。
+                  </li>
+                  <li>
+                    <code>apps/hub-server</code> に独立した <code>worker.ts</code> を追加し、SIGTERM
+                    受信時に新規クレームを停止して接続を安全に閉じる終了処理を実装する。
+                  </li>
+                </ol>
+              </li>
+              <li>
+                <strong>処理シーケンス</strong>:
+                <pre class="mermaid">
+flowchart LR
+ A[Alarm / PG worker] --> B[Claim lease] --> C[Run phase] --> D[Checkpoint] --> E[Commit publication] --> F[Finish]</pre>
+              </li>
+              <li>
+                <strong>完了条件 (DoD)</strong>:
+                <ul>
+                  <li>
+                    本物の PostgreSQL 環境で 2
+                    つのワーカープロセスが再起動を挟んでも競合なく排他的にジョブを処理できること。
+                  </li>
+                  <li>
+                    ローカル workerd 環境でアラーム再起動および schema_version 1
+                    のデータ保持が確認できること。
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <strong>トリアージ方針</strong>:
+                リースの期限切れが多発した場合は、ハートビート更新周期とトランザクション内の処理時間を確認する。
+              </li>
+              <li>
+                <strong>品質ゲート G3</strong>:
+                <pre><code class="language-bash">HUB_TEST_DATABASE_URL=&lt;local_db_url&gt; pnpm --filter @slidev-stage-hub/state-postgres test &amp;&amp; pnpm --filter @slidev-stage-hub/adapter-cloudflare test &amp;&amp; pnpm --filter @slidev-stage-hub/adapter-node test
+</code></pre>
+              </li>
+            </ul>
+          </article>
+          <article class="step">
+            <h4>Step 4: サムネイル生成機能の統合と分離</h4>
+            <ul>
+              <li>
+                <strong>目的</strong>:
+                画面キャプチャ処理を共通化し、公開確定後の非同期パイプラインとして接続するとともに、レンダラー不在時の安全な部分成功（<code>partial</code>）を確立する。
+              </li>
+              <li>
+                <strong>対象ファイルと理由</strong>:
+                <ul>
+                  <li>
+                    <code>packages/server/src/thumbnail.ts</code>: 共通画像キャプチャ処理の配置。
+                  </li>
+                  <li>
+                    <code>packages/adapter-cloudflare/src/thumbnail.ts</code>: Cloudflare Browser
+                    Rendering との連携。
+                  </li>
+                  <li>
+                    <code>packages/renderer-playwright/package.json</code>,
+                    <code>src/index.ts</code>, <code>tests/renderer.test.mjs</code>:
+                    <code>playwright-core</code> を用いた Node.js 向けレンダラーパッケージの新設。
+                  </li>
+                  <li>
+                    <code>apps/hub-server/src/config.ts</code>: レンダラー設定オプションの追加。
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <strong>変更手順</strong>:
+                <ol>
+                  <li>
+                    <code>packages/renderer-playwright</code>
+                    を新設し、<code>playwright-core</code>（ブラウザの自動ダウンロードなし）を用いて既存の
+                    <code>renderThumbnail(url: string)</code> ポートを実装する。設定として
+                    <code>HUB_THUMBNAIL_RENDERER=none|playwright</code> および
+                    <code>HUB_CHROMIUM_EXECUTABLE</code> の明示指定を要求し、ワーカーが並行度 1
+                    でブラウザの起動と終了を管理して 1200x675
+                    のスクリーンショットを取得する処理を実装する。
+                  </li>
+                  <li>
+                    レンダリング対象の公開オリジンには設定された
+                    <code>HUB_PUBLIC_ORIGIN</code>（Cloudflare 環境では
+                    <code>PUBLIC_ORIGIN</code>）を使用し、Host ヘッダーやユーザー入力の URL
+                    は信用しないことで SSRF
+                    を防止する。ブラウザに対して公開シークレットを渡してはならない。
+                  </li>
+                  <li>
+                    スライド準備セレクタ
+                    <code
+                      >.slidev-page[data-slidev-no=&quot;1&quot;]
+                      [data-lab-slide-ready=&quot;1&quot;]</code
+                    >
+                    の待機と 90 秒のタイムアウト制御を組み込む。
+                  </li>
+                  <li>
+                    生成された画像ファイルのバリデーション（サイズ 4MiB 以下、解像度
+                    1200x675）を実装する。レンダラー未設定時はエラーとせず
+                    <code>partial</code>（コード
+                    <code>THUMBNAIL_UNAVAILABLE</code>）として完了する。
+                  </li>
+                </ol>
+              </li>
+              <li>
+                <strong>処理シーケンス</strong>:
+                <pre class="mermaid">
+flowchart LR
+ A[Published revision] --> B[Renderer] --> C[Validate PNG] --> D[Conditional store] --> E[succeeded]
+ B -->|exhausted / unavailable| F[partial]</pre>
+              </li>
+              <li>
+                <strong>完了条件 (DoD)</strong>:
+                <ul>
+                  <li>サムネイル生成が失敗してもスライド自体の公開がロールバックされないこと。</li>
+                  <li>
+                    Cloudflare の BROWSER
+                    バインディング存在時は自動連携し、不在時は可視の部分成功（<code>partial</code>）となること。
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <strong>トリアージ方針</strong>:
+                タイムアウトが多発する場合は、スライド待機セレクタの発火状況を検証する。
+              </li>
+              <li>
+                <strong>品質ゲート G4</strong>:
+                <pre><code class="language-bash">pnpm --filter @slidev-stage-hub/renderer-playwright test &amp;&amp; pnpm --filter @slidev-stage-hub/adapter-cloudflare test
+</code></pre>
+              </li>
+            </ul>
+          </article>
+          <article class="step">
+            <h4>Step 5: CLI コマンドの拡充と非同期公開フローの統合</h4>
+            <ul>
+              <li>
+                <strong>目的</strong>: CLI
+                において非同期公開の進行状況をリアルタイムに表示し、接続先プロファイル管理、ジョブ管理サブコマンド（<code>status</code>,
+                <code>watch</code>, <code>list</code>,
+                <code>retry</code>）、およびローカルレシート管理を導入する。
+              </li>
+              <li>
+                <strong>対象ファイルと理由</strong>:
+                <ul>
+                  <li>
+                    <code>packages/cli/src/remote-config.ts</code>: 接続先プロファイル
+                    <code>hub.remote.json</code> の管理。
+                  </li>
+                  <li>
+                    <code>packages/cli/src/publish.ts</code>:
+                    非同期公開フローおよびポーリング待機の統合。
+                  </li>
+                  <li>
+                    <code>packages/cli/src/jobs.ts</code>:
+                    <code>hub jobs</code> サブコマンド群の実装。
+                  </li>
+                  <li>
+                    <code>packages/cli/src/output.ts</code>, <code>errors.ts</code>,
+                    <code>hub.ts</code>, <code>cli.ts</code>: 出力制御とエラー処理。
+                  </li>
+                  <li><code>packages/cli/tests/jobs.test.mjs</code>: CLI 動作検証テスト。</li>
+                  <li><code>docs/guides/cli.md</code>: CLI 操作マニュアル。</li>
+                </ul>
+              </li>
+              <li>
+                <strong>変更手順</strong>:
+                <ol>
+                  <li>
+                    <code>hub.remote.json</code>（<code>schemaVersion: 1</code>,
+                    <code>{ origin, defaultDeckId?, headersFile? }</code
+                    >）を扱う設定管理を実装する。デフォルト参照先は
+                    <code>./hub.remote.json</code> とし
+                    <code>--remote-config</code>
+                    で上書き可能とする。コマンドライン引数（flags）はプロファイル設定より優先される。<code
+                      >headersFile</code
+                    >
+                    のパスは設定ファイル配置ディレクトリを基準とし、スライドソースやアセットのパスはカレントワーキングディレクトリ（cwd）を基準として解決する。既存のオフライン
+                    <code>hub build</code> 設定には変更を加えない。
+                  </li>
+                  <li>
+                    <code>hub init --origin URL</code>
+                    コマンドを実装し、新規プロファイルのみを作成する（既存ファイルの上書きは禁止）。<code
+                      >hub doctor</code
+                    >
+                    コマンドを実装し、プロファイル構文、認証ヘッダーファイル、および
+                    <code>GET /api/capabilities</code>
+                    を読み取り専用で検証する（ワーカープロセスの稼働やブラウザ実稼働までは保証しない旨を明示）。
+                  </li>
+                  <li>
+                    <code
+                      >hub publish --id ID --source slides.md [--thumbnail auto|none] [--no-wait]
+                      [--timeout 300] [--require-jobs] [--job UUID] [--json]</code
+                    >
+                    を実装する（既存の <code>--origin</code>, <code>--assets</code>,
+                    <code>--headers-file</code> も維持）。<code>POST /api/jobs</code> 発行直前に、OS
+                    のプライベートユーザー領域（<code>XDG_STATE_HOME/slidev-stage-hub/receipts</code>、POSIX
+                    環境では権限
+                    <code>0600</code>）へレシートファイルを保存する。レシートには接続先、デッキ
+                    ID、ジョブ ID、閲覧用トークン、リクエストハッシュを記録し、スライドの Markdown
+                    やノートは含めない。<code>--job</code>
+                    による再送時はレシートとリクエストハッシュの一致を検証する。
+                  </li>
+                  <li>
+                    <code>hub jobs status --id ID --job UUID</code>,
+                    <code>hub jobs watch --id ID --job UUID</code>,
+                    <code>hub jobs list --id ID</code>,
+                    <code>hub jobs retry --id ID --job UUID --stage thumbnail|all</code>
+                    を実装する。<code>list</code> には公開用認証情報を必須とし、<code>status</code>
+                    や
+                    <code>watch</code>
+                    は公開用認証情報またはローカルレシートの閲覧トークンで照会可能とする。
+                  </li>
+                  <li>
+                    <code>hub publish</code> で 202
+                    レスポンスを受け取った後、直ちに標準エラー出力にジョブ ID と確認用 URL
+                    を出力し、デフォルト 300
+                    秒の待機ループに入る。人間向け表示（stderr）と機械可読な
+                    <code>--json</code> 出力（stdout の単一封筒形式
+                    <code>{ ok, command, data/error }</code>）を厳密に分離する。非 TTY 環境では ANSI
+                    エスケープなしでフェーズの進行行を出力する。
+                  </li>
+                  <li>
+                    終了コードとして、部分成功（<code>partial</code>）時は
+                    1（<code>PARTIAL_SUCCESS</code>、公開リビジョン情報を保持）、失敗および無効化は
+                    1、入力エラーは 2、Ctrl+C 中断時は
+                    130（ローカル監視のみ停止しジョブは継続）、待機タイムアウト時は
+                    1（<code>JOB_WAIT_TIMEOUT</code>、再開コマンドを表示）、<code>--no-wait</code>
+                    による受付完了時は 0（未完了であることを明示）を定義する。<code
+                      >CliFailure</code
+                    >
+                    を拡張して構造化ジョブ結果を保持できるようにし、定常ログやエラーに生の閲覧トークンを出力しない。
+                  </li>
+                  <li>
+                    サーバーがジョブ機能をサポートしていない場合（404
+                    または機能フラグ無効）は同期公開へフォールバックする旨を stderr
+                    に告知する（ただし
+                    <code>--require-jobs</code>
+                    指定時はエラー終了する）。認証エラー（401）やネットワークエラー、5xx
+                    障害時はフォールバックしない。
+                  </li>
+                </ol>
+              </li>
+              <li>
+                <strong>CLI コマンド契約</strong>:
+                <div class="tablewrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>コマンド</th>
+                        <th>引数・フラグ</th>
+                        <th>権限・前提</th>
+                        <th>主な動作・終了コード</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>hub init</code></td>
+                        <td><code>--origin &lt;URL&gt;</code></td>
+                        <td>なし</td>
+                        <td>新規 <code>hub.remote.json</code> を生成（既存時はエラー）。</td>
+                      </tr>
+                      <tr>
+                        <td><code>hub doctor</code></td>
+                        <td><code>[--remote-config &lt;path&gt;]</code></td>
+                        <td>任意ヘッダー</td>
+                        <td>設定と機能検証（読取専用）。正常終了 0。</td>
+                      </tr>
+                      <tr>
+                        <td><code>hub publish</code></td>
+                        <td>
+                          <code
+                            >--id &lt;ID&gt; --source &lt;path&gt; [--thumbnail auto|none]
+                            [--no-wait] [--timeout 300] [--require-jobs] [--job &lt;UUID&gt;]
+                            [--json]</code
+                          >
+                        </td>
+                        <td>公開認証情報</td>
+                        <td>
+                          レシート保存後にジョブ投入。完了監視（既定 300s）。成功 0、部分成功
+                          1、タイムアウト 1、受付即終了（<code>--no-wait</code>）0。
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>hub jobs status</code></td>
+                        <td><code>--id &lt;ID&gt; --job &lt;UUID&gt; [--json]</code></td>
+                        <td>公開認証または閲覧トークン</td>
+                        <td>現在の状態を単一取得して表示。</td>
+                      </tr>
+                      <tr>
+                        <td><code>hub jobs watch</code></td>
+                        <td><code>--id &lt;ID&gt; --job &lt;UUID&gt; [--timeout 300]</code></td>
+                        <td>公開認証または閲覧トークン</td>
+                        <td>終端状態まで進捗を追跡監視。Ctrl+C 時は 130。</td>
+                      </tr>
+                      <tr>
+                        <td><code>hub jobs list</code></td>
+                        <td><code>--id &lt;ID&gt; [--limit &lt;N&gt;] [--json]</code></td>
+                        <td>公開認証情報必須</td>
+                        <td>デッキのジョブ一覧を取得（最大 100 件）。</td>
+                      </tr>
+                      <tr>
+                        <td><code>hub jobs retry</code></td>
+                        <td>
+                          <code
+                            >--id &lt;ID&gt; --job &lt;UUID&gt; --stage &lt;thumbnail|all&gt;</code
+                          >
+                        </td>
+                        <td>公開認証情報必須</td>
+                        <td>子ジョブを投入して再試行を開始（202/200）。</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </li>
+              <li>
+                <strong>処理シーケンス</strong>:
+                <pre class="mermaid">
+flowchart LR
+ A[CLI] --> B[Private receipt] --> C[POST /api/jobs] --> D[202] --> E[Poll / stderr progress] --> F[Final output]</pre>
+              </li>
+              <li>
+                <strong>完了条件 (DoD)</strong>:
+                <ul>
+                  <li>
+                    <code>--job</code> 再生時にレシートとリクエストハッシュの一致が検証されること。
+                  </li>
+                  <li>部分成功時に終了コード 1 を返しつつ、公開リビジョン情報が失われないこと。</li>
+                  <li>
+                    <code>hub init</code> が既存ファイルを上書きせず、<code>hub doctor</code>
+                    が読み取り専用で構成を検証できること。
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <strong>トリアージ方針</strong>:
+                レシートの不整合が発生した場合は、リクエストハッシュの計算対象に環境依存項目が含まれていないか確認する。
+              </li>
+              <li>
+                <strong>品質ゲート G5</strong>:
+                <pre><code class="language-bash">pnpm --filter @slidev-stage-hub/cli test &amp;&amp; pnpm verify:packed-cli
+</code></pre>
+              </li>
+            </ul>
+          </article>
+          <article class="step">
+            <h4>Step 6: Web フロントエンド進捗確認画面の実装</h4>
+            <ul>
+              <li>
+                <strong>目的</strong>: ブラウザからリアルタイムに進捗を確認できる読み取り専用の Web
+                画面コンポーネントを実装する。
+              </li>
+              <li>
+                <strong>対象ファイルと理由</strong>:
+                <ul>
+                  <li>
+                    <code>packages/hub/src/frontend/JobStatus.vue</code>: Vue ベースの進捗表示 UI
+                    コンポーネント。
+                  </li>
+                  <li>
+                    <code>packages/hub/src/frontend/job-status.ts</code>: 独立して DOM
+                    へマウント可能な <code>mountJobStatus</code> 実装。
+                  </li>
+                  <li>
+                    <code>packages/hub/src/frontend/job-status.css</code>:
+                    オプトインのスタイルシート。
+                  </li>
+                  <li>
+                    <code>packages/hub/src/frontend/index.ts</code>: モジュールのエクスポート。
+                  </li>
+                  <li>
+                    <code>apps/hub-worker/runtime/entry.ts</code>, <code>job-status.ts</code>:
+                    ルーティングと静的配信ハンドラ。
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <strong>変更手順</strong>:
+                <ol>
+                  <li><code>/_hub/jobs</code> ルートをデッキ表示パターンより優先して登録する。</li>
+                  <li>
+                    URL
+                    フラグメント（<code>#view=&lt;token&gt;</code>）から閲覧トークンを読み取り、API
+                    への fetch を行う前に直ちに <code>history.replaceState</code> で URL
+                    からトークンを除去した上で
+                    <code>sessionStorage</code>（オリジン・デッキ・ジョブ単位、<code
+                      >localStorage</code
+                    >
+                    は不可）に保持する。
+                  </li>
+                  <li>
+                    画面上に変異ボタンや全ジョブ一覧は配置せず、再試行が必要な場合は CLI
+                    のコマンド例を提示する。
+                  </li>
+                  <li>
+                    通信切断時は「通信が途切れています。最後に確認した状態を表示しています。」という警告バナーを表示し、最後の状態を保持しながら指数バックオフで再接続を試みる。切断を理由にジョブを失敗扱いにしない。
+                  </li>
+                  <li>
+                    不正または期限切れのトークンに対しては「リンクが無効または期限切れ」とだけ表示し、内部エラー詳細を漏洩させない。公開完了後かつ正規ガードの検証が済んだ後にのみスライド閲覧リンクを表示する。
+                  </li>
+                  <li>
+                    スクリーンリーダー向けにフェーズ表示部分へ
+                    <code>aria-live</code>
+                    属性を設定し、コンポーネント破棄時にポーリング処理を確実に解除する。
+                  </li>
+                </ol>
+              </li>
+              <li>
+                <strong>処理シーケンス</strong>:
+                <pre class="mermaid">
+flowchart LR
+ A[Confirmation link] --> B[Read fragment] --> C[Remove fragment] --> D[sessionStorage] --> E[GET status] --> F[Render snapshot]</pre>
+              </li>
+              <li>
+                <strong>完了条件 (DoD)</strong>:
+                <ul>
+                  <li>
+                    トークンの漏洩防止処理（URL 置換、sessionStorage
+                    利用、no-referrer）が機能していること。
+                  </li>
+                  <li>
+                    画面のアンマウント時にすべてのタイマーとポーリング処理が確実に破棄されること。
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <strong>トリアージ方針</strong>: トークンの消失が発生した場合は、タブ再読み込み時の
+                <code>sessionStorage</code> のキー生成規則を検証する。
+              </li>
+              <li>
+                <strong>品質ゲート G6</strong>:
+                <pre><code class="language-bash">pnpm --filter @slidev-stage-hub/hub typecheck &amp;&amp; pnpm --filter @slidev-stage-hub/workers typecheck &amp;&amp; pnpm verify:publication-jobs
+</code></pre>
+              </li>
+            </ul>
+          </article>
+          <article class="step">
+            <h4>Step 7: 統合検証、デプロイ構成、およびドキュメント整備</h4>
+            <ul>
+              <li>
+                <strong>目的</strong>:
+                ローカル環境（PostgreSQL、Node、workerd、実Playwright、注入されたCloudflareバインディングフィクスチャ）における結合動作を検証し、AWSおよびGCP向けの運用構成テンプレートと文書を完成させる（実クラウド環境へのデプロイは行わない）。
+              </li>
+              <li>
+                <strong>対象ファイルと理由</strong>:
+                <ul>
+                  <li>
+                    <code>apps/hub-worker/scripts/verify-publication-jobs.mjs</code>: E2E
+                    結合検証スクリプト。
+                  </li>
+                  <li>
+                    <code>apps/hub-server/deploy/compose.yaml</code>,
+                    <code>aws-ecs-task-definition.template.json</code>,
+                    <code>gcp-cloud-run-service.template.yaml</code>: デプロイ用設定定義。
+                  </li>
+                  <li>
+                    <code>docs/guides/{cli.md, platforms.md, workers.md, web-customization.md}</code
+                    >, <code>docs/DECISIONS.md</code>, <code>TODO.md</code>: 技術文書群。
+                  </li>
+                  <li><code>docs/results/publication-jobs.json</code>: 検証実行結果ログ。</li>
+                </ul>
+              </li>
+              <li>
+                <strong>変更手順</strong>:
+                <ol>
+                  <li>
+                    AWS ECS 向けタスク定義テンプレートにおいて、API コンテナと同一イメージを用いて
+                    <code>node dist/worker.js</code>
+                    を実行する独立したワーカーコンテナを追加し、タスク全体で共有される既存の ECS
+                    タスクロールに必要な権限を更新する。
+                  </li>
+                  <li>
+                    GCP Cloud Run 向けテンプレートにおいて、API
+                    イングレスコンテナと同一インスタンス上で稼働するワーカーサイドカー（同一イメージ、コマンド
+                    <code>node dist/worker.js</code>、ポートはリッスンしない）を構成する。<code
+                      >always CPU</code
+                    >
+                    割り当てと最小インスタンス数 1（<code>min-instances: 1</code>）を指定し、HTTP
+                    リクエスト時のみ CPU を割り当てるデフォルト構成を避ける。
+                  </li>
+                  <li>
+                    ローカルの PostgreSQL、Node.js ワーカー、Playwright
+                    レンダラーを組み合わせたフルスタック検証スクリプトを実行し、正常系・異常系・中断系の動作を検証する。
+                  </li>
+                  <li>
+                    検証結果を
+                    <code>docs/results/publication-jobs.json</code>
+                    に記録し、関連ガイドおよび技術決定記録（ADR）を更新する。
+                  </li>
+                </ol>
+              </li>
+              <li>
+                <strong>完了条件 (DoD)</strong>:
+                <ul>
+                  <li>すべての結合テストおよび静的検証が合格し、実行結果が記録されていること。</li>
+                  <li>
+                    デプロイ設定およびドキュメントに未検証の機能や架空のコマンドが含まれていないこと。
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <strong>トリアージ方針</strong>:
+                デプロイテンプレートの構文不整合が確認された場合は、各クラウドプロバイダの最新仕様に合わせて修正する。
+              </li>
+              <li>
+                <strong>品質ゲート G7</strong>:
+                <pre><code class="language-bash">pnpm check &amp;&amp; pnpm verify:publication-jobs &amp;&amp; pnpm verify:runtime-upgrade &amp;&amp; pnpm verify:packed-server
+</code></pre>
+              </li>
+            </ul>
+            <p>
+              本章では、非同期ジョブ実行基盤および進捗確認機能が、実運用環境において意図通りに安定して動作することを保証するための検証計画、運用手順、品質判定基準、および段階的展開手順を定めます。本計画に記載されている新規
+              API、コマンド、ファイル、データベーススキーマはすべて実装提案（PROPOSED）であり、計画作成時点では未実装でした。現在の実装・検証状況は進捗台帳を参照してください。2026年10月10日時点の基盤コミット
+              <code>2d96e53</code
+              >（ランタイム固定化完了・未プッシュ）を前提とし、既存の同期公開機能や固定化済みランタイム資産との完全な互換性を維持しながら、段階的に導入を進めます。
+            </p>
+            <hr />
+            <pre class="mermaid">
+flowchart LR
+ A[Local PG / workerd] --> B[API and workers] --> C[CLI / browser tests] --> D[Regression gates] --> E[Results and guides]</pre>
+          </article>
+        </section>
+        <section>
+          <h2 id="tests">振る舞い検証計画（tests）</h2>
+          <p>
+            非同期処理と分散状態管理を伴う本基盤では、単なる正常系の導通確認にとどまらず、ネットワーク切断、プロセス強制終了、リソース競合、および異常系からの有界な復旧を確実に検証する必要があります。以下に
+            Given-When-Then 形式に基づき、実装において保証すべき振る舞い検証マトリクスを定義します。
+          </p>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>識別子</th>
+                  <th>検証対象・前提条件（Given）</th>
+                  <th>発生事象・操作（When）</th>
+                  <th>期待される動作・検証基準（Then）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>test-a</td>
+                  <td>CLI から <code>hub publish --no-wait</code> でジョブを登録した直後の状態</td>
+                  <td>
+                    CLI プロセスが待機を終了し、後から
+                    <code>hub jobs watch</code> で進捗監視を再開する
+                  </td>
+                  <td>
+                    サーバー側で公開処理がバックグラウンドのまま継続し、再開した CLI
+                    が最新のフェーズ進捗および最終的な完了状態を正常に受信できること。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-b</td>
+                  <td>
+                    同一の
+                    <code>jobId</code>
+                    かつ同一のリクエスト内容を持つジョブがすでに登録されている状態
+                  </td>
+                  <td>
+                    同一の <code>jobId</code> で二重に POST リクエストを送信する。また、同一
+                    <code>jobId</code> で異なるリクエスト本文を送信する
+                  </td>
+                  <td>
+                    同一内容の再送信時は世代番号（<code>generation</code>）をインクリメントせず既存ジョブを返却し（非終端時は
+                    202 Accepted、終端時は 200 OK）、内容が異なる場合は 409 Conflict
+                    を返して二重生成を防止すること。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-c</td>
+                  <td>同一スライドに対してジョブ A、ジョブ B の順に受け付けられた状態</td>
+                  <td>
+                    ワーカーの割り当てによりジョブ B が先に公開コミットを完了し、その後にジョブ A
+                    のコンパイルが完了する
+                  </td>
+                  <td>
+                    世代番号の比較フェンシングによりジョブ A
+                    のコミットが拒否され、公開ポインタ（<code>current</code>）が古いジョブ A
+                    のリビジョンへロールバックしないこと。従来の同期公開が開始された場合も、未公開の非同期ジョブのみが即座に無効化（<code>superseded</code>）され、公開コミット済みのサムネイル処理は継続すること。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-d</td>
+                  <td>
+                    入力永続化前、プライベート保存後、202
+                    応答前、クレーム後、コンパイル中、アーティファクト保存後、コミット完了後かつ
+                    HTTP 応答前、サムネイル保存後かつステータス更新前などの各境界状態
+                  </td>
+                  <td>ワーカーまたはサーバーのプロセスが予期せず強制終了（クラッシュ）する</td>
+                  <td>
+                    一度受け付けられたジョブが消失せず（lost acceptance
+                    forbidden）、未コミットの孤立ファイルが安全に残存し、再起動後のリース監視によってタイムアウト後に再試行または有界な失敗状態へ遷移すること。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-e</td>
+                  <td>
+                    ワーカーがジョブのリースを獲得して処理中だが、処理遅延等によりリースの有効期限が失効した状態
+                  </td>
+                  <td>
+                    失効した古いワーカーが処理を再開し、チェックポイントの更新や最終コミットを試みる
+                  </td>
+                  <td>
+                    条件付き更新（フェンシングトークン照合）によりすべての書き込みが拒否され、後続ワーカーの作業を上書き破壊しないこと。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-f</td>
+                  <td>
+                    公開自体は成功したが、サムネイル生成ワーカーにおいて外部ブラウザ実行が混雑または障害となった状態
+                  </td>
+                  <td>
+                    サムネイル描画時に 429 エラーが発生し、その後 3
+                    回連続で障害が継続する。また、レンダラー未設定時に <code>auto</code> または
+                    <code>none</code> が指定される
+                  </td>
+                  <td>
+                    429 受信時は <code>retry_wait</code> 状態を経て再試行されること。3
+                    回失敗後はスライド公開を維持したままジョブ全体を
+                    <code>partial</code>
+                    状態とし、公開スライドをロールバックしないこと。レンダラー不在時に
+                    <code>auto</code> であれば再試行なしの <code>partial</code>（理由コード:
+                    <code>THUMBNAIL_UNAVAILABLE</code>）、明示的な <code>none</code> であれば
+                    <code>succeeded</code> となること。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-g</td>
+                  <td>構文エラーや未対応記法を含む不正な Markdown が送信された状態</td>
+                  <td>コンパイラがパースまたは評価エラーを出力する</td>
+                  <td>
+                    ジョブは
+                    <code>failed</code>
+                    状態となり、既存の公開リビジョンは維持されること。エラー詳細には許可されたエラーコードと安全なスライド番号のみが含まれ、生のソースコードやスタックトレースが公開応答に露出しないこと。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-h</td>
+                  <td>
+                    ジョブがキューに滞留している間に、サーバー側のランタイム環境やデプロイプロファイルが互換性のない版へ更新された状態
+                  </td>
+                  <td>ワーカーがジョブをデキューしてコンパイルを開始しようとする</td>
+                  <td>
+                    受付時に記録されたプロファイルダイジェストの不一致を検知し、ジョブを
+                    <code>RUNTIME_CHANGED</code>
+                    で直ちに失敗させること。新プロファイルでの暗黙的な再コンパイルを行わず、過去に公開済みのアーカイブは正常に提供し続けること。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-i</td>
+                  <td>
+                    サムネイルのみが失敗して <code>partial</code> となった親ジョブが存在する状態
+                  </td>
+                  <td>
+                    CLI
+                    からサムネイルステージに限定した再試行を要求する。また、すでに無効化（<code>superseded</code>）された古いジョブの全体再試行を要求する
+                  </td>
+                  <td>
+                    公開済みと同一のリビジョンを対象とする新しい子ジョブが生成され、親の公開世代は変更されないこと。無効化済みジョブの全体再試行は
+                    409 Conflict で拒否されること。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-j</td>
+                  <td>
+                    第三者が特定のジョブの読み取り専用トークン（<code>viewToken</code>）を保持している状態
+                  </td>
+                  <td>
+                    他スライドのジョブ閲覧、スライドソースの取得、ジョブの再試行・キャンセル、ジョブ一覧の取得を試みる。また無効・期限切れトークンを送信する
+                  </td>
+                  <td>
+                    該当ジョブ以外のすべてのアクセスが拒否され、一覧の列挙も行えないこと。無効または期限切れトークンには汎用的な
+                    404 を返し、実際のトークン値を URL クエリ、サーバーログ、HTML
+                    属性へ出力しないこと。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-k</td>
+                  <td>
+                    Web ブラウザの進捗確認画面（<code>/_hub/jobs</code>）を開いた状態で閲覧中の環境
+                  </td>
+                  <td>
+                    一時的にネットワーク通信が遮断され、その後に再接続する。また画面を再読み込み、またはコンポーネントをアンマウントする
+                  </td>
+                  <td>
+                    通信途絶をジョブ自体の失敗と判定せず、最後に受信した正常な状態を表示したまま切断バナーを掲示すること。再読み込み時はセッション内のトークンを用いて復帰し、画面破棄時にはすべてのポーリングタイマーが確実に破棄されること。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-l</td>
+                  <td>CLI を非対話型環境（CI/CD）または端末対話環境で実行する状態</td>
+                  <td>
+                    <code>--json</code> オプションの指定、<code>--no-wait</code>
+                    の指定、監視中のタイムアウト（300 秒）、および Ctrl+C による中断を行う
+                  </td>
+                  <td>
+                    <code>--json</code> 指定時は標準出力に単一の JSON
+                    エンベロープのみを出力し、進捗表示は標準エラー出力に行うこと。300
+                    秒待機後のタイムアウト時は再開コマンドを案内して終了コード
+                    1（<code>JOB_WAIT_TIMEOUT</code>）を返し、Ctrl+C
+                    ではローカルの監視のみを中断（終了コード
+                    130）してサーバー側のジョブを継続させること。旧サーバーに対しては同期公開へ自動フォールバックし、<code
+                      >--require-jobs</code
+                    >
+                    指定時はフォールバックを拒絶して終了すること。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-m</td>
+                  <td>
+                    PostgreSQL を用いたマルチワーカー構成、および Cloudflare Durable Objects
+                    構成の環境
+                  </td>
+                  <td>
+                    複数ワーカーによる同時デキューの競合、ワーカープロセスの再起動、および Durable
+                    Objects アラームの復元を発生させる
+                  </td>
+                  <td>
+                    at-least-once
+                    実行モデルのもとで期限切れリースを持つジョブが回収され、失効したリースによるチェックポイントやコミットが拒否されること。Durable
+                    Objects では既存のクラスインスタンスと状態を保持したまま schema_version 2
+                    へ安全に移行できること。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-n</td>
+                  <td>ローカル Node.js 環境において実 Chromium を用いたレンダラーを起動した状態</td>
+                  <td>
+                    1200x675 ピクセルのスライドキャプチャを実行する。また Cloudflare Access
+                    で保護されたプライベート環境に対して描画を試みる
+                  </td>
+                  <td>
+                    指定寸法の PNG 画像（4MiB
+                    以内）が正常に生成され、古いランタイムやテーマの画像表示に影響を与えないこと。認証が必要なプライベート環境に対しては認証情報をブラウザへ転送せず、Access
+                    を無効化することなく安全に <code>RENDER_AUTH_REQUIRED</code> として
+                    <code>partial</code> 終了すること。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-o</td>
+                  <td>
+                    スライドのソース容量が 512KiB、スライド枚数が 100
+                    枚の境界条件、および同時受付上限（10 件）に達した状態
+                  </td>
+                  <td>各種境界データでのジョブ投入、および受付上限を超えるリクエストを送信する</td>
+                  <td>
+                    境界値以内のデータは正常に受付・処理されること。検証不整合がある場合はジョブ登録前にクライアントエラーを返し、上限超過時は即座に
+                    429 Too Many Requests を返してシステムの安定性を保つこと。
+                  </td>
+                </tr>
+                <tr>
+                  <td>test-p</td>
+                  <td>新設の機能検出 API（<code>GET /api/capabilities</code>）を呼び出す環境</td>
+                  <td>ワーカープロセスの起動有無、および各種環境変数の設定状態を変化させる</td>
+                  <td>
+                    設定値に基づく機能の有効・無効状態のみを正確に報告し、外部プロバイダやワーカープロセスの実際の死活状態を偽ってサーバー健全（healthy）と報告しないこと。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <hr />
+        </section>
+        <section>
+          <h2 id="crosscutting">横断的関心事とセキュリティ（crosscutting）</h2>
+          <p>
+            非同期ジョブ実行と外部からの進捗確認を実現するにあたり、認証、認可、秘密情報の漏洩防止、可観測性、および外部連携における安全性を担保するための設計規約を定めます。
+          </p>
+          <h4>認証と閲覧権限の分離</h4>
+          <p>
+            スライドの公開およびジョブの再試行といった変更操作には、既存の公開用シークレットトークンまたはローカル実行時の明示的な認証情報を必須とします（キャンセル
+            API
+            はスコープ外）。一方、進捗確認用の閲覧権限には、クライアント側で暗号論的疑似乱数を用いて生成される
+            32 バイト（43 文字の base64url 文字列）の
+            <code>viewToken</code> を導入します。サーバーはこのトークンをハッシュ化して 7
+            日間の有効期限とともに保持し、該当ジョブ 1
+            件のみの進捗取得にスコープを限定します。このトークンは第三者への安全な進捗共有を可能にしますが、公開権限の代行や他ジョブの列挙、スライドソースの取得権限は一切与えません。また、グローバルな匿名ジョブ一覧取得
+            API は提供せず、ID 推測による情報漏洩を排除します。なお、閲覧トークンは Cloudflare
+            Access
+            などの外部アクセス制御ポリシーを迂回するものではなく、保護された環境へのアクセスには引き続き外部認証が必要です。
+          </p>
+          <h4>プライベートデータとエラー情報の防護</h4>
+          <p>
+            アップロードされたスライドの Markdown
+            本文やプレゼンターノートは、外部から直接参照できない
+            <code>privateArtifactStore</code>
+            にのみ保管され、データベースのジョブステータスやログには一切含めません。障害発生時のエラーレスポンスは、事前定義された安全なエラーコード、許可リストに基づく安全なメッセージ、および任意の安全なスライド番号のみに限定し、ソースコードの断片、例外スタックトレース、サーバー内部の絶対ファイルパスを遮断します。
+          </p>
+          <h4>可観測性と監査記録</h4>
+          <p>
+            監査ログには
+            <code>jobId</code
+            >、<code>deckId</code>、フェーズ名、試行回数、処理所要時間、および安全な終了コードのみを記録し、<code
+              >viewToken</code
+            >
+            やスライドソースを含めません。監視メトリクスとしては、キュー滞留時間、フェーズ別レイテンシ、<code
+              >partial</code
+            >
+            発生件数、再試行回数を収集します。進捗画面の表示においては、サーバー側で記録された最終更新時刻（<code>updatedAt</code>）を提示し、監視側での誤認を防ぎます。
+          </p>
+          <h4>フロントエンド保護と SSRF 防止</h4>
+          <p>
+            Web 進捗確認画面（<code>/_hub/jobs</code>）では、URL のハッシュフラグメントから
+            <code>viewToken</code> を読み取った直後に
+            <code>history.replaceState</code>
+            を用いてアドレスバーからトークンを消去し、リロード対策として同一オリジンかつ該当ジョブ専用の
+            <code>sessionStorage</code> にのみ一時退避します（<code>localStorage</code>
+            には保存しません）。外部アナリティクスやサードパーティ製スクリプトの読み込みは一切行わず、<code
+              >Referrer-Policy: no-referrer</code
+            >
+            を強制します。また、サムネイル生成時の SSRF（Server-Side Request
+            Forgery）を防止するため、描画対象のオリジンは設定変数（<code>HUB_PUBLIC_ORIGIN</code>
+            または Cloudflare の
+            <code>PUBLIC_ORIGIN</code>）に固定し、クライアントから渡された任意の URL
+            を描画エンジンに渡すことを固く禁じます。
+          </p>
+          <hr />
+        </section>
+        <section>
+          <h2 id="rollout">段階的移行とロールアウト（rollout）</h2>
+          <p>
+            既存の同期公開システムおよび運用中のスライド表示に影響を与えることなく、新しい非同期基盤を展開するための手順を規定します。本計画では実クラウド環境への自動デプロイは行わず、ローカルおよびステージング環境での検証手順を確立します。
+          </p>
+          <pre class="mermaid">
+flowchart TD
+    Phase1["フェーズ 1: スキーマ拡張<br/>（Expand: 新規テーブル事前適用）"]
+    Phase2["フェーズ 2: アプリケーション更新<br/>（機能フラグ OFF でコード配備）"]
+    Phase3["フェーズ 3: ワーカー・レンダラー起動<br/>（実行環境の段階的準備）"]
+    Phase4["フェーズ 4: 機能有効化<br/>（HUB_JOBS_ENABLED=true）"]
+    Phase5["フェーズ 5: クライアント利用開始<br/>（CLI プロファイル設定と自動検出）"]
+
+    Phase1 --> Phase2
+    Phase2 --> Phase3
+    Phase3 --> Phase4
+    Phase4 --> Phase5
+</pre>
+          <h4>段階的展開手順</h4>
+          <ol>
+            <li>
+              <strong>スキーマ拡張（Expand）</strong>: PostgreSQL
+              では新規マイグレーション（<code>002-publication-jobs.sql</code>）を実行し、空のジョブ管理テーブル群を事前作成します。短時間の
+              DDL ロックを伴いますが、既存の
+              <code>hub_publications</code>
+              テーブルの定義や運用データは変更しません（ゼロダウンタイムの保証を前提としない安全な事前適用）。Durable
+              Objects
+              では既存のクラスインスタンスを保持しつつ、新規ストレージ領域を確保します。この段階ではジョブ機能は停止状態（<code>HUB_JOBS_ENABLED=false</code>）のままとします。
+            </li>
+            <li>
+              <strong>コードの配備</strong>: バックグラウンドワーカーおよび API
+              の更新コードを配備します。機能フラグが無効な間、<code>GET /api/capabilities</code>
+              はジョブ機能未対応を返し、既存の同期公開 API（<code>POST /api/decks/:id</code
+              >）のみが従来通り稼働します。
+            </li>
+            <li>
+              <strong>ワーカープロセスの起動</strong>: Node.js 環境では別プロセスとして
+              <code>worker.ts</code> を起動し、必要に応じて Playwright
+              レンダラーを有効化します。Cloudflare 環境では Durable Objects
+              アラームの連携を確認します。
+            </li>
+            <li>
+              <strong>機能有効化</strong>: 品質判定ゲートの通過を確認した上で、環境変数
+              <code>HUB_JOBS_ENABLED=true</code> を設定し、非同期ジョブ受付を有効化します。
+            </li>
+            <li>
+              <strong>クライアントの段階的移行</strong>: 新バージョンの CLI はサーバーの
+              <code>capabilities</code>
+              を自動検出し、対応環境では非同期公開をデフォルトとします。未対応サーバーと通信する場合は、明示的な
+              <code>--require-jobs</code>
+              フラグが指定されていない限り、従来の同期公開へ自動的にフォールバックします。
+            </li>
+          </ol>
+          <h4>ロールバック手順</h4>
+          <p>
+            重大な不具合が発生した場合は、環境変数
+            <code>HUB_JOBS_ENABLED=false</code>
+            を設定して新規ジョブの受付を即座に停止します。すでに受付済みのジョブは稼働中のワーカーによって完了（ドレイン）させ、データベースのジョブ履歴や保存済みアーティファクトはそのまま保持します。旧バージョンへの完全な切り戻し（ハードロールバック）を行う際は、キュー内に残存する未処理ジョブ（pending
+            jobs）を旧コードで実行することはできないため、すべてのジョブが完了したことを確認した上で旧コードへ復元します。
+          </p>
+          <hr />
+        </section>
+        <section>
+          <h2 id="risks">運用リスクと技術的対策（risks）</h2>
+          <p>
+            分散処理と非同期化に伴い想定される主要な運用リスク、およびそれらに対する設計上の技術的緩和策を以下に整理します。
+          </p>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>リスク分類</th>
+                  <th>想定される事象と影響</th>
+                  <th>採用する技術的緩和策</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>実行順序とデータ整合性</td>
+                  <td>
+                    ネットワーク遅延や再試行により、古いジョブが新しいジョブの後に完了して公開内容を上書きしてしまう。
+                  </td>
+                  <td>
+                    スライドごとの世代番号（<code>generation</code>）による厳密なフェンシングを導入します。<code
+                      >PublicationJobStore</code
+                    >
+                    と <code>PublicationStore</code> は同一のトランザクション権限（同一 DO / 同一 PG
+                    プール）を共有し、コミット時に世代番号を照合して古いジョブの反映を拒絶・無効化（<code>superseded</code>）します。
+                  </td>
+                </tr>
+                <tr>
+                  <td>ランタイムの不整合</td>
+                  <td>
+                    サーバーデプロイを挟んでキュー内のジョブが異なるランタイム環境でビルドされ、成果物が意図せず変質する。
+                  </td>
+                  <td>
+                    ジョブ受付時にランタイム構成のダイジェストを記録します。ビルド開始時に現在の実行環境とダイジェストを照合し、不一致を検知した場合は
+                    <code>RUNTIME_CHANGED</code> エラーとして安全に停止させます。
+                  </td>
+                </tr>
+                <tr>
+                  <td>重複課金と外部ブラウザ負荷</td>
+                  <td>
+                    ワーカーのクラッシュや再試行により、同一リビジョンに対して高負荷な外部ブラウザキャプチャが重複実行される。
+                  </td>
+                  <td>
+                    成果物ストレージへの保存にハッシュ照合付きの条件付き書き込み（<code>ifAbsent</code>）を適用し、最初に検証を通過した画像のみを採用します。ただしクラッシュを跨ぐブラウザ呼び出し自体の重複課金は完全には排除できない制約として認識し、無駄な再試行の上限を
+                    3 回に制限します。
+                  </td>
+                </tr>
+                <tr>
+                  <td>アラームの制限と障害</td>
+                  <td>
+                    Cloudflare Durable Objects
+                    のアラーム再試行回数制限や、プロバイダ側の障害によりジョブが永久に放置される。
+                  </td>
+                  <td>
+                    ジョブ取得スキャン時に期限切れリースを持つ実行中ジョブ（<code>running</code>）を含めて検出し、回復時にジョブとアラームを再検査します。Durable
+                    Objects
+                    では有限回（6回）の組み込みリトライを活用しますが、基盤側の長期障害時に処理の進行を保証するものではありません。
+                  </td>
+                </tr>
+                <tr>
+                  <td>ワーカー停止と CPU 抑制</td>
+                  <td>
+                    サーバーレスコンテナ環境（Cloud Run 等）において、リクエストのない待機時に CPU
+                    が割り当てられずワーカーが停止する。
+                  </td>
+                  <td>
+                    コンテナ設定において常時 CPU 割り当て（<code>always CPU</code
+                    >）および最小インスタンス数
+                    1（<code>min-instances=1</code>）を必須要件としてドキュメントに明記し、同一サービス内のサイドカープロセスとして稼働させます。
+                  </td>
+                </tr>
+                <tr>
+                  <td>トークンの漏洩リスク</td>
+                  <td>
+                    進捗確認用リンクが意図せず流出し、第三者にスライド内容や公開権限が悪用される。
+                  </td>
+                  <td>
+                    閲覧トークンの権限を進捗ステータスの取得 1 件のみに制限し、Markdown
+                    ソースやノートの取得、公開操作の実行を完全に排除します。さらに 7
+                    日間の有効期限を設定します。
+                  </td>
+                </tr>
+                <tr>
+                  <td>ストレージの無制限肥大化</td>
+                  <td>
+                    多数のジョブ履歴や中間アーティファクトが蓄積し、ストレージ容量を圧迫する。
+                  </td>
+                  <td>
+                    初期リリースでは自動 GC
+                    を導入せず仕様として明確化し（巨大な将来インフラをあらかじめ作らない）、明示的な運用制約として扱います。
+                  </td>
+                </tr>
+                <tr>
+                  <td>旧 CLI のタイムアウト</td>
+                  <td>
+                    旧バージョンの CLI は既存の同期 API を呼び出し続けるため、10
+                    秒のタイムアウト制約がそのまま維持される。
+                  </td>
+                  <td>
+                    旧来のエンドポイントは完全に分離して維持し、新旧クライアントが混在する環境でも互換性を破壊しないルーティングを保証します。
+                  </td>
+                </tr>
+                <tr>
+                  <td>コンパイラの CPU 占有</td>
+                  <td>
+                    大規模なスライドのコンパイルが同期的に実行され、進捗通知の送信が長時間滞留する。
+                  </td>
+                  <td>
+                    スライド単位の処理ループ間に協調的なコールバックを挟み、ページ単位での進捗カウンタ更新と最大
+                    1
+                    秒間隔の間引き永続化を実現します。推定パーセント表示は行わず、実カウントのみを通知します。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <hr />
+        </section>
+        <section>
+          <h2 id="unclear">前提条件と未決定事項（unclear）</h2>
+          <p>
+            本実装計画の着手にあたり、すでに確定している要件と、保留または承認待ちとなっている未決定事項を整理します。
+          </p>
+          <h4>確定済みの要件とスコープ</h4>
+          <ul>
+            <li>
+              ジョブごとの進捗確認用リンクは「読み取り専用」とし、Web
+              画面からの再試行や設定変更は提供しません（CLI からの再試行レシピのみを案内）。
+            </li>
+            <li>
+              Web UI モックの設計基準として、ユーザーが選択した
+              <code>GPT-6.1-Sol high</code>
+              モデルにより生成されたレイアウト構成を採用します（ただし画面表示自体の承認は保留中）。
+            </li>
+            <li>
+              CLI におけるランタイム構成の事前監査機能、管理画面の SSO 統合、および Cloudflare R2
+              直接イベント連携は、明示的に本計画の対象外（スコープ外）とします。
+            </li>
+          </ul>
+          <h4>未決定事項と依存関係</h4>
+          <ul>
+            <li>
+              <strong>U1: 解決済み</strong>: 2026-10-10 にユーザーが Web モックを承認。Step 6
+              の着手条件を満たした。
+            </li>
+            <li>
+              <strong>U2: 本番描画オリジンおよび実行環境設定</strong>:
+              本番クラウド環境における正式な描画対象オリジン（<code>HUB_PUBLIC_ORIGIN</code>）および
+              Cloudflare Access
+              との連携設定は未提供です。これはローカル環境での完全な実装・検証（ローカル公開オリジンおよび注入型
+              <code>BrowserRun</code>
+              フィクスチャを用いた検証）をブロックしませんが、将来的な実クラウド環境への適用時の前提条件となります。実環境の確認が得られるまでは、本番クラウド稼働の完了を主張しません。
+            </li>
+          </ul>
+          <hr />
+        </section>
+        <section>
+          <h2 id="todo">実装タスク一覧（todo）</h2>
+          <p>
+            本計画に基づいて実施すべき具体的な実装作業を、7
+            つの独立したタスクとして定義します。各タスクは後述の品質判定ゲートと厳密に対応しており、依存関係順に実施します。現時点ではすべてのタスクが未着手です。
+          </p>
+          <ul class="tasks">
+            <li class="task">
+              <input type="checkbox" disabled />
+              <strong>Task 1: プロトコル規約とクライアントライブラリの実装</strong> —
+              <code>packages/protocol/src/contracts/jobs.ts</code> および
+              <code>packages/hub/src/client/jobs.ts</code> を作成し、プレーン TypeScript
+              型ガード、進捗監視非同期イテレータを実装する。［ゲート: G1］
+            </li>
+            <li class="task">
+              <input type="checkbox" disabled />
+              <strong>Task 2: サーバーコアロジックの分離とジョブ基盤の構築</strong> —
+              <code>packages/server/src/jobs/</code> 配下に ports.ts、service.ts、runner.ts
+              を新設し、<code>preparePublication</code>
+              の抽出と二重生成防止・冪等性管理を実装する。［ゲート: G2］
+            </li>
+            <li class="task">
+              <input type="checkbox" disabled />
+              <strong>Task 3: 永続化アダプタと実行エンジンの実装</strong> — PostgreSQL
+              用マイグレーション作成、Cloudflare Durable Objects
+              アラーム連携、および独立ワーカープロセス <code>worker.ts</code> を実装する。［ゲート:
+              G3］
+            </li>
+            <li class="task">
+              <input type="checkbox" disabled />
+              <strong>Task 4: サムネイル生成レンダラーの統合</strong> —
+              <code>packages/renderer-playwright/</code> を新設してローカル Chromium
+              描画を実装し、Cloudflare ブラウザ連携と partial 制御を統合する。［ゲート: G4］
+            </li>
+            <li class="task">
+              <input type="checkbox" disabled />
+              <strong>Task 5: CLI コマンドの拡張と進捗監視機能の追加</strong> —
+              <code>packages/cli/</code> において <code>hub publish</code> の非同期対応、<code
+                >hub jobs</code
+              >
+              サブコマンド群、および設定プロファイル管理を実装する。［ゲート: G5］
+            </li>
+            <li class="task">
+              <input type="checkbox" disabled /> <strong>Task 6: Web 進捗確認画面の実装</strong> —
+              <code>packages/hub/src/frontend/JobStatus.vue</code>
+              およびマウント用ラッパーを作成し、安全なトークン保持と切断耐性を持つ UI
+              を構築する。［ゲート: G6］
+            </li>
+            <li class="task">
+              <input type="checkbox" disabled />
+              <strong>Task 7: 統合検証ハーネスの構築と運用ドキュメントの整備</strong> —
+              <code>apps/hub-worker/scripts/verify-publication-jobs.mjs</code>
+              を作成して全体導通を自動化し、各種設定・運用ガイドを更新する。［ゲート: G7］
+            </li>
+          </ul>
+          <hr />
+        </section>
+        <section>
+          <h2 id="dod">完了の定義（dod）</h2>
+          <p>
+            本実装計画が完了し、ローカル環境での実装受入基準を満たしていると判断するための客観的な受入基準を定めます（実クラウド環境での受入検証は保留中）。
+          </p>
+          <ol>
+            <li>
+              <strong>自動連携の成立</strong>: CLI
+              からスライドを公開した際、バックグラウンドでのコンパイル、成果物保存、公開ポインタ更新、およびサムネイル画像生成が人の手を介さず一連の流れとして完結すること。
+            </li>
+            <li>
+              <strong>進捗の永続化と復旧</strong>:
+              各フェーズ境界での状態遷移が永続ストアに確実に記録され、ネットワーク切断後の再接続時や
+              CLI の再実行時にも正確に進捗を再開できること。
+            </li>
+            <li>
+              <strong>複数ストアでの規約一致</strong>: PostgreSQL 構成および Cloudflare Durable
+              Objects
+              構成の双方が、同一のジョブ状態遷移規約および排他フェンシング規約を満たしていること。
+            </li>
+            <li>
+              <strong>部分成功の整合性</strong>:
+              サムネイル生成が失敗した場合でも、公開されたスライド本体はロールバックされず、適切な
+              <code>partial</code> 状態として保持されること。
+            </li>
+            <li>
+              <strong>後方互換性と固定化の維持</strong>: 従来の同期公開 API、コミット
+              <code>2d96e53</code> において確立されたランタイム固定化構造、および CLI の JSON
+              出力エンベロープ形式が完全に維持されていること。
+            </li>
+            <li>
+              <strong>すべての判定ゲートの合格</strong>:
+              定義されたすべての品質判定ゲート（G1〜G7）をエラー 0
+              件で通過し、前項の実装タスク（Task 1〜7）がすべて完了していること。
+            </li>
+            <li>
+              <strong>検証事実の誠実な提示</strong>:
+              実機クラウド環境での未検証項目について虚偽の動作保証を主張せず、ローカル検証結果および制約事項が正確に記録されていること。
+            </li>
+          </ol>
+          <hr />
+        </section>
+        <section>
+          <h2 id="research">調査実績とベースライン（research）</h2>
+          <p>
+            本計画の立案にあたり、現行リポジトリのベースライン測定および外部公式仕様の調査を実施しました。これらは
+            2026年10月10日時点の実績記録であり、新規ジョブ機能に関するテストは未実行です。
+          </p>
+          <h4>現行システムの検証ベースライン</h4>
+          <p>
+            直前の作業タスクにおいて、ランタイム固定化に関する以下の既存テストスイートの全件通過が確認されています（コミット
+            <code>2d96e53</code>、<code>docs/results/runtime-pinning.json</code>
+            参照）。本計画の推進中もこれらのベースラインが一切劣化しないことを前提とします。
+          </p>
+          <ul>
+            <li>ルート検証（rootcheck）: 265 件パス、0 件スキップ</li>
+            <li>ランタイムアップグレード検証（runtimeupgrade）: 29 件パス</li>
+            <li>ワーカー環境検証（worker）: 39 件パス</li>
+            <li>Node.js 環境検証（node）: 17 件パス</li>
+            <li>パッケージ検証（packed）: 8 件パス</li>
+          </ul>
+          <h4>導通プローブの測定結果</h4>
+          <p>
+            2026年10月10日 06:49:15 UTC
+            に実施されたローカルプローブにおいて、現行システムの動作状況が確認されています。
+          </p>
+          <ul>
+            <li>
+              <code>POST /api/decks/demo%2Foverview</code> に対するスライド公開リクエストは HTTP 200
+              を返し、正常に同期公開が完了しました。
+            </li>
+            <li>
+              独立して呼び出された
+              <code>POST /api/thumbnail/demo%2Foverview?revision=&lt;publishedrevision&gt;</code>
+              は、ローカルフィクスチャにおいてレンダラーバインディングが構成されていないため HTTP
+              503 Service Unavailable
+              を返しました。これにより、現在のローカル環境でレンダラーが未接続であることが確認されています。
+            </li>
+            <li>
+              旧ドキュメント <code>HANDOFF</code> は削除済みであり、今後の設計方針および決定事項は
+              <code>README.md</code>、<code>docs/DECISIONS.md</code>、および
+              <code>TODO.md</code> を正本として参照します。
+            </li>
+          </ul>
+          <h4>外部技術仕様の調査結果</h4>
+          <p>
+            非同期ワーカーのコンテナ運用設計にあたり、外部公式ドキュメントの制約事項を確認しました（外部
+            API の直接呼び出しや負荷測定は行っていません）。
+          </p>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>調査対象ドキュメント</th>
+                  <th>URL</th>
+                  <th>確認事項と設計への反映</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Google Cloud Run デプロイ仕様</td>
+                  <td>https://docs.cloud.google.com/run/docs/deploying</td>
+                  <td>
+                    受信ポートを持たない独立サービスは起動できないため、同一サービス内のサイドカーコンテナ構成（同一コンテナイメージで
+                    <code>node dist/worker.js</code> を実行）を採用することを確認。
+                  </td>
+                </tr>
+                <tr>
+                  <td>Google Cloud Run 課金・CPU 設定</td>
+                  <td>https://docs.cloud.google.com/run/docs/configuring/billing-settings</td>
+                  <td>
+                    リクエスト処理時のみ CPU
+                    を割り当てるデフォルト設定ではバックグラウンドワーカーが凍結するため、<code
+                      >always CPU</code
+                    >
+                    かつ <code>min-instances=1</code> の明示的設定が必須であることを確認。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <hr />
+        </section>
+        <section>
+          <h2 id="gates">品質判定ゲート一覧（gates）</h2>
+          <p>
+            各実装ステップの完了時に実行し、次のステップへの進行可否を判定するための品質ゲートを定義します。すべてのコマンドは終了コード
+            0、失敗 0 件、境界違反 0
+            件を合格条件とします。いずれかのゲートで不合格となった場合は直ちに作業を停止し、原因を解消した上で再実行します（独立した別作業はブロックされません）。
+          </p>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ゲート ID</th>
+                  <th>対象ステップ</th>
+                  <th>前提条件</th>
+                  <th>実行コマンド</th>
+                  <th>合格判定基準</th>
+                  <th>ブロッキング対象</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>G1</td>
+                  <td>Step 1: 規約・クライアント</td>
+                  <td>ベースライン `2d96e53` が通過していること</td>
+                  <td>
+                    <code
+                      >pnpm build:packages &amp;&amp; node --test
+                      packages/protocol/tests/jobs.test.mjs packages/hub/tests/jobs-client.test.mjs
+                      &amp;&amp; pnpm check:boundaries</code
+                    >
+                  </td>
+                  <td>終了コード 0、全単体テスト合格、パッケージ境界違反 0 件</td>
+                  <td>Step 2 以降の全作業</td>
+                </tr>
+                <tr>
+                  <td>G2</td>
+                  <td>Step 2: サーバーコア</td>
+                  <td>G1 に合格していること</td>
+                  <td>
+                    <code
+                      >pnpm --filter @slidev-stage-hub/server build &amp;&amp; pnpm --filter
+                      @slidev-stage-hub/server test</code
+                    >
+                  </td>
+                  <td>終了コード 0、サーバー単体テスト全件合格、世代順序・エラー制御の確認</td>
+                  <td>Step 3、Step 4</td>
+                </tr>
+                <tr>
+                  <td>G3</td>
+                  <td>Step 3: 永続化・実行エンジン</td>
+                  <td>G2 に合格していること</td>
+                  <td>
+                    <code
+                      >HUB_TEST_DATABASE_URL=&lt;local&gt; pnpm --filter
+                      @slidev-stage-hub/state-postgres test &amp;&amp; pnpm --filter
+                      @slidev-stage-hub/adapter-cloudflare test &amp;&amp; pnpm --filter
+                      @slidev-stage-hub/adapter-node test</code
+                    >
+                  </td>
+                  <td>
+                    終了コード 0、PostgreSQL 2 ワーカー競合テスト合格、Durable Objects
+                    アラーム再開テスト合格
+                  </td>
+                  <td>Step 5、Step 7</td>
+                </tr>
+                <tr>
+                  <td>G4</td>
+                  <td>Step 4: サムネイル</td>
+                  <td>G2 に合格していること</td>
+                  <td>
+                    <code
+                      >pnpm --filter @slidev-stage-hub/renderer-playwright test &amp;&amp; pnpm
+                      --filter @slidev-stage-hub/adapter-cloudflare test</code
+                    >
+                  </td>
+                  <td>
+                    終了コード 0、Playwright ローカルキャプチャ合格、Cloudflare
+                    バインディング有無の制御確認
+                  </td>
+                  <td>Step 5、Step 7</td>
+                </tr>
+                <tr>
+                  <td>G5</td>
+                  <td>Step 5: CLI コマンド</td>
+                  <td>G1、G3、G4 に合格していること</td>
+                  <td>
+                    <code
+                      >pnpm --filter @slidev-stage-hub/cli test &amp;&amp; pnpm
+                      verify:packed-cli</code
+                    >
+                  </td>
+                  <td>終了コード 0、CLI 単体テスト合格、パッケージ化済みバイナリ互換性検証合格</td>
+                  <td>Step 7</td>
+                </tr>
+                <tr>
+                  <td>G6</td>
+                  <td>Step 6: Web 画面</td>
+                  <td>G1 に合格し、U1（モック表示承認）が完了していること</td>
+                  <td>
+                    <code
+                      >pnpm --filter @slidev-stage-hub/hub typecheck &amp;&amp; pnpm --filter
+                      @slidev-stage-hub/workers typecheck &amp;&amp; pnpm
+                      verify:publication-jobs</code
+                    >（Step 6 で作成したブラウザ向け検証ハーネスを順次実行し、Step 7
+                    で統合拡張する）
+                  </td>
+                  <td>型チェック通過、ブラウザコンポーネントのテストケース全件合格</td>
+                  <td>Step 7</td>
+                </tr>
+                <tr>
+                  <td>G7</td>
+                  <td>Step 7: 統合・ドキュメント</td>
+                  <td>G1 から G6 までのすべてのゲートに合格していること</td>
+                  <td>
+                    <code
+                      >pnpm check &amp;&amp; pnpm verify:publication-jobs &amp;&amp; pnpm
+                      verify:runtime-upgrade &amp;&amp; pnpm verify:packed-server</code
+                    >
+                  </td>
+                  <td>
+                    全パッケージ静的解析合格、統合ハーネス全件合格、既存ランタイム固定化検証合格
+                  </td>
+                  <td>本番展開準備完了の判定</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.1/mermaid.min.js"></script>
+    <script>
+      (function(){
+        var main = document.querySelector("main");
+        var headings = Array.prototype.slice.call(main.querySelectorAll(":scope > h2"));
+        headings.forEach(function(h){
+          var section = document.createElement("section");
+          main.insertBefore(section, h);
+          var node = h;
+          while (node && (node === h || !(node.nodeType === 1 && node.tagName === "H2"))) {
+            var next = node.nextSibling;
+            section.appendChild(node);
+            node = next;
+          }
+        });
+        var links = Array.prototype.slice.call(document.querySelectorAll("#toc a"));
+        var byId = new Map(links.map(function(a){ return [a.getAttribute("href").slice(1), a]; }));
+        var spy = new IntersectionObserver(function(entries){
+          entries.forEach(function(e){
+            if (!e.isIntersecting) return;
+            links.forEach(function(a){ a.classList.remove("active"); });
+            var link = byId.get(e.target.id); if (link) link.classList.add("active");
+          });
+        }, {rootMargin:"-15% 0px -75% 0px"});
+        headings.forEach(function(h){ spy.observe(h); });
+      })();
+      if (window.mermaid) {
+        mermaid.initialize({
+          startOnLoad: true,
+          theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default"
+        });
+      }
+      (function(){
+        var key = "plan-todo:" + location.pathname;
+        var saved = {};
+        try { saved = JSON.parse(localStorage.getItem(key) || "{}"); } catch(e){}
+        var boxes = Array.prototype.slice.call(document.querySelectorAll("li.task input[type=checkbox]"));
+        function render(){
+          var done = 0;
+          boxes.forEach(function(b){
+            b.parentElement.classList.toggle("done", b.checked);
+            if (b.checked) done++;
+          });
+          var el = document.getElementById("todo-progress");
+          if (el && boxes.length){
+            el.innerHTML = '<div class="note">Todo 進捗（ローカル表示のみ・正本は todo.md）: ' + done + ' / ' + boxes.length +
+              '</div><div class="progress"><div style="width:' + Math.round(100*done/boxes.length) + '%"></div></div>';
+          }
+        }
+        boxes.forEach(function(b, i){
+          if (saved[i] !== undefined) b.checked = saved[i];
+          b.addEventListener("change", function(){
+            saved[i] = b.checked;
+            try { localStorage.setItem(key, JSON.stringify(saved)); } catch(e){}
+            render();
+          });
+        });
+        render();
+      })();
+    </script>
+  </body>
+</html>

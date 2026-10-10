@@ -1,3 +1,4 @@
+import { handlePublicationJobRequest } from './jobs/service.js';
 import { readCatalogPage, readLegacyCatalogPage, isDeckId } from './catalog.js';
 import { errorResponse, WorkerError } from './errors.js';
 import { isReleaseManifest, type ReleaseManifest } from './manifest.js';
@@ -9,7 +10,7 @@ import {
   readBoundedBody,
   readJson,
 } from './storage.js';
-import { ThumbnailError, validatePng } from './thumbnail.js';
+import { ThumbnailError, validatePng, captureAndStoreThumbnail } from './thumbnail.js';
 import type { ArtifactObject, HubServerOptions } from './ports.js';
 import { readRuntimeFile } from './runtime.js';
 
@@ -32,6 +33,26 @@ export async function handleRequest(request: Request, env: HubServerOptions): Pr
 
 async function routeRequest(request: Request, env: HubServerOptions): Promise<Response> {
   const url = new URL(request.url);
+  const jobResponse = await handlePublicationJobRequest(request, env, () =>
+    verifyMutationAuthorization(request, env),
+  );
+  if (jobResponse) return jobResponse;
+  if (url.pathname === '/_hub/jobs') {
+    if (request.method !== 'GET' && request.method !== 'HEAD') return methodNotAllowed('GET, HEAD');
+    const entry = new URL(request.url);
+    entry.pathname = '/jobs.html';
+    entry.search = '';
+    const response = await fetchStaticContent(new Request(entry, request), env);
+    const headers = new Headers(response.headers);
+    headers.set('cache-control', 'no-store');
+    headers.set('referrer-policy', 'no-referrer');
+    headers.set('x-content-type-options', 'nosniff');
+    if (request.method === 'HEAD') await response.body?.cancel();
+    return new Response(request.method === 'HEAD' ? null : response.body, {
+      status: response.status,
+      headers,
+    });
+  }
 
   if (url.pathname === '/catalog.json') {
     if (request.method !== 'GET') return methodNotAllowed('GET');
@@ -250,16 +271,14 @@ async function handleThumbnailRoute(
       503,
     );
   }
-  const target = new URL(`/${id}/1`, request.url);
-  target.searchParams.set('revision', manifest.revision);
-  target.searchParams.set('embedded', 'true');
-  target.searchParams.set('labThumbnail', 'true');
   try {
-    const thumbnail = await env.renderThumbnail(target.href);
-    await env.artifacts.put(key, thumbnail.bytes, {
-      contentType: 'image/png',
-    });
-    return json({ status: 'created', src: `/${key}`, usedMs: thumbnail.usedMs });
+    const thumbnail = await captureAndStoreThumbnail(
+      env,
+      id,
+      manifest.revision,
+      new URL(request.url).origin,
+    );
+    return json({ status: thumbnail.status, src: thumbnail.src, usedMs: thumbnail.usedMs });
   } catch (error) {
     if (error instanceof ThumbnailError) {
       const status = error.code === 'BROWSER_FAILED' ? 502 : 503;

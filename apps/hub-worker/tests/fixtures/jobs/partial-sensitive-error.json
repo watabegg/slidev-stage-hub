@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "job": {
+    "id": "33333333-3333-4333-8333-333333333333",
+    "deckId": "jobs-e2e-sensitive-error",
+    "kind": "publication",
+    "status": "partial",
+    "phase": "thumbnail",
+    "version": 8,
+    "createdAt": "2026-10-10T08:00:00.000Z",
+    "updatedAt": "2026-10-10T08:00:10.000Z",
+    "startedAt": "2026-10-10T08:00:01.000Z",
+    "finishedAt": "2026-10-10T08:00:10.000Z",
+    "attempt": 1,
+    "stages": [
+      { "phase": "runtime", "status": "succeeded", "attempt": 1 },
+      { "phase": "compile", "status": "succeeded", "attempt": 1 },
+      { "phase": "store", "status": "succeeded", "attempt": 1 },
+      { "phase": "publish", "status": "succeeded", "attempt": 1 },
+      { "phase": "thumbnail", "status": "failed", "attempt": 1 }
+    ],
+    "result": {
+      "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "entry": "/jobs-e2e-sensitive-error/1?revision=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pages": 2,
+      "cached": false,
+      "thumbnail": "unavailable"
+    },
+    "error": {
+      "code": "THUMBNAIL_FAILURE_SENTINEL",
+      "message": "<img src=\"/__publication-job-message-sentinel-image\" onerror=\"window.__publicationJobErrorSentinelExecuted = true; fetch('/__publication-job-message-sentinel-fetch')\">PRIVATE_PUBLICATION_MESSAGE_SENTINEL</img>",
+      "retryable": false
+    }
+  }
+}

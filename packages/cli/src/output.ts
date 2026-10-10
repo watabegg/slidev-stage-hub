@@ -50,10 +50,22 @@ export function emitFailure(
         code: failure.code,
         message: failure.message,
         ...(failure.checks === undefined ? {} : { checks: failure.checks }),
+        ...(failure.result === undefined ? {} : { result: failure.result }),
       },
     });
   } else {
     process.stderr.write(`${label}: ${failure.message}\n`);
+    if (
+      failure.result !== undefined &&
+      typeof failure.result === 'object' &&
+      failure.result !== null &&
+      'published' in failure.result &&
+      failure.result.published === true &&
+      'revision' in failure.result &&
+      typeof failure.result.revision === 'string'
+    ) {
+      process.stderr.write(`Published revision: ${failure.result.revision}\n`);
+    }
   }
   process.exitCode = failure.exitCode;
 }

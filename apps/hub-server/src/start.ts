@@ -6,6 +6,11 @@ if (!Number.isSafeInteger(port) || port < 0 || port > 65535)
   throw new Error('PORT must be an integer from 0 to 65535');
 const app = await createConfiguredHub();
 try {
+  if (
+    process.env.HUB_JOBS_ENABLED !== undefined &&
+    (process.env.HUB_PUBLICATIONS ?? 'memory') === 'memory'
+  )
+    app.startWorker();
   const http = await startHubServer({
     server: app.server,
     host: process.env.HOST ?? '127.0.0.1',

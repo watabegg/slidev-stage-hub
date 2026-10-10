@@ -21,7 +21,14 @@ async function withTempDir(run) {
 }
 
 async function withServer(handler, run) {
-  const server = http.createServer(handler);
+  const server = http.createServer((request, response) => {
+    if (request.method === 'GET' && request.url === '/api/capabilities') {
+      response.writeHead(404);
+      response.end();
+      return;
+    }
+    handler(request, response);
+  });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const address = server.address();

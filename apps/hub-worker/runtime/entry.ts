@@ -68,6 +68,12 @@ function pinRevision(revision: string) {
 }
 
 async function boot() {
+  if (new URL(location.href).pathname === '/_hub/jobs') {
+    const { bootJobStatus } = await import('./job-status');
+    bootJobStatus();
+    return;
+  }
+
   if (!deckId) {
     await showCatalog();
     return;

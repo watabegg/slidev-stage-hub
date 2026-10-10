@@ -9,9 +9,19 @@ export function createHubServer(options: HubServerOptions): {
 
 export * from './ports.js';
 export { runtimeSnapshotFromManifest, auditRuntimeRetention } from './runtime.js';
-export { publishDeck, type PublishResult } from './publish.js';
+export {
+  publishDeck,
+  preparePublication,
+  validatePublicationInput,
+  type PublishResult,
+  type CompileFunction,
+} from './publish.js';
 export { compileDeck, DeckCompileError } from './compiler.js';
 export type { CompileDeckInput, CompileDeckResult, NativeClickMetadata } from './compiler.js';
 export { WorkerError, errorResponse } from './errors.js';
 export type { ErrorPhase } from './errors.js';
 export type { ReleaseManifest, ReleaseSlide } from './manifest.js';
+
+export * from './jobs/ports.js';
+export { runPublicationJob, type PublicationJobRunnerOptions } from './jobs/runner.js';
+export { publicJobSnapshot, publicationJobsEnabled } from './jobs/service.js';

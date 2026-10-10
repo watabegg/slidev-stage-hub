@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>公開ジョブの進捗画面 — 静的モック</title>
+    <style>
+      :root { --page:#f8fafc; --surface:#fff; --border:#dce5ee; --ink:#1d3044; --muted:#64748b; --blue:#2089eb; --blue-bg:#e6f1fc; --green:#23724d; --green-bg:#edf7f1; --amber:#95601a; --amber-bg:#fff7e9; --pin:#0965b8; font-family:'M PLUS 2',system-ui,-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif; color:var(--ink); background:var(--page); font-synthesis:none; }
+      * { box-sizing:border-box; }
+      body { margin:0; font-size:14px; line-height:1.7; font-variant-numeric:tabular-nums; }
+      a { color:inherit; }
+      a:focus-visible { outline:3px solid var(--blue); outline-offset:5px; }
+      code { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.92em; overflow-wrap:anywhere; }
+      .mock { max-width:1480px; margin:auto; padding:40px 56px 48px; }
+      .intro { margin-bottom:42px; }
+      .proposal { display:inline-block; padding:4px 9px; border-radius:4px; background:var(--blue-bg); color:#0965b8; font-size:11px; font-weight:700; }
+      .intro h1 { margin:14px 0 14px; font-size:28px; font-weight:600; letter-spacing:-.03em; }
+      .intro p { margin:5px 0; color:var(--muted); font-size:12px; }
+      .intro p strong { color:var(--ink); font-weight:600; }
+      .frame { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:16px 28px; margin-bottom:44px; }
+      .frame-head { grid-column:1 / -1; margin:0; font-size:15px; font-weight:650; }
+      .stage { position:relative; min-width:0; padding:0 34px; background:var(--surface); border:1px solid var(--border); border-radius:7px; }
+      .pin { position:absolute; left:-11px; top:18px; width:22px; height:22px; border-radius:50%; background:var(--pin); color:white; font-size:11px; font-weight:800; display:grid; place-items:center; z-index:1; }
+      .pin.lower { top:244px; }
+      .library-header { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:28px 0; border-bottom:1px solid var(--border); }
+      .brand { font-size:18px; letter-spacing:.12em; font-weight:800; text-decoration:none; }
+      .brand span { display:block; font-size:10px; letter-spacing:.15em; font-weight:500; margin-top:5px; color:var(--muted); }
+      .library-caption { font-size:12px; color:var(--muted); }
+      .job-main { padding:28px 0 32px; }
+      .back { color:#52677b; text-decoration:none; font-size:12px; }
+      .eyebrow { font-size:10px; font-weight:700; letter-spacing:.14em; color:#718299; margin:24px 0 7px; }
+      .job-heading { display:flex; justify-content:space-between; align-items:center; gap:15px; margin-bottom:7px; }
+      .job-heading h2 { font-size:25px; font-weight:600; letter-spacing:-.03em; margin:0; }
+      .readonly { border:1px solid var(--border); border-radius:4px; padding:3px 8px; color:var(--muted); font-size:10px; white-space:nowrap; }
+      .job-id { color:#718299; font-size:11px; margin:0 0 23px; overflow-wrap:anywhere; }
+      .summary { border-left:3px solid var(--blue); background:#f4f9fe; padding:14px 17px; margin-bottom:22px; }
+      .summary h3 { font-size:17px; font-weight:650; margin:0 0 4px; }
+      .summary p { margin:0; font-size:12px; color:#52677b; }
+      .summary.success { border-color:var(--green); background:#f3faf6; }
+      .summary.partial { border-color:var(--amber); background:#fffbf3; }
+      .stale { padding:9px 12px; color:#657486; border:1px solid var(--border); border-radius:4px; font-size:11px; margin:0 0 19px; background:#f8fafc; }
+      .steps { list-style:none; padding:0; margin:0; border-top:1px solid var(--border); }
+      .steps li { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:44px; padding:10px 0; border-bottom:1px solid #eaf0f6; }
+      .step-name { display:flex; align-items:center; gap:10px; font-size:12px; }
+      .step-dot { width:17px; height:17px; display:grid; place-items:center; border:1px solid #ccd7e2; border-radius:50%; color:#98a6b5; font-size:10px; flex:none; }
+      .done .step-dot { background:var(--green-bg); border-color:#bcdcc9; color:var(--green); }
+      .running .step-dot { border:4px solid #c9e2fb; background:var(--blue); }
+      .retry .step-dot, .failed .step-dot { background:var(--amber-bg); border-color:#ecd5ac; color:var(--amber); }
+      .step-status { font-size:11px; color:#8997a7; text-align:right; }
+      .done .step-status { color:var(--green); }
+      .running .step-status { color:#0965b8; font-weight:650; }
+      .retry .step-status, .failed .step-status { color:var(--amber); }
+      .step-status small { display:block; font-size:10px; font-weight:400; }
+      .publication { margin-top:23px; padding-top:1px; }
+      .publication p { font-size:12px; color:#52677b; margin:0 0 10px; }
+      .slide-link { display:inline-block; color:#0965b8; background:var(--blue-bg); border-radius:6px; padding:10px 14px; font-size:12px; font-weight:600; text-decoration:none; }
+      .old-link { color:#0965b8; font-size:12px; text-underline-offset:3px; }
+      .details { display:flex; flex-wrap:wrap; gap:8px 20px; margin:16px 0 0; color:#718299; font-size:10px; }
+      .details div { display:flex; gap:8px; }
+      .details dt, .details dd { margin:0; }
+      .details dd { color:#52677b; }
+      .thumbnail-result { display:flex; align-items:center; gap:18px; padding-top:22px; }
+      .preview { width:164px; aspect-ratio:16 / 9; flex:none; background:#e8eef5; border:1px solid var(--border); border-radius:7px; display:flex; flex-direction:column; justify-content:center; align-items:center; color:#52677b; position:relative; }
+      .preview strong { font-size:13px; font-weight:650; }
+      .preview small { font-size:8px; letter-spacing:.08em; color:#7b8b9c; margin-top:3px; }
+      .preview .pages { position:absolute; bottom:6px; right:6px; background:#142b46d9; color:white; font-size:8px; border-radius:3px; padding:2px 5px; }
+      .thumbnail-result p { margin:0; color:#52677b; font-size:11px; }
+      .retry-help { margin-top:22px; padding:14px 16px; border:1px solid var(--border); border-radius:6px; }
+      .retry-help h4 { font-size:12px; margin:0 0 7px; font-weight:650; }
+      .retry-help p { font-size:11px; margin:0 0 9px; color:var(--muted); }
+      .retry-help code { display:block; padding:9px 10px; background:#f1f5f9; color:#3b526c; line-height:1.7; font-size:10px; }
+      .library-footer { border-top:1px solid var(--border); padding:17px 0; color:#8997a7; font-size:9px; letter-spacing:.03em; }
+      .notes { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:12px; }
+      .notes li { position:relative; padding:12px 13px 12px 42px; background:var(--surface); border:1px solid var(--border); border-radius:7px; font-size:11px; line-height:1.8; color:#52677b; }
+      .notes li::before { content:attr(data-n); position:absolute; top:13px; left:12px; width:20px; height:20px; border-radius:50%; background:var(--pin); color:white; font-size:10px; font-weight:800; display:grid; place-items:center; }
+      .notes strong { display:block; color:var(--ink); font-size:12px; margin-bottom:4px; }
+      .review { border-top:1px solid var(--border); padding-top:27px; }
+      .review h2 { font-size:18px; font-weight:600; margin:0 0 15px; }
+      .review ol { padding-left:23px; margin:0; font-size:13px; color:#52677b; }
+      .review li { padding:4px 0; }
+      .legend { display:flex; flex-wrap:wrap; gap:10px 20px; margin:24px 0 0; color:#718299; font-size:11px; }
+      .legend span { display:flex; align-items:center; gap:6px; }
+      .legend i { width:8px; height:8px; border-radius:50%; background:#cbd5e1; }
+      .legend .green { background:var(--green); }
+      .legend .blue { background:var(--blue); }
+      .legend .amber { background:var(--amber); }
+      .meta { color:#8997a7; font-size:10px; margin:20px 0 0; }
+      @media (max-width:1050px) { .mock { padding:32px 32px 40px; } .frame { grid-template-columns:minmax(0,1fr) 220px; gap:16px 24px; } .stage { padding:0 25px; } .library-caption { display:none; } }
+      @media (max-width:800px) { .mock { padding:25px 24px 36px; } .frame { grid-template-columns:minmax(0,1fr); gap:16px; } .notes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); } .intro { margin-bottom:30px; } }
+      @media (max-width:520px) { .mock { padding:22px 20px 30px; } .intro h1 { font-size:24px; } .stage { padding:0 20px; } .library-header { padding:23px 0; } .brand { font-size:16px; } .job-heading { align-items:flex-start; } .job-heading h2 { font-size:22px; } .job-main { padding-top:23px; } .notes { grid-template-columns:1fr; } .step-status { max-width:44%; } .thumbnail-result { align-items:flex-start; flex-direction:column; gap:10px; } .preview { width:100%; max-width:230px; } .frame-head { font-size:14px; } }
+    </style>
+  </head>
+  <body>
+    <main class="mock">
+      <header class="intro">
+        <span class="proposal">提案・表示承認待ち</span>
+        <h1>公開ジョブの進捗画面</h1>
+        <p>
+          <strong>対象 URL</strong>　<code
+            >/_hub/jobs?deckId=demo/overview&amp;jobId=job-example</code
+          >
+        </p>
+        <p>
+          <strong>根拠</strong>　<a href="../../publication-jobs-plan.html">公開ジョブ実装計画</a>
+        </p>
+        <p>
+          <strong>方針</strong
+          >　1件のジョブを閲覧専用リンクで確認。既存の資料ライブラリの見た目を継承。
+        </p>
+        <p>4つの状態を並べた静的モックです。資料・ジョブ・識別子は架空の例です。</p>
+      </header>
+
+      <section class="frame" aria-labelledby="frame1">
+        <h2 class="frame-head" id="frame1">状態 1 · コンパイル中</h2>
+        <div class="stage">
+          <span class="pin" aria-hidden="true">1</span
+          ><span class="pin lower" aria-hidden="true">2</span>
+          <header class="library-header">
+            <a class="brand" href="/">SLIDE LIBRARY<span>資料ライブラリ</span></a
+            ><span class="library-caption">考えを、スライドから。</span>
+          </header>
+          <div class="job-main">
+            <a class="back" href="/">← 資料一覧へ</a>
+            <p class="eyebrow">PUBLICATION JOB</p>
+            <div class="job-heading">
+              <h2>demo/overview</h2>
+              <span class="readonly">閲覧専用</span>
+            </div>
+            <p class="job-id"><code>demo/overview</code> · ジョブ <code>job-example</code></p>
+            <div class="summary">
+              <h3>コンパイル中</h3>
+              <p>3 / 8 ページを処理しています。</p>
+            </div>
+            <p class="stale">通信が途切れています。最後に確認した状態を表示しています。</p>
+            <ol class="steps" aria-label="公開処理の段階">
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>受付</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>ランタイム準備</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="running">
+                <span class="step-name"><span class="step-dot"></span>コンパイル</span
+                ><span class="step-status">処理中 · 3 / 8 ページ</span>
+              </li>
+              <li>
+                <span class="step-name"><span class="step-dot"></span>保存</span
+                ><span class="step-status">未開始</span>
+              </li>
+              <li>
+                <span class="step-name"><span class="step-dot"></span>公開</span
+                ><span class="step-status">未開始</span>
+              </li>
+              <li>
+                <span class="step-name"><span class="step-dot"></span>サムネイル生成</span
+                ><span class="step-status">未開始</span>
+              </li>
+            </ol>
+            <div class="publication"><p>現在公開中のスライドは引き続き閲覧できます。</p></div>
+          </div>
+          <footer class="library-footer">
+            SLIDE LIBRARY · この画面では公開ジョブの状態を確認できます
+          </footer>
+        </div>
+        <ol class="notes">
+          <li data-n="1">
+            <strong>1件のジョブを確認</strong>CLI
+            が返す確認リンクから開きます。この画面からソース・ノートの閲覧や公開操作はできません。
+          </li>
+          <li data-n="2">
+            <strong>段階と実測値で進捗を表示</strong
+            >全体の推定パーセントは表示しません。ページ数は取得できた実測値です。通信断の表示はジョブの状態を変更しません。
+          </li>
+        </ol>
+      </section>
+
+      <section class="frame" aria-labelledby="frame2">
+        <h2 class="frame-head" id="frame2">状態 2 · 公開済み・サムネイル生成中</h2>
+        <div class="stage">
+          <span class="pin" aria-hidden="true">3</span
+          ><span class="pin lower" aria-hidden="true">4</span>
+          <header class="library-header">
+            <a class="brand" href="/">SLIDE LIBRARY<span>資料ライブラリ</span></a
+            ><span class="library-caption">考えを、スライドから。</span>
+          </header>
+          <div class="job-main">
+            <a class="back" href="/">← 資料一覧へ</a>
+            <p class="eyebrow">PUBLICATION JOB</p>
+            <div class="job-heading">
+              <h2>demo/overview</h2>
+              <span class="readonly">閲覧専用</span>
+            </div>
+            <p class="job-id"><code>demo/overview</code> · ジョブ <code>job-example</code></p>
+            <div class="summary success">
+              <h3>公開済み・サムネイル生成中</h3>
+              <p>新しいスライドは閲覧できます。サムネイル生成の再試行を待っています。</p>
+            </div>
+            <ol class="steps" aria-label="公開処理の段階">
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>受付</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>ランタイム準備</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>コンパイル</span
+                ><span class="step-status">完了 · 8 ページ</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>保存</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>公開</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="retry">
+                <span class="step-name"><span class="step-dot">↻</span>サムネイル生成</span
+                ><span class="step-status">再試行待ち<small>次の再試行まで 30 秒</small></span>
+              </li>
+            </ol>
+            <div class="publication">
+              <p>スライドは公開済みです。</p>
+              <a class="slide-link" href="/demo/overview/1?revision=9f2e7c1a"
+                >公開済みのスライドを開く ↗</a
+              >
+              <dl class="details">
+                <div>
+                  <dt>リビジョン</dt>
+                  <dd><code>9f2e7c1a</code></dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+          <footer class="library-footer">
+            SLIDE LIBRARY · この画面では公開ジョブの状態を確認できます
+          </footer>
+        </div>
+        <ol class="notes">
+          <li data-n="3">
+            <strong>公開とサムネイル生成を区別</strong
+            >公開が成功した時点で、新しいリビジョンの閲覧リンクを表示します。
+          </li>
+          <li data-n="4">
+            <strong>自動再試行の待機を表示</strong><code>retry_wait</code>
+            は「再試行待ち」。残り時間は取得できた場合に表示し、Webに再試行ボタンは置きません。
+          </li>
+        </ol>
+      </section>
+
+      <section class="frame" aria-labelledby="frame3">
+        <h2 class="frame-head" id="frame3">状態 3 · 完了</h2>
+        <div class="stage">
+          <span class="pin" aria-hidden="true">5</span
+          ><span class="pin lower" aria-hidden="true">6</span>
+          <header class="library-header">
+            <a class="brand" href="/">SLIDE LIBRARY<span>資料ライブラリ</span></a
+            ><span class="library-caption">考えを、スライドから。</span>
+          </header>
+          <div class="job-main">
+            <a class="back" href="/">← 資料一覧へ</a>
+            <p class="eyebrow">PUBLICATION JOB</p>
+            <div class="job-heading">
+              <h2>demo/overview</h2>
+              <span class="readonly">閲覧専用</span>
+            </div>
+            <p class="job-id"><code>demo/overview</code> · ジョブ <code>job-example</code></p>
+            <div class="summary success">
+              <h3>完了</h3>
+              <p>スライドの公開とサムネイル生成が完了しました。</p>
+            </div>
+            <ol class="steps" aria-label="公開処理の段階">
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>受付</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>ランタイム準備</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>コンパイル</span
+                ><span class="step-status">完了 · 8 ページ</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>保存</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>公開</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>サムネイル生成</span
+                ><span class="step-status">完了</span>
+              </li>
+            </ol>
+            <div class="publication">
+              <a class="slide-link" href="/demo/overview/1?revision=9f2e7c1a"
+                >公開済みのスライドを開く ↗</a
+              >
+              <dl class="details">
+                <div>
+                  <dt>リビジョン</dt>
+                  <dd><code>9f2e7c1a</code></dd>
+                </div>
+                <div>
+                  <dt>ランタイム</dt>
+                  <dd><code>4b6d8a0c</code></dd>
+                </div>
+              </dl>
+            </div>
+            <div class="thumbnail-result">
+              <div class="preview" role="img" aria-label="demo/overviewのサムネイル表示例">
+                <strong>demo/overview</strong><small>THUMBNAIL PREVIEW</small
+                ><span class="pages">8 pages</span>
+              </div>
+              <p>生成済みサムネイル<br />8 ページ</p>
+            </div>
+          </div>
+          <footer class="library-footer">
+            SLIDE LIBRARY · この画面では公開ジョブの状態を確認できます
+          </footer>
+        </div>
+        <ol class="notes">
+          <li data-n="5">
+            <strong>すべての段階が完了</strong
+            >確認リンクの所持者が閲覧できるのは、このジョブの状態です。ソースや発表者ノートは表示しません。
+          </li>
+          <li data-n="6">
+            <strong>結果を簡潔に確認</strong
+            >識別子は短く表示。サムネイルは表示例のプレースホルダーです。確認リンクの有効期限は7日です。
+          </li>
+        </ol>
+      </section>
+
+      <section class="frame" aria-labelledby="frame4">
+        <h2 class="frame-head" id="frame4">状態 4 · サムネイル生成に失敗</h2>
+        <div class="stage">
+          <span class="pin" aria-hidden="true">7</span
+          ><span class="pin lower" aria-hidden="true">8</span>
+          <header class="library-header">
+            <a class="brand" href="/">SLIDE LIBRARY<span>資料ライブラリ</span></a
+            ><span class="library-caption">考えを、スライドから。</span>
+          </header>
+          <div class="job-main">
+            <a class="back" href="/">← 資料一覧へ</a>
+            <p class="eyebrow">PUBLICATION JOB</p>
+            <div class="job-heading">
+              <h2>demo/overview</h2>
+              <span class="readonly">閲覧専用</span>
+            </div>
+            <p class="job-id"><code>demo/overview</code> · ジョブ <code>job-example</code></p>
+            <div class="summary partial">
+              <h3>サムネイル生成に失敗</h3>
+              <p>一部完了 · スライドは公開済みです。</p>
+            </div>
+            <ol class="steps" aria-label="公開処理の段階">
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>受付</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>ランタイム準備</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>コンパイル</span
+                ><span class="step-status">完了 · 8 ページ</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>保存</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="done">
+                <span class="step-name"><span class="step-dot">✓</span>公開</span
+                ><span class="step-status">完了</span>
+              </li>
+              <li class="failed">
+                <span class="step-name"><span class="step-dot">!</span>サムネイル生成</span
+                ><span class="step-status">失敗</span>
+              </li>
+            </ol>
+            <div class="publication">
+              <p>公開済みのスライドは引き続き閲覧できます。</p>
+              <a class="slide-link" href="/demo/overview/1?revision=9f2e7c1a"
+                >公開済みのスライドを開く ↗</a
+              >
+            </div>
+            <div class="retry-help">
+              <h4>サムネイル生成を再試行するには</h4>
+              <p>公開権限を持つ環境で、CLIから実行してください。</p>
+              <code>hub jobs retry --id demo/overview --job job-example --stage thumbnail</code>
+            </div>
+          </div>
+          <footer class="library-footer">
+            SLIDE LIBRARY · この画面では公開ジョブの状態を確認できます
+          </footer>
+        </div>
+        <ol class="notes">
+          <li data-n="7">
+            <strong>サムネイルだけの失敗</strong>全体は
+            <code>partial</code
+            >（一部完了）。公開成功を取り消さず、利用できるスライドへのリンクを残します。
+          </li>
+          <li data-n="8">
+            <strong>Webは閲覧専用</strong
+            >再試行はCLIの案内のみ。確認リンクが期限切れの場合は、状態を表示せず「この確認リンクの有効期限が切れています。」の空状態を表示します。
+          </li>
+        </ol>
+      </section>
+
+      <section class="review">
+        <h2>齟齬がないか見てほしい点</h2>
+        <ol>
+          <li>進捗はパーセントではなく、処理の段階と取得できたページ数で示す。</li>
+          <li>サムネイル生成が失敗しても、公開済みのスライドは利用できると明示する。</li>
+          <li>Webはジョブごとの閲覧専用画面とし、公開・再試行の操作はCLIで行う。</li>
+        </ol>
+        <div class="legend" aria-label="状態色の凡例">
+          <span><i class="green"></i>完了・公開済み</span><span><i class="blue"></i>処理中</span
+          ><span><i class="amber"></i>再試行待ち・一部失敗</span><span><i></i>未開始</span>
+        </div>
+        <p class="meta">静的 UI モック · 作成モデル: GPT-6.1-Sol / high · 提案・表示承認待ち</p>
+      </section>
+    </main>
+  </body>
+</html>

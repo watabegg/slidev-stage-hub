@@ -1,26 +1,18 @@
-import type {
-  ArtifactMetadata,
-  ArtifactStore,
-  HubServerOptions,
-  PublicationStore,
-} from '@slidev-stage-hub/server';
+import type { ArtifactMetadata, ArtifactStore, HubServerOptions } from '@slidev-stage-hub/server';
 import { runtimeSnapshotFromManifest } from '@slidev-stage-hub/server';
 import { captureThumbnail } from './thumbnail.js';
 import type { BrowserRunBinding } from './types.js';
+import { createDurableObjectPublicationJobStore } from './publication-jobs.js';
+import type { DeckVersionsCoordinator } from './publication-jobs.js';
 
 export type { BrowserRunBinding, ScreenshotOptions } from './types.js';
-
-/** The RPC surface used from the application's generated Durable Object namespace. */
-export interface DeckVersionsCoordinator extends Rpc.DurableObjectBranded {
-  begin(): number;
-  current(): unknown | null;
-  commit(generation: number, manifest: unknown): boolean;
-}
-
-export type DeckVersionsRpc = Pick<
-  DurableObjectStub<DeckVersionsCoordinator>,
-  'begin' | 'current' | 'commit'
->;
+export {
+  createDeckBoundDurableObjectPublicationJobStore,
+  createDurableObjectPublicationJobStore,
+  createDurableObjectPublicationStore,
+  type DeckVersionsCoordinator,
+  type DeckVersionsRpc,
+} from './publication-jobs.js';
 
 export interface CloudflareBindings {
   FILES: R2Bucket;
@@ -33,6 +25,8 @@ export interface CloudflareBindings {
   PROFILE_COMPONENTS?: string;
   PUBLISH_TOKEN?: string;
   BROWSER?: BrowserRunBinding;
+  HUB_JOBS_ENABLED?: string;
+  PUBLIC_ORIGIN?: string;
 }
 
 function metadata(object: R2Object): ArtifactMetadata {
@@ -78,33 +72,15 @@ export function createR2ArtifactStore(bucket: R2Bucket): ArtifactStore {
   };
 }
 
-export function createDurableObjectPublicationStore(
-  namespace: CloudflareBindings['VERSIONS'],
-): PublicationStore {
-  return {
-    async begin(id) {
-      const generation = await namespace.getByName(id).begin();
-      if (!Number.isSafeInteger(generation) || generation < 1) {
-        throw new Error('Durable Object returned an invalid publication generation');
-      }
-      return String(generation);
-    },
-    current: (id) => namespace.getByName(id).current(),
-    async commit(id, token, manifest) {
-      // DO generations are numbers. Reject alternate encodings rather than letting
-      // Number accept whitespace, exponents, signs, or unsafe rounded integers.
-      if (!/^[1-9][0-9]*$/u.test(token)) return false;
-      const generation = Number(token);
-      if (!Number.isSafeInteger(generation)) return false;
-      return namespace.getByName(id).commit(generation, manifest);
-    },
-  };
-}
-
 export function createCloudflareOptions(env: CloudflareBindings): HubServerOptions {
+  const jobs = createDurableObjectPublicationJobStore(env.VERSIONS);
   return {
     artifacts: createR2ArtifactStore(env.FILES),
-    publications: createDurableObjectPublicationStore(env.VERSIONS),
+    jobs,
+    publications: jobs.publications,
+    onJobEvent: (event) => console.log(JSON.stringify(event)),
+    ...(env.HUB_JOBS_ENABLED === undefined ? {} : { jobsEnabled: env.HUB_JOBS_ENABLED === 'true' }),
+    ...(env.PUBLIC_ORIGIN === undefined ? {} : { publicOrigin: env.PUBLIC_ORIGIN }),
     staticAssets: { fetch: (request) => env.STATIC.fetch(request) },
     loadRuntime: async () => {
       const response = await env.STATIC.fetch(

@@ -314,6 +314,13 @@ const profile = {
 };
 const profileDigest = sha256(stableJson(profile));
 const runtime = await snapshotRuntime({ siteRoot, id: profileDigest });
+const runtimeIndex = await readFile(join(siteRoot, 'index.html'), 'utf8');
+if (!/<head(?:\s[^>]*)?>/iu.test(runtimeIndex))
+  throw new Error('Built runtime index.html has no head element for the job status entry');
+const jobsIndex = runtimeIndex
+  .replace(/<base\b[^>]*>/giu, '')
+  .replace(/(<head(?:\s[^>]*)?>)/iu, '$1<base href="/">');
+await writeFile(join(siteRoot, 'jobs.html'), jobsIndex);
 const runtimeManifest = { ...profile, profileDigest, runtime };
 await writeFile(
   join(siteRoot, 'runtime-manifest.json'),

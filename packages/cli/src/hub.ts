@@ -11,6 +11,14 @@ import { type ParseArgsOptionsConfig } from 'node:util';
 import { CliFailure, failInput, failRuntime } from './errors.js';
 import { emitSuccess } from './output.js';
 import { runHubPublish } from './publish.js';
+import { runHubJobs } from './jobs.js';
+import {
+  createHubRemoteProfile,
+  HubCapabilitiesError,
+  loadHubRemoteSettings,
+  probeHubCapabilities,
+  resolveRemoteConfigPath,
+} from './remote-config.js';
 import {
   callerPath,
   isRecord,
@@ -417,14 +425,17 @@ async function hubThumbnail(parsed: ParsedCommand, cwd: string, json: boolean): 
 
 function hubHelp(): string {
   return [
-    'Usage: hub <build|check|serve|thumbnail|publish> [options]',
+    'Usage: hub <build|check|serve|thumbnail|publish|init|doctor|jobs> [options]',
     '',
     'Commands:',
     '  build       Build the configured Hub site',
     '  check       Validate Hub config and report effective paths',
     '  serve       Serve a built site (default: ./dist, port 4174)',
     '  thumbnail   Generate thumbnails for a built site',
-    '  publish     Publish Markdown to a Hub Workers API',
+    '  publish     Publish Markdown through the configured Hub API',
+    '  init        Create a remote Hub profile without overwriting one',
+    '  doctor      Check remote config, auth file, and API capabilities',
+    '  jobs        Read, watch, list, or retry publication jobs',
     '',
     'Common options: --config PATH, --json, --help (-h), --version',
     'build/check: --source-root PATH --out-dir PATH --theme PATH --dependency-root PATH',
@@ -432,11 +443,18 @@ function hubHelp(): string {
     '             --bootstrap sync|tla --isolate-decks --frontend-entry PATH',
     'serve:       --site PATH --host HOST --port PORT (0 selects an available port)',
     'thumbnail:   --site PATH --chromium-executable PATH',
-    'publish:     --origin ORIGIN --id ID --source PATH [--assets PATH] [--headers-file PATH]',
+    'publish:     --id ID --source PATH [--assets PATH] [--thumbnail auto|none] [--no-wait]',
+    '             [--timeout 300] [--require-jobs] [--job UUID] [--origin ORIGIN]',
+    'init:        --origin ORIGIN [--remote-config PATH]',
+    'doctor:      [--remote-config PATH] [--origin ORIGIN] [--headers-file PATH]',
+    'jobs:        status|watch --id ID --job UUID | list --id ID [--limit N] [--cursor CURSOR]',
+    '             retry --id ID --job UUID --stage thumbnail|all [--timeout 300]',
+    'Remote settings: ./hub.remote.json; auth headers live in a separate private file.',
     'Settings: ./hub.config.json; defaults: ./slides -> ./dist',
     'Publish requires explicit inputs and never reads hub.config.json.',
     'Examples: hub check --config ./hub.config.json; hub serve --site ./dist',
-    '          hub publish --origin https://hub.example --id course/topic --source slides.md',
+    '          hub init --origin https://hub.example; hub publish --id course/topic --source slides.md',
+    '          hub jobs watch --id course/topic --job 00000000-0000-4000-8000-000000000000',
   ].join('\n');
 }
 
@@ -462,8 +480,98 @@ function hubCommandOptions(command: string): ParseArgsOptionsConfig {
       source: { type: 'string' },
       assets: { type: 'string' },
       'headers-file': { type: 'string' },
+      'remote-config': { type: 'string' },
+      thumbnail: { type: 'string' },
+      'no-wait': { type: 'boolean' },
+      timeout: { type: 'string' },
+      'require-jobs': { type: 'boolean' },
+      job: { type: 'string' },
+    };
+  if (command === 'init')
+    return { origin: { type: 'string' }, 'remote-config': { type: 'string' } };
+  if (command === 'doctor')
+    return {
+      origin: { type: 'string' },
+      'headers-file': { type: 'string' },
+      'remote-config': { type: 'string' },
     };
   return {};
+}
+
+async function runHubInit(parsed: ParsedCommand, cwd: string, json: boolean): Promise<void> {
+  if (parsed.positionals.length !== 0) failInput('hub init does not accept positional arguments');
+  const origin = optionString(parsed.values, 'origin');
+  if (origin === undefined) failInput('hub init requires --origin', 'INVALID_ORIGIN');
+  const configPath = resolveRemoteConfigPath(cwd, parsed.values);
+  await createHubRemoteProfile(configPath, origin);
+  const normalizedOrigin = (
+    await loadHubRemoteSettings(cwd, {
+      ...parsed.values,
+      origin,
+    })
+  ).origin;
+  emitSuccess(
+    'hub init',
+    { remoteConfig: configPath, origin: normalizedOrigin },
+    json,
+    `Created ${configPath} for ${normalizedOrigin}`,
+  );
+}
+
+async function runHubDoctor(parsed: ParsedCommand, cwd: string, json: boolean): Promise<void> {
+  if (parsed.positionals.length !== 0) failInput('hub doctor does not accept positional arguments');
+  const settings = await loadHubRemoteSettings(cwd, parsed.values);
+  let capability;
+  try {
+    capability = await probeHubCapabilities(settings);
+  } catch (error) {
+    if (error instanceof HubCapabilitiesError && error.code === 'AUTH_FAILED')
+      failRuntime('Hub capabilities authentication failed', 'HUB_DOCTOR_AUTH_FAILED');
+    failRuntime('Hub capabilities could not be checked', 'HUB_DOCTOR_CAPABILITIES_FAILED');
+  }
+  const enabled = capability.state === 'enabled';
+  const checks = [
+    {
+      ok: true,
+      name: 'remoteConfig',
+      message: settings.profilePath ?? 'origin supplied by command line',
+    },
+    {
+      ok: true,
+      name: 'authHeaders',
+      message:
+        settings.headersFilePath === undefined
+          ? 'no private headers file configured'
+          : 'private headers file is valid',
+    },
+    {
+      ok: true,
+      name: 'capabilities',
+      message:
+        capability.state === 'unsupported'
+          ? 'endpoint is reachable but does not advertise publication jobs'
+          : enabled
+            ? 'publication jobs are enabled'
+            : 'publication jobs are disabled',
+    },
+  ];
+  const data = {
+    ready: true,
+    origin: settings.origin,
+    publicationJobsEnabled: enabled,
+    thumbnailAvailable:
+      capability.state === 'unsupported' ? undefined : capability.capabilities.thumbnail.available,
+    liveWorkerHealthChecked: false,
+    checks,
+  };
+  if (!json)
+    for (const check of checks) process.stderr.write(`ok ${check.name}: ${check.message}\n`);
+  emitSuccess(
+    'hub doctor',
+    Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)),
+    json,
+    `Hub configuration is ready; publication jobs ${enabled ? 'enabled' : 'not enabled'} (worker liveness not checked)`,
+  );
 }
 
 export async function runHub(
@@ -473,6 +581,10 @@ export async function runHub(
 ): Promise<void> {
   if (command === undefined) {
     emitSuccess('hub', { help: hubHelp() }, args.includes('--json'), hubHelp());
+    return;
+  }
+  if (command === 'jobs') {
+    await runHubJobs(args, cwd, args.includes('--json'));
     return;
   }
   const parsed = parseCommand('hub', command, args, hubCommandOptions(command));
@@ -485,7 +597,7 @@ export async function runHub(
     emitSuccess(`hub ${command}`, { version: CLI_VERSION }, json, CLI_VERSION);
     return;
   }
-  if (!['build', 'check', 'serve', 'thumbnail', 'publish'].includes(command))
+  if (!['build', 'check', 'serve', 'thumbnail', 'publish', 'init', 'doctor'].includes(command))
     failInput('unknown hub command', 'UNKNOWN_COMMAND');
   if (command === 'build' || command === 'check') {
     await runHubBuildOrCheck(command, parsed, cwd, json);
@@ -497,6 +609,14 @@ export async function runHub(
   }
   if (command === 'publish') {
     await runHubPublish(parsed, cwd, json);
+    return;
+  }
+  if (command === 'init') {
+    await runHubInit(parsed, cwd, json);
+    return;
+  }
+  if (command === 'doctor') {
+    await runHubDoctor(parsed, cwd, json);
     return;
   }
   await hubThumbnail(parsed, cwd, json);

@@ -205,3 +205,41 @@ test('a declared but invalid runtime snapshot fails startup instead of enabling 
   );
   await assert.rejects(createConfiguredHub(envFor(staticRoot)));
 });
+
+test('job admission is opt-in and explicit false supports a draining worker', async () => {
+  const staticRoot = await runtimeDirectory();
+  for (const flag of [undefined, 'true', 'false']) {
+    const app = await createConfiguredHub(
+      envFor(staticRoot, flag === undefined ? {} : { HUB_JOBS_ENABLED: flag }),
+    );
+    try {
+      const response = await app.server.fetch(new Request('http://localhost/api/capabilities'));
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).publicationJobs.enabled, flag === 'true');
+      if (flag === undefined) assert.throws(() => app.startWorker(), /job store/);
+      else {
+        app.startWorker();
+        assert.throws(() => app.startWorker(), /already running/);
+      }
+    } finally {
+      await app.close();
+    }
+    assert.throws(() => app.startWorker(), /closing/);
+  }
+});
+
+test('renderer configuration requires an explicit trusted origin and executable', async () => {
+  const staticRoot = await runtimeDirectory();
+  for (const [extra, message] of [
+    [{ HUB_JOBS_ENABLED: 'yes' }, /HUB_JOBS_ENABLED/],
+    [{ HUB_THUMBNAIL_RENDERER: 'unknown' }, /HUB_THUMBNAIL_RENDERER/],
+    [{ HUB_THUMBNAIL_RENDERER: 'playwright' }, /HUB_PUBLIC_ORIGIN/],
+    [{ HUB_PUBLIC_ORIGIN: 'https://example.test/path' }, /HTTP\(S\) origin/],
+    [
+      { HUB_THUMBNAIL_RENDERER: 'playwright', HUB_PUBLIC_ORIGIN: 'http://localhost:8080' },
+      /HUB_CHROMIUM_EXECUTABLE/,
+    ],
+  ]) {
+    await assert.rejects(createConfiguredHub(envFor(staticRoot, extra)), message);
+  }
+});

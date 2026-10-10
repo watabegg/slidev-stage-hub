@@ -24,11 +24,12 @@ export async function startHarness({
   persist = false,
   statePath = resolve(artifactRoot, 'state'),
   workerPath = resolve(artifactRoot, 'worker.mjs'),
+  entryPoint = resolve(experiment, 'src/worker.ts'),
   bindings = {},
 } = {}) {
   await mkdir(artifactRoot, { recursive: true });
   await build({
-    entryPoints: [resolve(experiment, 'src/worker.ts')],
+    entryPoints: [resolve(entryPoint)],
     outfile: workerPath,
     bundle: true,
     format: 'esm',

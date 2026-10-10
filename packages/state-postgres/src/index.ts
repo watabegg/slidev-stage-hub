@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import type { PublicationStore } from '@slidev-stage-hub/server';
+import { POSTGRES_PUBLICATION_JOBS_SCHEMA } from './jobs.js';
 
 export const POSTGRES_PUBLICATIONS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS hub_publications (
@@ -11,9 +12,34 @@ CREATE TABLE IF NOT EXISTS hub_publications (
 
 const BIGINT_MAX = 9_223_372_036_854_775_807n;
 
+async function initializeSchemas(pool: Pool, schemas: string[]): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // API and worker processes can initialize together, so serialize their idempotent DDL.
+    await client.query('SELECT pg_advisory_xact_lock(5461132, 2)');
+    for (const schema of schemas) await client.query(schema);
+    await client.query('COMMIT');
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* Preserve the schema error. */
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 /** Creates the required table without taking ownership of the caller's pool. */
 export async function initializePostgresPublicationStore(pool: Pool): Promise<void> {
-  await pool.query(POSTGRES_PUBLICATIONS_SCHEMA);
+  await initializeSchemas(pool, [POSTGRES_PUBLICATIONS_SCHEMA]);
+}
+
+/** Creates both tables while leaving ownership of the caller's pool unchanged. */
+export async function initializePostgresPublicationJobStore(pool: Pool): Promise<void> {
+  await initializeSchemas(pool, [POSTGRES_PUBLICATIONS_SCHEMA, POSTGRES_PUBLICATION_JOBS_SCHEMA]);
 }
 
 function validToken(token: string): boolean {
@@ -62,3 +88,5 @@ export function createPostgresPublicationStore(options: { pool: Pool }): Publica
     },
   };
 }
+
+export { createPostgresPublicationJobStore, POSTGRES_PUBLICATION_JOBS_SCHEMA } from './jobs.js';

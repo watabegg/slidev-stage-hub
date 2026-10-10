@@ -1,6 +1,6 @@
 # CLI 利用ガイド
 
-`@slidev-stage-hub/cli` は、Hub および Stage サービスの薄いアダプターとして機能する開発者・利用者向けの CLI です。Node CLI とデスクトップ版は別個に構成されており、公開コマンドの `hub publish` は実装済みです。
+`@slidev-stage-hub/cli` は、Hub および Stage サービスの薄いアダプターとして機能する開発者・利用者向けの CLI です。Node CLI とデスクトップ版は別個に構成されています。Hub の `publish` は capabilities を確認し、ジョブ対応サーバーでは既定で非同期ジョブとして公開します。CLI プロファイル、受付票、再試行、状態の違いは[公開ジョブガイド](publication-jobs.md)を参照してください。
 
 ## パッケージ構成と動作環境
 
@@ -23,7 +23,9 @@
 - `stage prepare`: Hub が生成した既存のレシート（既定では配信サイトディレクトリに隣接する `${site}.receipt.json`）を読み取り、ランタイム設定を生成します。ランタイム設定の `schemaVersion: 1` は維持されます。
 - `stage connect`: 指定したオリジンへ接続します。位置引数または `--origin` で接続先を指定します。
 - `stage doctor`: ランタイム設定、Node.js バージョン、スキーマ、スライド構成、パス、認証ファイルを読み取り専用で検査します。ファイルへの書き込みは行わず、OS やネイティブバイナリ自体の動作準備を保証するものではありません。準備不備が検出された場合は終了コード 1 で終了します。
-- `hub publish --origin ROOT --id ID --source PATH`（各オプション必須）を実行すると、CLI から Workers API へ公開処理を行い、revision と entry を返却します。追加オプションとして `--assets JSON`、`--headers-file PATH`、`--json` を指定できます。HTTPS または loopback HTTP の利用条件や、パーミッション 0600 が必要な origin-bound headers などの仕様詳細は [workers.md](workers.md) を参照してください。
+- `hub init --origin URL` は接続プロファイルを作成し、`hub doctor` はプロファイル、認証ファイル、`GET /api/capabilities` を読み取り専用で確認します。
+- `hub publish --id ID --source PATH [--assets PATH]` は capabilities が有効なら `POST /api/jobs` へ投入し、既定で完了まで監視します。ジョブ非対応・受付無効のサーバーでは同期 API にフォールバックします。認証・ネットワーク・5xx・不正な応答ではフォールバックしません。
+- `hub jobs status|watch|list|retry` はジョブの確認、一覧、再試行に使います。オプション、終了コード、認証、再送条件の詳細は[公開ジョブガイド](publication-jobs.md)を参照してください。
 
 ### 共通フラグ・入出力・終了コード
 

@@ -146,3 +146,9 @@ pnpm test:hub-service
 # 共有リグレッションテスト
 pnpm check
 ```
+
+## 公開ジョブ API と worker
+
+`packages/server` は `GET /api/capabilities`、`POST /api/jobs`、ジョブ状態・一覧・再試行 API を提供します。`HubServerOptions.jobs` には公開コミットとジョブ遷移が同じトランザクションに参加する job store を渡し、`jobsEnabled` で新規受付を停止できます。カスタムアダプターはこの原子性を store 側で保証する必要があり、データベース接続情報の共有だけでは不十分です。`onJobEvent` は phase、attempt、queue age、duration、status、error code を含む安全な構造化 telemetry を受け取ります。Node.js memory 構成ではリファレンスアプリが開発用 worker を同プロセスに起動し、PostgreSQL 構成では `node dist/worker.js` を別プロセスとして起動します。
+
+Web クライアント `@slidev-stage-hub/hub/client` から `createPublicationJobClient`、フロントエンド `@slidev-stage-hub/hub/frontend` から読み取り専用 `mountJobStatus` を利用できます。API、認証、status の違い、worker 設定の詳細は[公開ジョブガイド](publication-jobs.md)を参照してください。

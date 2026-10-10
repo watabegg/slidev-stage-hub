@@ -77,3 +77,48 @@ export async function markDeckIndexed(bucket: ArtifactStore, id: string): Promis
     throw new WorkerError(500, 'storage', 'Could not update the deck index');
   }
 }
+
+export async function sha256(bytes: Uint8Array | string): Promise<string> {
+  const input = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new Uint8Array(input)));
+  return [...digest].map((value) => value.toString(16).padStart(2, '0')).join('');
+}
+
+export class ImmutableArtifactConflict extends WorkerError {
+  constructor() {
+    super(500, 'storage', 'Immutable publication content does not match');
+  }
+}
+
+/** A replay may reuse immutable content only after verifying its exact hash. */
+export async function putImmutableArtifacts(
+  bucket: ArtifactStore,
+  objects: readonly ArtifactWrite[],
+  progress?: (completed: number, total: number, unit: 'objects') => Promise<void>,
+): Promise<void> {
+  for (let index = 0; index < objects.length; index++) {
+    const object = objects[index]!;
+    const bytes = new Uint8Array(
+      await new Response(
+        object.body instanceof Uint8Array ? new Uint8Array(object.body) : object.body,
+      ).arrayBuffer(),
+    );
+    try {
+      const inserted = await bucket.put(object.key, bytes, { ...object.options, ifAbsent: true });
+      if (!inserted) {
+        const stored = await bucket.get(object.key);
+        if (
+          !stored ||
+          (await sha256(new Uint8Array(await new Response(stored.body).arrayBuffer()))) !==
+            (await sha256(bytes))
+        ) {
+          throw new ImmutableArtifactConflict();
+        }
+      }
+    } catch (error) {
+      if (error instanceof WorkerError) throw error;
+      throw new WorkerError(500, 'storage', 'Could not store publication artifacts');
+    }
+    await progress?.(index + 1, objects.length, 'objects');
+  }
+}

@@ -32,6 +32,24 @@ function captureError(code: ThumbnailErrorCode, message: string): ThumbnailError
   return new ThumbnailError(code, message);
 }
 
+function retryAfterMs(value: string | null, now = Date.now()): number | undefined {
+  if (value === null) return undefined;
+  const normalized = value.trim();
+  if (/^[0-9]+$/u.test(normalized)) {
+    const seconds = Number(normalized);
+    const milliseconds = seconds * 1000;
+    return Number.isSafeInteger(seconds) && Number.isFinite(milliseconds)
+      ? milliseconds
+      : undefined;
+  }
+  const date = Date.parse(normalized);
+  return Number.isFinite(date) ? Math.max(0, date - now) : undefined;
+}
+
+function rateLimitError(message: string, header: string | null = null): ThumbnailError {
+  return new ThumbnailError('BROWSER_LIMIT', message, retryAfterMs(header));
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -141,7 +159,10 @@ export async function captureThumbnail({
 
   if (response.status === 429) {
     await cancelQuietly(response.body);
-    throw captureError('BROWSER_LIMIT', 'Cloudflare Browser Run rate limit was reached.');
+    throw rateLimitError(
+      'Cloudflare Browser Run rate limit was reached.',
+      response.headers.get('Retry-After'),
+    );
   }
   if (!response.ok) {
     await cancelQuietly(response.body);

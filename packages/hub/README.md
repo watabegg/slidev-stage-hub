@@ -13,4 +13,4 @@ pnpm dev:hub
 
 The default is the installed official `@slidev/theme-default` package. Slidev and Playwright are workspace dependencies. Set `SLIDEV_THEME_PATH` to explicitly use another installed theme directory. See the [development guide](../../docs/DEVELOPMENT.md) for browser setup and the published watabegg 1.2.1 example.
 
-Public entry points: `@slidev-stage-hub/hub` (`/node` alias), `/serve`, `/client`, `/frontend`, and `/frontend/style.css`. See [Hub service](../../docs/guides/hub-service.md) and [Web customization](../../docs/guides/web-customization.md).
+Public entry points: `@slidev-stage-hub/hub` (`/node` alias), `/serve`, `/client`, `/frontend`, `/frontend/style.css`, and `/frontend/job-status.css`. The client exports `createPublicationJobClient`; the frontend exports `mountJobStatus` for a read-only publication status view. See [Hub service](../../docs/guides/hub-service.md), [Web customization](../../docs/guides/web-customization.md), and the [publication jobs guide](../../docs/guides/publication-jobs.md).

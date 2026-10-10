@@ -176,6 +176,9 @@ importers:
       '@slidev-stage-hub/adapter-node':
         specifier: workspace:*
         version: link:../../packages/adapter-node
+      '@slidev-stage-hub/renderer-playwright':
+        specifier: workspace:*
+        version: link:../../packages/renderer-playwright
       '@slidev-stage-hub/server':
         specifier: workspace:*
         version: link:../../packages/server
@@ -291,6 +294,9 @@ importers:
       '@hono/node-server':
         specifier: 2.1.4
         version: 2.1.4(hono@4.13.13)
+      '@slidev-stage-hub/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@slidev-stage-hub/server':
         specifier: workspace:*
         version: link:../server
@@ -351,6 +357,25 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/renderer-playwright:
+    dependencies:
+      '@slidev-stage-hub/server':
+        specifier: workspace:*
+        version: link:../server
+      playwright-core:
+        specifier: 1.63.0
+        version: 1.63.0
+    devDependencies:
+      '@types/node':
+        specifier: 24.10.0
+        version: 24.10.0
+      playwright-chromium:
+        specifier: 1.63.0
+        version: 1.63.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/server:
     dependencies:
       '@slidev-stage-hub/protocol':
@@ -402,6 +427,9 @@ importers:
 
   packages/state-postgres:
     dependencies:
+      '@slidev-stage-hub/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@slidev-stage-hub/server':
         specifier: workspace:*
         version: link:../server
