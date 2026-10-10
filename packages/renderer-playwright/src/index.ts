@@ -1,6 +1,6 @@
 import { performance } from 'node:perf_hooks';
 import { isAbsolute } from 'node:path';
-import { chromium, type Browser, type BrowserContext, type Frame } from 'playwright-core';
+import { chromium, type Browser, type BrowserContext } from 'playwright-core';
 import {
   ThumbnailError,
   validatePng,
@@ -168,7 +168,6 @@ export function createPlaywrightThumbnailRenderer({
   let browser: Browser | null = null;
   let launchPromise: Promise<Browser> | null = null;
   let activeContext: BrowserContext | null = null;
-  let activeRequestController: AbortController | null = null;
   let closed = false;
   let closePromise: Promise<void> | null = null;
   let queue: Promise<void> = Promise.resolve();
@@ -214,11 +213,9 @@ export function createPlaywrightThumbnailRenderer({
     usedMs: number;
   }> {
     let context: BrowserContext | null = null;
-    let requestController: AbortController | null = null;
     let authRequired = false;
     let rateLimited = false;
     let retryAfterMs: number | undefined;
-    let timedOut = false;
     try {
       const launchedBrowser = await getBrowser(deadline);
       remainingMs(deadline);
@@ -231,56 +228,48 @@ export function createPlaywrightThumbnailRenderer({
       remainingMs(deadline);
       const page = await context.newPage();
       remainingMs(deadline);
-      const controller = new AbortController();
-      requestController = controller;
-      activeRequestController = controller;
-
-      await page.route('**/*', async (route) => {
-        const request = route.request();
-        if (request.isNavigationRequest()) {
-          let frame: Frame;
-          try {
-            frame = request.frame();
-          } catch {
-            await route.abort();
+      const session = await context.newCDPSession(page);
+      const { frameTree } = await session.send('Page.getFrameTree');
+      // Synthetic document responses lose Chromium's private-network address space.
+      // Intercept real response headers so redirects can be refused before following them.
+      session.on('Fetch.requestPaused', (event) => {
+        void (async () => {
+          const { requestId } = event;
+          if (event.frameId !== frameTree.frame.id) {
+            await session.send('Fetch.continueRequest', { requestId });
             return;
           }
-          if (frame === page.mainFrame()) {
-            if (request.url() !== url.href) {
-              await route.abort();
-              return;
-            }
-            let response;
-            try {
-              response = await route.fetch({
-                maxRedirects: 0,
-                signal: controller.signal,
-                timeout: remainingMs(deadline),
-              });
-            } catch (error) {
-              if (isPlaywrightTimeout(error) || performance.now() >= deadline) timedOut = true;
-              controller.abort();
-              await route.abort().catch(() => undefined);
-              return;
-            }
-            if (response.status() >= 300 && response.status() < 400) {
-              await route.abort().catch(() => undefined);
-              return;
-            }
-            if (response.status() === 401 || response.status() === 403) {
-              authRequired = true;
-              await route.abort().catch(() => undefined);
-              return;
-            }
-            if (response.status() === 429) {
-              rateLimited = true;
-              retryAfterMs = parseRetryAfter(response.headers()['retry-after']);
-            }
-            await route.fulfill({ response });
+          const status = event.responseStatusCode;
+          if (event.request.url !== url.href || event.redirectedRequestId) {
+            await session.send('Fetch.failRequest', { requestId, errorReason: 'Aborted' });
             return;
           }
-        }
-        await route.continue();
+          if (status === 401 || status === 403) authRequired = true;
+          if (status === 429) {
+            rateLimited = true;
+            retryAfterMs = parseRetryAfter(
+              event.responseHeaders?.find((header) => header.name.toLowerCase() === 'retry-after')
+                ?.value,
+            );
+          }
+          if (
+            authRequired ||
+            rateLimited ||
+            (status !== undefined && status >= 300 && status < 400)
+          ) {
+            await session.send('Fetch.failRequest', { requestId, errorReason: 'Aborted' });
+            return;
+          }
+          await session.send('Fetch.continueRequest', {
+            requestId,
+            ...(status === undefined && !event.responseErrorReason
+              ? { interceptResponse: true }
+              : {}),
+          });
+        })().catch(() => safeCloseContext(context));
+      });
+      await session.send('Fetch.enable', {
+        patterns: [{ resourceType: 'Document', requestStage: 'Request' }],
       });
 
       page.on('response', (response) => {
@@ -352,13 +341,12 @@ export function createPlaywrightThumbnailRenderer({
         );
       }
       if (error instanceof ThumbnailError) throw error;
-      if (timedOut || isPlaywrightTimeout(error) || performance.now() >= deadline) {
+      if (isPlaywrightTimeout(error) || performance.now() >= deadline) {
         throw captureError('BROWSER_FAILED', 'Playwright thumbnail rendering timed out.');
       }
       throw captureError('BROWSER_FAILED', 'Playwright thumbnail rendering failed.');
     } finally {
       await safeCloseContext(context);
-      if (activeRequestController === requestController) activeRequestController = null;
       if (activeContext === context) activeContext = null;
     }
   }
@@ -391,7 +379,6 @@ export function createPlaywrightThumbnailRenderer({
       let timer: ReturnType<typeof setTimeout> | undefined;
       const timeout = new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
-          activeRequestController?.abort();
           void safeCloseContext(activeContext);
           reject(captureError('BROWSER_FAILED', 'Playwright thumbnail rendering timed out.'));
         }, remainingMs(deadline));
@@ -415,7 +402,6 @@ export function createPlaywrightThumbnailRenderer({
     if (closePromise) return closePromise;
     closed = true;
     closePromise = (async () => {
-      activeRequestController?.abort();
       await safeCloseContext(activeContext);
       await queue;
       if (launchPromise) await launchPromise.catch(() => undefined);

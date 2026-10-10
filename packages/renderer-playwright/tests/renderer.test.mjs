@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { access } from 'node:fs/promises';
 import { test } from 'node:test';
 import { chromium as testChromium } from 'playwright-chromium';
@@ -31,7 +32,7 @@ try {
   executablePath = undefined;
 }
 
-function startServer(handler) {
+function startServer(handler, host = '127.0.0.1') {
   const server = createServer((request, response) => {
     Promise.resolve(handler(request, response)).catch(() => {
       if (!response.headersSent) response.writeHead(500);
@@ -40,11 +41,11 @@ function startServer(handler) {
   });
   return new Promise((resolve, reject) => {
     server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, host, () => {
       server.removeListener('error', reject);
       const address = server.address();
       assert.ok(address && typeof address === 'object');
-      const origin = `http://127.0.0.1:${address.port}`;
+      const origin = `http://${host}:${address.port}`;
       resolve({
         origin,
         close: () =>
@@ -317,3 +318,56 @@ test('Playwright rejects malformed revisions and non-slide paths without launchi
   );
   await renderer.close();
 });
+
+const privateAddress = Object.values(networkInterfaces())
+  .flat()
+  .find(
+    (entry) =>
+      entry?.family === 'IPv4' &&
+      !entry.internal &&
+      /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)/u.test(entry.address),
+  )?.address;
+
+test(
+  'Playwright loads slide modules over a private HTTP network without bypassing browser security',
+  {
+    skip: !executablePath
+      ? 'No Chromium executable.'
+      : !privateAddress
+        ? 'No private network interface.'
+        : false,
+    timeout: 20_000,
+  },
+  async () => {
+    let moduleRequests = 0;
+    const origin = await startServer((request, response) => {
+      if (request.url === '/ready.js') {
+        moduleRequests += 1;
+        response
+          .writeHead(200, { 'content-type': 'text/javascript' })
+          .end(
+            `document.body.innerHTML = '<div class="slidev-page" data-slidev-no="1"><div data-lab-slide-ready="1" style="width:20px;height:20px">ready</div></div>';`,
+          );
+        return;
+      }
+      response
+        .writeHead(200, { 'content-type': 'text/html' })
+        .end(
+          '<!doctype html><html><body><script type="module" src="/ready.js"></script></body></html>',
+        );
+    }, privateAddress);
+    const renderer = createPlaywrightThumbnailRenderer({
+      executablePath,
+      publicOrigin: origin.origin,
+      timeoutMs: 10_000,
+    });
+    try {
+      const result = await renderer.renderThumbnail(slideUrl(origin.origin, revisionA));
+      assert.equal(moduleRequests, 1);
+      assert.ok(result.bytes.byteLength > 1000);
+    } finally {
+      await renderer.close();
+      await origin.close();
+    }
+  },
+);
