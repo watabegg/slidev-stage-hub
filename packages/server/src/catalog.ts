@@ -4,9 +4,9 @@ import type {
   JsonValue,
   PublicFrontmatter,
 } from '@slidev-stage-hub/protocol/contracts';
-import { WorkerError, type ErrorPhase } from './errors.ts';
-import { isReleaseManifest, type ReleaseManifest } from './manifest.ts';
-import type { WorkerEnv } from './types.ts';
+import { WorkerError, type ErrorPhase } from './errors.js';
+import { isReleaseManifest, type ReleaseManifest } from './manifest.js';
+import type { ArtifactStore, HubServerOptions } from './ports.js';
 
 const MAX_PAGE_SIZE = 1000;
 const PUBLIC_FRONTMATTER_FIELDS = [
@@ -20,7 +20,7 @@ const PUBLIC_FRONTMATTER_FIELDS = [
 const PRIVATE_FRONTMATTER_KEY = /^(?:(?:speaker|presenter|private)[_-]?)?notes?$/i;
 
 export interface IndexPage {
-  objects: R2Object[];
+  objects: { key: string }[];
   truncated: boolean;
   cursor?: string;
 }
@@ -57,11 +57,11 @@ export function parsePageOptions(url: URL): PageOptions {
 }
 
 export async function readIndexPage(
-  bucket: R2Bucket,
+  bucket: ArtifactStore,
   options: PageOptions,
   phase: 'catalog' | 'discovery',
 ): Promise<IndexPage> {
-  let listed: R2Objects;
+  let listed: { keys: string[]; cursor?: string };
   try {
     listed = await bucket.list({
       prefix: 'index/',
@@ -71,19 +71,19 @@ export async function readIndexPage(
   } catch {
     throw new WorkerError(500, phase, phaseFailureMessage(phase));
   }
-  if (listed.truncated && !listed.cursor) {
+  if (listed.cursor === '') {
     throw new WorkerError(500, phase, phaseFailureMessage(phase));
   }
   return {
-    objects: listed.objects,
-    truncated: listed.truncated,
-    ...(listed.truncated && listed.cursor ? { cursor: listed.cursor } : {}),
+    objects: listed.keys.map((key) => ({ key })),
+    truncated: listed.cursor !== undefined,
+    ...(listed.cursor !== undefined ? { cursor: listed.cursor } : {}),
   };
 }
 
 export async function loadCurrentManifests(
-  env: WorkerEnv,
-  objects: readonly R2Object[],
+  env: HubServerOptions,
+  objects: readonly { key: string }[],
   phase: 'catalog' | 'discovery',
 ): Promise<ReleaseManifest[]> {
   const manifests: ReleaseManifest[] = [];
@@ -92,7 +92,7 @@ export async function loadCurrentManifests(
       objects.slice(offset, offset + 6).map(async (object) => {
         const id = idFromIndexKey(object.key);
         if (!id) return null;
-        const candidate: unknown = await env.VERSIONS.getByName(id).current();
+        const candidate: unknown = await env.publications.current(id);
         if (candidate === null) return null;
         if (!isReleaseManifest(candidate)) {
           throw new WorkerError(500, phase, phaseFailureMessage(phase));
@@ -115,11 +115,11 @@ export async function loadCurrentManifests(
 }
 
 export async function readLegacyCatalogPage(
-  env: WorkerEnv,
+  env: HubServerOptions,
   url: URL,
 ): Promise<{ decks: ReleaseManifest[]; truncated: boolean; cursor?: string }> {
   const options = parsePageOptions(url);
-  const page = await readIndexPage(env.FILES, options, 'catalog');
+  const page = await readIndexPage(env.artifacts, options, 'catalog');
   const decks = await loadCurrentManifests(env, page.objects, 'catalog');
   return {
     decks,
@@ -128,9 +128,9 @@ export async function readLegacyCatalogPage(
   };
 }
 
-export async function readCatalogPage(env: WorkerEnv, url: URL): Promise<CatalogPage> {
+export async function readCatalogPage(env: HubServerOptions, url: URL): Promise<CatalogPage> {
   const options = parsePageOptions(url);
-  const page = await readIndexPage(env.FILES, options, 'catalog');
+  const page = await readIndexPage(env.artifacts, options, 'catalog');
   const manifests = await loadCurrentManifests(env, page.objects, 'catalog');
   const decks: CatalogDeck[] = [];
   for (let offset = 0; offset < manifests.length; offset += 6) {
@@ -175,11 +175,14 @@ export function categoriesForDecks(
   return [...categories.values()].sort((left, right) => compareStrings(left.id, right.id));
 }
 
-async function toCatalogDeck(env: WorkerEnv, manifest: ReleaseManifest): Promise<CatalogDeck> {
+async function toCatalogDeck(
+  env: HubServerOptions,
+  manifest: ReleaseManifest,
+): Promise<CatalogDeck> {
   const thumbnailKey = `releases/${manifest.id}/${manifest.revision}/thumbnail.png`;
   let hasThumbnail: boolean;
   try {
-    hasThumbnail = (await env.FILES.head(thumbnailKey)) !== null;
+    hasThumbnail = (await env.artifacts.head(thumbnailKey)) !== null;
   } catch {
     throw new WorkerError(500, 'catalog', 'Catalog could not be read');
   }
@@ -205,8 +208,8 @@ async function toCatalogDeck(env: WorkerEnv, manifest: ReleaseManifest): Promise
       height: 675,
     },
     runtimeVersion: nonEmpty(manifest.runtimeVersion) ?? '53.0.0',
-    theme: nonEmpty(manifest.theme) ?? nonEmpty(env.PROFILE_THEME) ?? '@slidev/theme-default',
-    profile: nonEmpty(manifest.profileDigest) ?? nonEmpty(env.PROFILE_DIGEST) ?? 'legacy',
+    theme: nonEmpty(manifest.theme) ?? nonEmpty(env.profile.theme) ?? '@slidev/theme-default',
+    profile: nonEmpty(manifest.profileDigest) ?? nonEmpty(env.profile.digest) ?? 'legacy',
   };
 }
 

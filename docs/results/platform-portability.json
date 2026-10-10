@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-10",
+  "scope": "Platform-independent Hub server, Cloudflare/Node adapters, S3/GCS/PostgreSQL drivers and reference container",
+  "environment": {
+    "node": "24.15.0",
+    "pnpm": "12.3.4",
+    "postgres": "17 (local Docker)"
+  },
+  "checks": {
+    "workspace": {
+      "command": "pnpm check",
+      "status": "passed",
+      "tests": 246,
+      "skipped": 0,
+      "boundaryViolations": 0,
+      "migrationExceptions": 0
+    },
+    "nodeApplication": {
+      "command": "HUB_TEST_DATABASE_URL=<local PostgreSQL URL> pnpm verify:server",
+      "status": "passed",
+      "assertions": 17,
+      "coverage": [
+        "CLI publishes through the portable HTTP endpoint from another cwd",
+        "publication has a revision",
+        "Stage proxy can load a document without an HTML Accept header",
+        "public module strips presenter notes",
+        "immutable release has HTTP metadata",
+        "/private/anything.json never returns the SPA",
+        "/api/not-an-endpoint never returns the SPA",
+        "/_runtime/missing.js never returns the SPA",
+        "publishing requires authentication",
+        "shared browser runtime renders the Node publication",
+        "new publication advances revision",
+        "existing revision remains pinned across reload after publish",
+        "Stage discovery exposes latest revision and revision-query contract",
+        "shared Hub catalog renders published deck",
+        "browser has no uncaught errors",
+        "application restart restores current publication from PostgreSQL",
+        "application restart retains old immutable artifacts"
+      ]
+    },
+    "cloudflareLocal": {
+      "command": "pnpm verify:workers",
+      "status": "passed",
+      "assertions": 39,
+      "environment": "local workerd and Chromium"
+    },
+    "packedServer": {
+      "command": "pnpm verify:packed-server",
+      "status": "passed",
+      "packages": 8,
+      "coverage": [
+        "install outside workspace",
+        "runtime factory exports",
+        "real HTTP publication and compiled module retrieval"
+      ]
+    },
+    "packedCli": {
+      "command": "pnpm verify:packed-cli",
+      "status": "passed",
+      "assertions": 16
+    },
+    "drivers": {
+      "s3": {
+        "tests": 4,
+        "environment": "real AWS SDK against local HTTP fixture",
+        "coverage": [
+          "conditional put",
+          "explicit Content-Length and no chunked request",
+          "strings, byte views and Web streams",
+          "get/head/list/error mapping"
+        ]
+      },
+      "gcs": {
+        "tests": 5,
+        "environment": "injected SDK client fixtures",
+        "coverage": [
+          "generation-pinned body",
+          "HTTP ETags",
+          "conditional put",
+          "pagination and errors"
+        ]
+      },
+      "postgres": {
+        "tests": 1,
+        "environment": "local PostgreSQL, two independent pools, 24 concurrent begins",
+        "coverage": [
+          "latest begin wins",
+          "failed or pending publication preserves current",
+          "state persists across pool replacement"
+        ]
+      },
+      "declarationConsumer": "S3, GCS and PostgreSQL copied-package TypeScript consumer passed"
+    },
+    "docker": {
+      "command": "docker build -f apps/hub-server/Dockerfile -t slidev-stage-hub-server:local .",
+      "status": "passed",
+      "assertions": 18,
+      "coverage": [
+        "runtime executes as nonroot",
+        "image includes runtime manifest",
+        "image serves browser runtime",
+        "image serves Hub HTML",
+        "unauthorized publication rejected",
+        "/private/no.json is 404",
+        "/src/config.ts is 404",
+        "/_runtime/not-found.js is 404",
+        "/api/not-found is 404",
+        "compiler works with deployed production dependencies",
+        "compiled artifact is readable with immutable metadata",
+        "public artifact strips presenter note",
+        "publication advances revision",
+        "Stage discovery uses latest revision-query publication",
+        "container restart restores PostgreSQL publication",
+        "container restart retains previous immutable artifact",
+        "latest artifact persists after restart",
+        "production default refuses filesystem and memory drivers"
+      ],
+      "environment": "local filesystem volume + PostgreSQL, development mode",
+      "imageId": "sha256:097400bf8b697a7f2c669fdf847e8c00d7b669bbaff4b33db4634bb7c15877b6",
+      "imageSizeBytes": 192397937,
+      "user": "node"
+    },
+    "install": {
+      "command": "pnpm install --frozen-lockfile",
+      "status": "passed",
+      "offline": "not supported by this cache: playwright-core metadata missing"
+    },
+    "ci": {
+      "status": "configured-not-executed",
+      "additions": [
+        "PostgreSQL service",
+        "packed server verification",
+        "Node server/browser verification"
+      ]
+    }
+  },
+  "notVerified": [
+    "Real Cloudflare/Access, AWS ECS/S3 or GCP Cloud Run/GCS deployments",
+    "Cloud IAM, secret bindings, networking and managed PostgreSQL",
+    "Docker Compose execution (plugin unavailable; direct Docker used)",
+    "Native Stage in this change (prior results remain separate)",
+    "Serving historical revisions across incompatible browser runtime replacement"
+  ],
+  "limits": [
+    "Online compiler remains limited to a 512 KiB request and 100 slides with prebuilt runtime components",
+    "S3 stream puts buffer their body in memory to preserve conditional single-PUT semantics",
+    "Node thumbnail generation requires an injected renderer or the existing PNG uploader",
+    "Packages are private tarballs; no npm publication",
+    "Lambda, queue-based compilation and additional database implementations are not included"
+  ],
+  "cloudDeployed": false,
+  "localEvidence": "artifacts/implementation/portability/logs (ignored; not a CI attestation)"
+}

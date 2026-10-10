@@ -56,6 +56,19 @@ pnpm build:example:watabegg
 pnpm dev:example:watabegg
 ```
 
+## 共通サーバーの実行環境とローカル開発
+
+共通サーバー（[`packages/server`](packages/server)）により、公開・配信の中核ロジックを単一のコアで共有しながら Cloudflare Workers または Node.js を実行基盤として選択できるようになりました。クイックスタートの依存関係セットアップ完了後、共有ランタイムのビルドとローカルサーバーの起動を行えます。ローカル起動時のファイルシステム保存およびインメモリ公開ストアは開発専用の構成です。構成の詳細については [プラットフォーム導入ガイド](docs/guides/platforms.md) を参照してください。
+
+```bash
+pnpm build:server-runtime
+HUB_ALLOW_LOCAL_MUTATIONS=true pnpm dev:server
+```
+
+サーバーはデフォルトで `127.0.0.1:4180` で待機します。
+
+なお、実際の AWS / GCP 環境や Cloudflare Access と連携した受け入れ検証、クラウド実環境への配備、および npm へのパッケージ公開は未実施です。ローカル環境における各種ゲート検証の実施状況については [platform-portability.json](docs/results/platform-portability.json) を参照してください。
+
 ## 現在の開発状況と制限事項
 
 本リポジトリは公開ソースコードとして開発を進めていますが、配布形態や検証状況に以下の未完了・未検証項目があります。

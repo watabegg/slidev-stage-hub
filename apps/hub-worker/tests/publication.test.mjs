@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { publishDeck } from '../src/publish.ts';
+import { publishDeck } from '@slidev-stage-hub/server/publish';
 import { createMemoryBucket, createMemoryEnv } from './support/memory-r2.mjs';
 
 const markdown = '# Publication test';

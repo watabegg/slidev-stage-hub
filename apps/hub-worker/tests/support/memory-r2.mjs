@@ -77,6 +77,35 @@ export function createMemoryEnv({ bucket = createMemoryBucket(), current = new M
     },
   };
   return {
+    artifacts: {
+      async get(key) {
+        const object = await bucket.get(key);
+        return (
+          object && { body: object.body, etag: object.httpEtag, contentType: 'application/json' }
+        );
+      },
+      head: (key) => bucket.head(key),
+      put: async (key, body, options) => (await bucket.put(key, body, options)) !== null,
+      async list(options) {
+        const listed = await bucket.list(options);
+        if (listed.truncated && !listed.cursor) throw new Error('Missing cursor');
+        return {
+          keys: listed.objects.map((object) => object.key),
+          ...(listed.truncated ? { cursor: listed.cursor } : {}),
+        };
+      },
+    },
+    publications: {
+      begin: async (id) => String(await versions.getByName(id).begin()),
+      current: (id) => versions.getByName(id).current(),
+      commit: (id, token, manifest) => versions.getByName(id).commit(Number(token), manifest),
+    },
+    staticAssets: { fetch: async () => new Response('static') },
+    profile: {
+      digest: 'profile-digest',
+      layouts: '["cover","default","section"]',
+      components: '["FigureGrid"]',
+    },
     FILES: bucket,
     VERSIONS: versions,
     STATIC: {

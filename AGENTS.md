@@ -9,6 +9,9 @@
 - アーティファクト・認証ファイル・トークンをGitへ追加しない。外部公開とcloud deployはローカル変更とは別に扱う。
 - 長い技術文書は利用可能なagy-writer skillを使い、事実との照合を行う。
 
+- **サーバー配置とコアの責務境界**: 共通サーバー関連のコードは `packages/server`、`packages/adapter-cloudflare`、`packages/adapter-node`、`packages/storage-s3`、`packages/storage-gcs`、`packages/state-postgres`、および `apps/hub-server` に配置されています。共通ビジネスロジックを担う `packages/server` にはプロバイダー固有の SDK を含めないでください。ブラウザ向けランタイムのビルダー（`apps/hub-worker/scripts/build-runtime.mjs`）は単一の構成のまま変更ありません。
+- **ローカル永続化と本番永続化の区別**: Node アダプターで提供されるファイルシステムやインメモリの永続化はローカル検証専用の実装です。S3、GCS、PostgreSQL などの本番向け永続化構成と混同しないでください。
+
 ## 実装と検証
 
 - codeはHow、testsはWhat、commitはWhy、commentはWhy notを記録する。コメント行数は機械判定しない。

@@ -1,0 +1,37 @@
+services:
+  hub:
+    build:
+      context: ../../..
+      dockerfile: apps/hub-server/Dockerfile
+    ports:
+      - '127.0.0.1:8080:8080'
+    environment:
+      NODE_ENV: development
+      HUB_STORAGE: filesystem
+      HUB_ARTIFACT_DIR: /app/data/objects
+      HUB_PUBLICATIONS: postgres
+      HUB_DATABASE_URL: postgres://hub:local-dev-only-password@postgres:5432/hub
+      HUB_DATABASE_INIT: 'true'
+      HUB_PUBLISH_TOKEN: local-dev-only-publish-token
+    volumes:
+      - hub-artifacts:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_USER: hub
+      POSTGRES_PASSWORD: local-dev-only-password
+      POSTGRES_DB: hub
+    volumes:
+      - hub-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'hub', '-d', 'hub']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  hub-artifacts:
+  hub-postgres:

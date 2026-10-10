@@ -1,8 +1,8 @@
 import type { NativeDeckPlayback, PlayerDocumentV2 } from '@slidev-stage-hub/protocol/contracts';
-import { WorkerError } from './errors.ts';
-import { isRecord, type ReleaseManifest } from './manifest.ts';
-import { loadCurrentManifests, readIndexPage } from './catalog.ts';
-import type { WorkerEnv } from './types.ts';
+import { WorkerError } from './errors.js';
+import { isRecord, type ReleaseManifest } from './manifest.js';
+import { loadCurrentManifests, readIndexPage } from './catalog.js';
+import type { HubServerOptions } from './ports.js';
 
 const MAX_DISCOVERY_OBJECTS = 1000;
 const UNSUPPORTED_REASON = 'This deck uses features the native player cannot render.';
@@ -11,7 +11,7 @@ const REVISION_QUERY_PLAYBACK: NativeDeckPlayback = {
   parameter: 'revision',
 };
 
-export async function readNativePlayerDocument(env: WorkerEnv): Promise<PlayerDocumentV2> {
+export async function readNativePlayerDocument(env: HubServerOptions): Promise<PlayerDocumentV2> {
   const manifests: ReleaseManifest[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | undefined;
@@ -23,7 +23,7 @@ export async function readNativePlayerDocument(env: WorkerEnv): Promise<PlayerDo
       throw new WorkerError(503, 'discovery', 'Deck discovery exceeded the 1000 item limit');
     }
     const page = await readIndexPage(
-      env.FILES,
+      env.artifacts,
       { limit: Math.min(remaining, MAX_DISCOVERY_OBJECTS), ...(cursor ? { cursor } : {}) },
       'discovery',
     );

@@ -741,7 +741,8 @@ function isProductionFile(root, fullPath) {
     file.startsWith('packages/hub/frontend/') ||
     file.startsWith('packages/hub/src/frontend/') ||
     file.startsWith('packages/hub/src/client/') ||
-    file.startsWith('packages/protocol/src/')
+    file.startsWith('packages/protocol/src/') ||
+    file.startsWith('packages/server/src/')
   );
 }
 
@@ -1014,6 +1015,21 @@ export async function checkBoundaries({
           detail: `${ref.kind} in the browser production dependency graph is not statically resolvable.`,
         });
         continue;
+      }
+      if (
+        relativePath(absoluteRoot, normalized).startsWith('packages/server/src/') &&
+        (ref.specifier.startsWith('cloudflare:') ||
+          ref.specifier.startsWith('@cloudflare/') ||
+          ref.specifier.startsWith('@slidev-stage-hub/adapter-') ||
+          ref.specifier.startsWith('@slidev-stage-hub/storage-') ||
+          ref.specifier === '@slidev-stage-hub/state-postgres')
+      ) {
+        addViolation(violations, {
+          file: ref.file,
+          specifier: ref.specifier,
+          rule: 'server-provider-dependency',
+          detail: 'Shared server code must depend on ports, not provider implementations.',
+        });
       }
       if (ref.kind !== 'css-import' && isNodeBuiltin(ref.specifier)) {
         addViolation(violations, {

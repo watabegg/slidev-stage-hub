@@ -68,6 +68,37 @@ pnpm exec playwright install --with-deps chromium
 - `guides/workers.md`
 - `guides/web-customization.md`
 
+## プロバイダー共通サーバー開発
+
+共通サーバー（[`packages/server`](../packages/server)）の導入により、中核ロジックと実行環境・永続化層が分離されました。`apps/hub-server` の開発は Node.js と pnpm のみで完結し、Rust ツールチェーンは不要です。環境設定の詳細は [プラットフォーム導入ガイド](guides/platforms.md) を参照してください。
+
+| レイヤー | 配置場所 | 役割と責務 |
+| :--- | :--- | :--- |
+| コア | `packages/server` | 共通 HTTP 処理、配信処理、コンパイラ（プロバイダー SDK 依存なし） |
+| アダプター | `packages/adapter-cloudflare`, `packages/adapter-node` | Cloudflare Worker および Node.js 環境向けバインディング接続 |
+| 永続化層 | `packages/storage-s3`, `packages/storage-gcs`, `packages/state-postgres` | S3 / GCS 成果物保存、PostgreSQL 配信ストア実装 |
+| アプリ | `apps/hub-server`, `apps/hub-worker` | 各プラットフォーム向けサーバーのエントリーポイント |
+| ランタイム | `apps/hub-worker/scripts/build-runtime.mjs` | 共有ランタイムアセットの生成 |
+
+ローカル開発時はランタイムをビルドした上でローカル変更を許可して起動します。
+
+```bash
+pnpm build:server-runtime
+HUB_ALLOW_LOCAL_MUTATIONS=true pnpm dev:server
+```
+
+パッケージング検証は CLI（`pnpm pack:cli`、既存5パッケージ）とサーバーライブラリ（`pnpm pack:server`、新設8パッケージ）で独立しています。コード変更時は以下の検証ゲートを実行します。ローカル検証結果は [platform-portability.json](results/platform-portability.json) に記録されています（実クラウド受入、CI、ネイティブ検証は含まれません）。
+
+- `pnpm check`: リント、フォーマット、型検査、テスト、パッケージ境界検証を実施。
+- `pnpm verify:server`: Node アプリ、ブラウザ、CLI の E2E 検証（`HUB_TEST_DATABASE_URL` 設定時に PostgreSQL を使用したアプリ再起動後の復元検証を実行、未設定時は DB 検査をスキップ）。
+- `pnpm verify:packed-server`: ワークスペース外での独立8パッケージ導入と HTTP 配信検証。
+
+```bash
+export HUB_TEST_DATABASE_URL='postgres://USER:PASSWORD@127.0.0.1:5432/DATABASE'
+pnpm check
+pnpm verify:server
+```
+
 ## 回帰テストと検証
 
 変更内容を網羅的に検証する際は、以下のコマンドで一括回帰テストを実行します。

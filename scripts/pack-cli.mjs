@@ -22,11 +22,11 @@ export function runProcess(command, args, { cwd = repository, env = process.env 
   });
 }
 
-export async function packCli(destination) {
+export async function packPackages(destination, names = packageNames) {
   const output = resolve(destination);
   await mkdir(join(output, 'tarballs'), { recursive: true });
   const dependencies = {};
-  for (const name of packageNames) {
+  for (const name of names) {
     const directory = join(repository, 'packages', name);
     const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'));
     const filename = `slidev-stage-hub-${name}-${manifest.version}.tgz`;
@@ -66,6 +66,10 @@ export async function packCli(destination) {
     `allowBuilds:\n  esbuild: true\n  playwright-chromium: false\noverrides:\n${localOverrides}\n${toolchainOverrides}`,
   );
   return { output, packages: Object.keys(dependencies) };
+}
+
+export function packCli(destination) {
+  return packPackages(destination);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

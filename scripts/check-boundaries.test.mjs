@@ -638,3 +638,18 @@ test('bundler queries preserve public CSS exports without hiding private or rela
     ),
   );
 });
+
+test('shared server rejects Node builtins and provider dependencies', async (t) => {
+  const fixture = await makeFixture(t);
+  await fixture.package('packages/server', {
+    name: '@fixture/server',
+    exports: { '.': './src/index.ts' },
+  });
+  await fixture.file(
+    'packages/server/src/index.ts',
+    "import { readFile } from 'node:fs/promises'; import { env } from 'cloudflare:workers'; export { readFile, env };\n",
+  );
+  const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
+  assert.ok(rules(result).includes('production-node-builtin'));
+  assert.ok(rules(result).includes('server-provider-dependency'));
+});

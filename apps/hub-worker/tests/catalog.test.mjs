@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readCatalogPage, readLegacyCatalogPage } from '../src/catalog.ts';
-import { readNativePlayerDocument } from '../src/native-player.ts';
+import { readCatalogPage, readLegacyCatalogPage } from '@slidev-stage-hub/server/catalog';
+import { readNativePlayerDocument } from '@slidev-stage-hub/server/native-player';
 import { createMemoryBucket, createMemoryEnv, releaseManifest } from './support/memory-r2.mjs';
 
 function indexDeck(bucket, manifest) {

@@ -3,11 +3,11 @@ import {
   compileDeck,
   type CompileDeckInput,
   type CompileDeckResult,
-} from './compiler.ts';
-import { WorkerError } from './errors.ts';
-import { isRecord, isReleaseManifest, type ReleaseManifest } from './manifest.ts';
-import { markDeckIndexed, putArtifacts, putJson, readJson, type ArtifactWrite } from './storage.ts';
-import type { WorkerEnv } from './types.ts';
+} from './compiler.js';
+import { WorkerError } from './errors.js';
+import { isRecord, isReleaseManifest, type ReleaseManifest } from './manifest.js';
+import { markDeckIndexed, putArtifacts, putJson, readJson, type ArtifactWrite } from './storage.js';
+import type { HubServerOptions } from './ports.js';
 
 const MAX_SLIDES = 100;
 const REVISION_METADATA_VERSION = 'native-click-metadata-v1';
@@ -22,7 +22,7 @@ export interface PublishResult {
 type CompileFunction = (input: CompileDeckInput) => Promise<CompileDeckResult>;
 
 export async function publishDeck(
-  env: WorkerEnv,
+  env: HubServerOptions,
   id: string,
   input: unknown,
   compile: CompileFunction = compileDeck,
@@ -48,17 +48,17 @@ export async function publishDeck(
   const orderedAssets = Object.fromEntries(
     Object.entries(assets).sort(([left], [right]) => left.localeCompare(right)),
   );
-  const revision = await calculateRevision(env.PROFILE_DIGEST, input.markdown, orderedAssets);
+  const revision = await calculateRevision(env.profile.digest, input.markdown, orderedAssets);
   const prefix = `releases/${id}/${revision}`;
 
-  let generation: number;
+  let generation: string;
   try {
-    generation = await env.VERSIONS.getByName(id).begin();
+    generation = await env.publications.begin(id);
   } catch {
     throw new WorkerError(500, 'commit', 'Could not reserve a publication generation');
   }
 
-  const existing = await readJson(env.FILES, `${prefix}/manifest.json`);
+  const existing = await readJson(env.artifacts, `${prefix}/manifest.json`);
   let manifest: ReleaseManifest;
   let cached = false;
   if (existing !== null) {
@@ -76,16 +76,16 @@ export async function publishDeck(
     if (result.slides.length > MAX_SLIDES) {
       throw new WorkerError(400, 'compiler', 'This runtime supports at most 100 slides');
     }
-    const themeName = env.PROFILE_THEME || DEFAULT_THEME;
+    const themeName = env.profile.theme || DEFAULT_THEME;
     validateThemeAndComponents(result, env, themeName);
 
     const artifacts = makeArtifacts(id, revision, prefix, input, orderedAssets, result);
-    await putArtifacts(env.FILES, artifacts);
+    await putArtifacts(env.artifacts, artifacts);
 
     manifest = {
       id,
       revision,
-      profileDigest: env.PROFILE_DIGEST,
+      profileDigest: env.profile.digest,
       title: result.title,
       frontmatter: result.frontmatter,
       warnings: result.warnings,
@@ -101,16 +101,16 @@ export async function publishDeck(
       runtimeVersion: '53.0.0',
       theme: themeName,
     };
-    await putJson(env.FILES, `${prefix}/manifest.json`, manifest);
+    await putJson(env.artifacts, `${prefix}/manifest.json`, manifest);
   }
 
   // The index marker is written first: an orphan marker is safe because reads
-  // resolve the current manifest through the Durable Object, while a failed
+  // resolve the current manifest through the publication store, while a failed
   // marker write must never advance the current revision.
-  await markDeckIndexed(env.FILES, id);
+  await markDeckIndexed(env.artifacts, id);
   let published: boolean;
   try {
-    published = await env.VERSIONS.getByName(id).commit(generation, manifest);
+    published = await env.publications.commit(id, generation, manifest);
   } catch {
     throw new WorkerError(500, 'commit', 'Could not commit publication');
   }
@@ -147,13 +147,11 @@ function makeArtifacts(
       key: `${prefix}/assets/${name}`,
       body: value,
       options: {
-        httpMetadata: {
-          contentType: name.endsWith('.svg')
-            ? 'image/svg+xml'
-            : name.endsWith('.css')
-              ? 'text/css'
-              : 'text/plain',
-        },
+        contentType: name.endsWith('.svg')
+          ? 'image/svg+xml'
+          : name.endsWith('.css')
+            ? 'text/css'
+            : 'text/plain',
       },
     });
   }
@@ -161,12 +159,12 @@ function makeArtifacts(
     objects.push({
       key: `${prefix}/${slide.no}.js`,
       body: slide.code,
-      options: { httpMetadata: { contentType: 'text/javascript; charset=utf-8' } },
+      options: { contentType: 'text/javascript; charset=utf-8' },
     });
     objects.push({
       key: `${prefix}/${slide.no}.css`,
       body: slide.css,
-      options: { httpMetadata: { contentType: 'text/css; charset=utf-8' } },
+      options: { contentType: 'text/css; charset=utf-8' },
     });
   }
   return objects;
@@ -174,7 +172,7 @@ function makeArtifacts(
 
 function validateThemeAndComponents(
   result: CompileDeckResult,
-  env: WorkerEnv,
+  env: HubServerOptions,
   themeName: string,
 ): void {
   const themeAlias = themeName.replace(/^@slidev\/theme-/, '').replace(/^slidev-theme-/, '');
@@ -189,8 +187,8 @@ function validateThemeAndComponents(
     );
   }
 
-  const layouts = readNameList(env.PROFILE_LAYOUTS, ['cover', 'default', 'section'], 'layouts');
-  const configuredComponents = readNameList(env.PROFILE_COMPONENTS, ['FigureGrid'], 'components');
+  const layouts = readNameList(env.profile.layouts, ['cover', 'default', 'section'], 'layouts');
+  const configuredComponents = readNameList(env.profile.components, ['FigureGrid'], 'components');
   const components = new Set(
     ['LabSlideLayout', ...configuredComponents].map((name) => normalizeComponent(name)),
   );

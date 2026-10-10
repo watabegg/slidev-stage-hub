@@ -1,16 +1,12 @@
-import { errorResponse } from './errors.ts';
-import type { WorkerEnv } from './types.ts';
-import { handleRequest } from './worker-handler.ts';
-import { DeckVersions } from './versions.ts';
+import { createHubServer } from '@slidev-stage-hub/server';
+import { createCloudflareOptions } from '@slidev-stage-hub/adapter-cloudflare';
+import type { WorkerEnv } from './types.js';
+import { DeckVersions } from './versions.js';
 
 export { DeckVersions };
 
 export default {
-  async fetch(request: Request, env: WorkerEnv): Promise<Response> {
-    try {
-      return await handleRequest(request, env);
-    } catch (error) {
-      return errorResponse(error);
-    }
+  fetch(request: Request, env: WorkerEnv): Promise<Response> {
+    return createHubServer(createCloudflareOptions(env)).fetch(request);
   },
 } satisfies ExportedHandler<Env>;

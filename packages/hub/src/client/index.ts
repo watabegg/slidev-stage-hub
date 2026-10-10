@@ -41,7 +41,7 @@ export interface HttpCatalogSourceOptions {
   fetch?: typeof globalThis.fetch;
 }
 
-export interface WorkersCatalogSourceOptions extends HttpCatalogSourceOptions {
+export interface PaginatedCatalogSourceOptions extends HttpCatalogSourceOptions {
   maxPages?: number;
 }
 
@@ -124,9 +124,9 @@ function urlWithCursor(endpoint: string, cursor: string): string {
   return `${pathname}?${parameters.toString()}${fragment}`;
 }
 
-/** Read and merge every page returned by the Hub Workers catalog endpoint. */
-export function createWorkersCatalogSource(
-  options: WorkersCatalogSourceOptions = {},
+/** Read and merge every page returned by a Hub catalog endpoint. */
+export function createPaginatedCatalogSource(
+  options: PaginatedCatalogSourceOptions = {},
 ): CatalogSource {
   const endpoint = options.url ?? '/catalog.json';
   const maxPages = options.maxPages ?? 100;
@@ -236,3 +236,8 @@ export function getCatalog(
 ): Promise<Catalog> {
   return createCatalogClient(source).getCatalog(options);
 }
+
+/** @deprecated Use the provider-neutral name. */
+export const createWorkersCatalogSource = createPaginatedCatalogSource;
+/** @deprecated Use PaginatedCatalogSourceOptions. */
+export type WorkersCatalogSourceOptions = PaginatedCatalogSourceOptions;

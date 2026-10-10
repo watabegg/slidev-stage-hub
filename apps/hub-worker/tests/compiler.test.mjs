@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compileDeck } from '../src/compiler.ts';
+import { compileDeck } from '@slidev-stage-hub/server/compiler';
 
 const markdown = [
   '---',

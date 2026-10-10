@@ -2,7 +2,9 @@
 
 ## 構成とローカル開発環境
 
-Workers 版 Hub は `apps/hub-worker` に配置されています。`src` は Worker および Durable Objects 向けの実装で厳格な型定義（strict TypeScript）を用い、`runtime` はブラウザ向けの Vue と Slidev、`scripts` は Node.js 限定で構成しています。過去の実験と設計の経緯は [設計判断](../DECISIONS.md) から参照できます。
+Cloudflare Workers 向け実装（`apps/hub-worker/src`）は、Worker と Durable Objects を組み合わせる合成層として再編されました。HTTP ルーティングや公開処理といった中核ロジックは共通パッケージ `packages/server`（`createHubServer`）および `packages/adapter-cloudflare` へ移譲され、アダプターは R2（`FILES`）、Durable Objects（`VERSIONS`）、静的アセット（`STATIC`）、プロファイル環境変数のマッピングと任意のブラウザキャプチャ機能のみを担当します。Durable Objects の `DeckVersions` クラスと内部 SQL 状態は `apps/hub-worker/src/versions.ts`、マイグレーション v1 設定は `apps/hub-worker/wrangler.jsonc` で従来通り維持されており、ブラウザランタイムのビルド（`apps/hub-worker/scripts/build-runtime.mjs`）も変更ありません。
+
+なお、カタログ取得クライアントは中立な `createPaginatedCatalogSource` を `@slidev-stage-hub/hub/client` から公開しており、従来の `createWorkersCatalogSource` は同等のエイリアス（非推奨）として後方互換性を保っています。Node.js 環境での起動や S3、GCS、PostgreSQL を用いた構成手順については [プラットフォーム導入ガイド](platforms.md) を参照してください。
 
 ローカル環境の構築と起動は以下のコマンドで行います。クラウドへの自動デプロイは行われません。
 

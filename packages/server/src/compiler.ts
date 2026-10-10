@@ -94,7 +94,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * Compile a supported subset of Slidev 53 markdown into standalone Vue ESM.
  * This adapter deliberately has no filesystem, process, Vite, or code-evaluation
- * dependency so its module can be bundled into a Workers compiler.
+ * dependency so its module can be bundled into the Workers compiler.
  */
 export async function compileDeck({
   markdown: source,
@@ -568,7 +568,7 @@ function protectFencedCode(source: string): ProtectedContent {
 function rewriteMarkupSources(html: string, assetBase: string, deckId: string, no: number): string {
   return html.replace(
     /(<[A-Za-z][^>]*)(\s+src\s*=\s*)("([^"]*)"|'([^']*)'|([^\s>]+))/gi,
-    (match, opening, attribute, quoted, doubleQuoted, singleQuoted, unquoted) => {
+    (_match, opening, attribute, quoted, doubleQuoted, singleQuoted, unquoted) => {
       const value = doubleQuoted ?? singleQuoted ?? unquoted ?? '';
       const resolved = resolveAssetUrl(value, assetBase, deckId, no);
       const replacement =

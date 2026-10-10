@@ -8,6 +8,7 @@ import {
   createCatalogClient,
   createHttpCatalogSource,
   createWorkersCatalogSource,
+  createPaginatedCatalogSource,
   getCatalog,
 } from '../dist/client/index.js';
 
@@ -96,7 +97,7 @@ test('Workers source follows every cursor page, merges by ID, and keeps the curs
     decks: [updatedAlgebra, geometry],
   };
   const calls = [];
-  const source = createWorkersCatalogSource({
+  const source = createPaginatedCatalogSource({
     url: 'https://hub.example.test/api/catalog?tenant=math',
     fetch: async (url, init) => {
       calls.push({ url, init });
@@ -159,7 +160,7 @@ test('Workers source rejects invalid and repeated cursors, page limits, and inva
 
   for (const scenario of cases) {
     let calls = 0;
-    const source = createWorkersCatalogSource({
+    const source = createPaginatedCatalogSource({
       maxPages: scenario.maxPages,
       fetch: async () => {
         const page = scenario.pages[Math.min(calls, scenario.pages.length - 1)];
@@ -178,7 +179,7 @@ test('Workers source rejects invalid and repeated cursors, page limits, and inva
 test('Workers source preserves abort errors between catalog pages', async () => {
   const controller = new AbortController();
   let calls = 0;
-  const source = createWorkersCatalogSource({
+  const source = createPaginatedCatalogSource({
     fetch: async (_url, init) => {
       assert.equal(init.signal, controller.signal);
       calls += 1;
@@ -285,4 +286,8 @@ test('import has no browser-global or fetch requirement and starts no request', 
     cwd: packageRoot,
     stdio: 'pipe',
   });
+});
+
+test('the old Workers catalog factory remains a compatible alias', () => {
+  assert.equal(createWorkersCatalogSource, createPaginatedCatalogSource);
 });

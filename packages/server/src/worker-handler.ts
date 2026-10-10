@@ -1,16 +1,16 @@
-import { readCatalogPage, readLegacyCatalogPage, isDeckId } from './catalog.ts';
-import { errorResponse, WorkerError } from './errors.ts';
-import { isReleaseManifest, type ReleaseManifest } from './manifest.ts';
-import { readNativePlayerDocument } from './native-player.ts';
-import { publishDeck } from './publish.ts';
+import { readCatalogPage, readLegacyCatalogPage, isDeckId } from './catalog.js';
+import { errorResponse, WorkerError } from './errors.js';
+import { isReleaseManifest, type ReleaseManifest } from './manifest.js';
+import { readNativePlayerDocument } from './native-player.js';
+import { publishDeck } from './publish.js';
 import {
   MAX_PUBLISH_BODY_BYTES,
   MAX_THUMBNAIL_BODY_BYTES,
   readBoundedBody,
   readJson,
-} from './storage.ts';
-import { captureThumbnail, ThumbnailError, validatePng } from './thumbnail.ts';
-import type { WorkerEnv } from './types.ts';
+} from './storage.js';
+import { ThumbnailError, validatePng } from './thumbnail.js';
+import type { ArtifactObject, HubServerOptions } from './ports.js';
 
 const REVISION_PATTERN = /^[a-f0-9]{64}$/u;
 const encoder = new TextEncoder();
@@ -21,7 +21,7 @@ function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { 'cache-control': 'no-store' } });
 }
 
-export async function handleRequest(request: Request, env: WorkerEnv): Promise<Response> {
+export async function handleRequest(request: Request, env: HubServerOptions): Promise<Response> {
   try {
     return await routeRequest(request, env);
   } catch (error) {
@@ -29,7 +29,7 @@ export async function handleRequest(request: Request, env: WorkerEnv): Promise<R
   }
 }
 
-async function routeRequest(request: Request, env: WorkerEnv): Promise<Response> {
+async function routeRequest(request: Request, env: HubServerOptions): Promise<Response> {
   const url = new URL(request.url);
 
   if (url.pathname === '/catalog.json') {
@@ -63,12 +63,56 @@ async function routeRequest(request: Request, env: WorkerEnv): Promise<Response>
     return handleThumbnailRoute(request, url, env, url.pathname.slice(thumbnailPrefix.length));
   }
 
+  const documentRoute = url.pathname.match(/^\/(.+)\/([1-9][0-9]*)\/?$/u);
+  if (documentRoute && (request.method === 'GET' || request.method === 'HEAD')) {
+    const id = decodeId(documentRoute[1]);
+    const page = Number(documentRoute[2]);
+    if (isDeckId(id) && Number.isSafeInteger(page)) {
+      const manifest = await fetchManifest(env, id, url.searchParams.get('revision') ?? undefined);
+      if (!manifest || !manifest.slides.some((slide) => slide.no === page)) {
+        return new Response('Not found', { status: 404, headers: { 'cache-control': 'no-store' } });
+      }
+      // Deck category names may match provider-reserved directories. Serve the
+      // verified document through its public entrypoint while retaining the URL
+      // and revision query that the browser's runtime uses to select the deck.
+      const entryUrl = new URL(request.url);
+      entryUrl.pathname = '/index.html';
+      const response = await fetchStaticContent(new Request(entryUrl, request), env);
+      if (request.method === 'HEAD') {
+        await response.body?.cancel();
+        return new Response(null, response);
+      }
+      return response;
+    }
+  }
+
   if (url.pathname.startsWith('/releases/') && request.method === 'GET') {
     return readRelease(request, env, url.pathname.slice(1));
   }
 
+  if (
+    ['/api', '/releases', '/private', '/index'].some(
+      (prefix) => url.pathname === prefix || url.pathname.startsWith(`${prefix}/`),
+    )
+  ) {
+    return new Response('Not found', { status: 404, headers: { 'cache-control': 'no-store' } });
+  }
+
+  return fetchStaticContent(request, env);
+}
+
+async function fetchStaticContent(request: Request, env: HubServerOptions): Promise<Response> {
+  const url = new URL(request.url);
   try {
-    return await env.STATIC.fetch(request);
+    const response = await env.staticAssets.fetch(request);
+    if (
+      /\.(?:[cm]?js|css|json|map|wasm|png|jpe?g|svg|webp|ico|woff2?|ttf)$/iu.test(url.pathname) &&
+      response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() === 'text/html'
+    ) {
+      await response.body?.cancel();
+      return new Response('Not found', { status: 404, headers: { 'cache-control': 'no-store' } });
+    }
+    return response;
   } catch {
     throw new WorkerError(502, 'worker', 'Static content is unavailable');
   }
@@ -77,7 +121,7 @@ async function routeRequest(request: Request, env: WorkerEnv): Promise<Response>
 async function handleDeckRoute(
   request: Request,
   url: URL,
-  env: WorkerEnv,
+  env: HubServerOptions,
   encodedId: string,
 ): Promise<Response> {
   const id = decodeId(encodedId);
@@ -98,7 +142,12 @@ async function handleDeckRoute(
   );
 }
 
-async function handleThumbnailRoute(request: Request, url: URL, env: WorkerEnv, encodedId: string) {
+async function handleThumbnailRoute(
+  request: Request,
+  url: URL,
+  env: HubServerOptions,
+  encodedId: string,
+) {
   if (request.method !== 'POST' && request.method !== 'PUT') {
     return methodNotAllowed('POST, PUT');
   }
@@ -110,7 +159,7 @@ async function handleThumbnailRoute(request: Request, url: URL, env: WorkerEnv, 
   if (!manifest) return json({ error: 'Deck not found' }, 404);
   const key = `releases/${id}/${manifest.revision}/thumbnail.png`;
   try {
-    if (await env.FILES.head(key)) return json({ status: 'cached', src: `/${key}` });
+    if (await env.artifacts.head(key)) return json({ status: 'cached', src: `/${key}` });
   } catch {
     throw new WorkerError(500, 'storage', 'Could not read thumbnail metadata');
   }
@@ -126,9 +175,9 @@ async function handleThumbnailRoute(request: Request, url: URL, env: WorkerEnv, 
       throw error;
     }
     try {
-      await env.FILES.put(key, bytes, {
-        httpMetadata: { contentType: 'image/png' },
-        onlyIf: { etagDoesNotMatch: '*' },
+      await env.artifacts.put(key, bytes, {
+        contentType: 'image/png',
+        ifAbsent: true,
       });
     } catch {
       throw new WorkerError(500, 'storage', 'Could not store the thumbnail');
@@ -136,7 +185,7 @@ async function handleThumbnailRoute(request: Request, url: URL, env: WorkerEnv, 
     return json({ status: 'uploaded', src: `/${key}` });
   }
 
-  if (!env.BROWSER) {
+  if (!env.renderThumbnail) {
     return json(
       {
         status: 'unavailable',
@@ -150,9 +199,9 @@ async function handleThumbnailRoute(request: Request, url: URL, env: WorkerEnv, 
   target.searchParams.set('embedded', 'true');
   target.searchParams.set('labThumbnail', 'true');
   try {
-    const thumbnail = await captureThumbnail({ browser: env.BROWSER, url: target.href });
-    await env.FILES.put(key, thumbnail.bytes, {
-      httpMetadata: { contentType: 'image/png' },
+    const thumbnail = await env.renderThumbnail(target.href);
+    await env.artifacts.put(key, thumbnail.bytes, {
+      contentType: 'image/png',
     });
     return json({ status: 'created', src: `/${key}`, usedMs: thumbnail.usedMs });
   } catch (error) {
@@ -173,20 +222,20 @@ async function handleThumbnailRoute(request: Request, url: URL, env: WorkerEnv, 
 }
 
 async function fetchManifest(
-  env: WorkerEnv,
+  env: HubServerOptions,
   id: string,
   revision: string | undefined,
 ): Promise<ReleaseManifest | null> {
   if (revision !== undefined) {
     if (!REVISION_PATTERN.test(revision)) return null;
-    const value = await readJson(env.FILES, `releases/${id}/${revision}/manifest.json`);
+    const value = await readJson(env.artifacts, `releases/${id}/${revision}/manifest.json`);
     if (value === null) return null;
     return requireManifest(value, id, revision, 'storage');
   }
 
   let current: unknown | null;
   try {
-    current = await env.VERSIONS.getByName(id).current();
+    current = await env.publications.current(id);
   } catch {
     throw new WorkerError(500, 'commit', 'Could not read the current publication');
   }
@@ -210,10 +259,14 @@ function requireManifest(
   return value;
 }
 
-async function readRelease(request: Request, env: WorkerEnv, key: string): Promise<Response> {
-  let object: R2ObjectBody | null;
+async function readRelease(
+  request: Request,
+  env: HubServerOptions,
+  key: string,
+): Promise<Response> {
+  let object: ArtifactObject | null;
   try {
-    object = await env.FILES.get(key);
+    object = await env.artifacts.get(key);
   } catch {
     throw new WorkerError(500, 'storage', 'Could not read release data');
   }
@@ -224,16 +277,16 @@ async function readRelease(request: Request, env: WorkerEnv, key: string): Promi
     'cache-control': 'public, max-age=31536000, immutable',
     'x-content-type-options': 'nosniff',
   });
-  object.writeHttpMetadata(headers);
-  headers.set('etag', object.httpEtag);
+  if (object.contentType) headers.set('content-type', object.contentType);
+  if (object.etag) headers.set('etag', object.etag);
   return new Response(request.method === 'HEAD' ? null : object.body, { headers });
 }
 
-async function verifyMutationAuthorization(request: Request, env: WorkerEnv): Promise<void> {
-  if (!env.PUBLISH_TOKEN) {
+async function verifyMutationAuthorization(request: Request, env: HubServerOptions): Promise<void> {
+  if (!env.publishToken) {
     const hostname = new URL(request.url).hostname;
     if (
-      String(env.LOCAL_MUTATIONS) === 'true' &&
+      env.allowLocalMutations === true &&
       ['localhost', '127.0.0.1', '[::1]'].includes(hostname)
     ) {
       return;
@@ -247,7 +300,7 @@ async function verifyMutationAuthorization(request: Request, env: WorkerEnv): Pr
   }
   const [actual, expected] = await Promise.all([
     crypto.subtle.digest('SHA-256', encoder.encode(supplied)),
-    crypto.subtle.digest('SHA-256', encoder.encode(env.PUBLISH_TOKEN)),
+    crypto.subtle.digest('SHA-256', encoder.encode(env.publishToken)),
   ]);
   if (!constantTimeEqual(new Uint8Array(actual), new Uint8Array(expected))) {
     throw new WorkerError(401, 'auth', 'Authentication required');

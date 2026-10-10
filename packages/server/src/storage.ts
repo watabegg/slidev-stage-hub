@@ -1,12 +1,13 @@
-import { WorkerError } from './errors.ts';
+import type { ArtifactBody, ArtifactStore } from './ports.js';
+import { WorkerError } from './errors.js';
 
 export const MAX_PUBLISH_BODY_BYTES = 512 * 1024;
 export const MAX_THUMBNAIL_BODY_BYTES = 4 * 1024 * 1024;
 
 export interface ArtifactWrite {
   key: string;
-  body: string | ArrayBuffer | ArrayBufferView | ReadableStream | Blob;
-  options?: R2PutOptions;
+  body: ArtifactBody;
+  options?: { contentType?: string; ifAbsent?: boolean };
 }
 
 export async function readBoundedBody(request: Request, limit: number): Promise<Uint8Array> {
@@ -34,10 +35,10 @@ export async function readBoundedBody(request: Request, limit: number): Promise<
 }
 
 export async function putArtifacts(
-  bucket: R2Bucket,
+  bucket: ArtifactStore,
   objects: readonly ArtifactWrite[],
 ): Promise<void> {
-  // R2 round trips dominate publication time; keep a bounded number in flight.
+  // Storage round trips dominate publication time; keep a bounded number in flight.
   for (let offset = 0; offset < objects.length; offset += 6) {
     const batch = await Promise.allSettled(
       objects
@@ -50,26 +51,26 @@ export async function putArtifacts(
   }
 }
 
-export async function putJson(bucket: R2Bucket, key: string, value: unknown): Promise<void> {
+export async function putJson(bucket: ArtifactStore, key: string, value: unknown): Promise<void> {
   try {
     await bucket.put(key, JSON.stringify(value), {
-      httpMetadata: { contentType: 'application/json' },
+      contentType: 'application/json',
     });
   } catch {
     throw new WorkerError(500, 'storage', 'Could not store publication metadata');
   }
 }
 
-export async function readJson(bucket: R2Bucket, key: string): Promise<unknown | null> {
+export async function readJson(bucket: ArtifactStore, key: string): Promise<unknown | null> {
   try {
     const object = await bucket.get(key);
-    return object ? await object.json<unknown>() : null;
+    return object ? (JSON.parse(await new Response(object.body).text()) as unknown) : null;
   } catch {
     throw new WorkerError(500, 'storage', 'Could not read publication metadata');
   }
 }
 
-export async function markDeckIndexed(bucket: R2Bucket, id: string): Promise<void> {
+export async function markDeckIndexed(bucket: ArtifactStore, id: string): Promise<void> {
   try {
     await bucket.put(`index/${id}.json`, JSON.stringify({ id }));
   } catch {

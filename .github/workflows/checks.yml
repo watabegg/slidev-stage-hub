@@ -6,6 +6,20 @@ jobs:
   portable:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: hub
+          POSTGRES_PASSWORD: local-test-only
+          POSTGRES_DB: hub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hub -d hub"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      HUB_TEST_DATABASE_URL: postgres://hub:local-test-only@127.0.0.1:5432/hub
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,6 +31,8 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm verify:portable
       - run: pnpm verify:packed-cli
+      - run: pnpm verify:packed-server
+      - run: pnpm verify:server
   rust-core:
     needs: portable
     env:

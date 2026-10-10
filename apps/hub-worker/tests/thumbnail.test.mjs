@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { captureThumbnail, validatePng } from '../src/thumbnail.ts';
+import { captureThumbnail, validatePng } from '@slidev-stage-hub/adapter-cloudflare/thumbnail';
 import { THUMBNAIL_READY_SELECTOR, waitForRenderedSlide } from '../scripts/local-thumbnail.mjs';
 
 const SLIDE_SELECTOR = '.slidev-page[data-slidev-no="1"]';

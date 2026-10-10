@@ -1,0 +1,50 @@
+{
+  "family": "replace-hub-task-family",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "512",
+  "memory": "1024",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "executionRoleArn": "arn:aws:iam::REPLACE_ACCOUNT_ID:role/REPLACE_EXECUTION_ROLE",
+  "taskRoleArn": "arn:aws:iam::REPLACE_ACCOUNT_ID:role/REPLACE_S3_TASK_ROLE",
+  "containerDefinitions": [
+    {
+      "name": "hub",
+      "image": "REPLACE_ACCOUNT_ID.dkr.ecr.REPLACE_REGION.amazonaws.com/REPLACE_REPOSITORY:REPLACE_TAG",
+      "essential": true,
+      "portMappings": [{ "containerPort": 8080, "protocol": "tcp" }],
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "HOST", "value": "0.0.0.0" },
+        { "name": "PORT", "value": "8080" },
+        { "name": "HUB_STATIC_DIR", "value": "/app/static" },
+        { "name": "HUB_STORAGE", "value": "s3" },
+        { "name": "HUB_BUCKET", "value": "REPLACE_EXISTING_S3_BUCKET" },
+        { "name": "AWS_REGION", "value": "REPLACE_REGION" },
+        { "name": "HUB_PUBLICATIONS", "value": "postgres" },
+        { "name": "HUB_DATABASE_INIT", "value": "false" }
+      ],
+      "secrets": [
+        {
+          "name": "HUB_DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT_ID:secret:REPLACE_DATABASE_URL_SECRET_ARN_SUFFIX"
+        },
+        {
+          "name": "HUB_PUBLISH_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT_ID:secret:REPLACE_PUBLISH_TOKEN_SECRET_ARN_SUFFIX"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "REPLACE_EXISTING_LOG_GROUP",
+          "awslogs-region": "REPLACE_REGION",
+          "awslogs-stream-prefix": "hub"
+        }
+      }
+    }
+  ]
+}
