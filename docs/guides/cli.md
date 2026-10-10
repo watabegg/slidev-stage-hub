@@ -1,6 +1,6 @@
 # CLI 利用ガイド
 
-本書では、リポジトリの開発者および初期の非公開 CLI 利用者向けに、Step 5 で切り出された Hub サービスおよび Stage サービスの軽量 CLI（`@slidev-stage-hub/cli`）の仕様と利用手順を説明します。既存の開発用スクリプトは維持されますが、デスクトップ UI の再設計やネイティブアプリの配布は含まれません。なお、Step 7 で予定されている `publish` コマンドは未実装であり、実行時は意図的に終了コード 2（UNSUPPORTED）で終了します。
+`@slidev-stage-hub/cli` は、Hub および Stage サービスの薄いアダプターとして機能する開発者・利用者向けの CLI です。Node CLI とデスクトップ版は別個に構成されており、公開コマンドの `hub publish` は実装済みです。
 
 ## パッケージ構成と動作環境
 
@@ -20,10 +20,10 @@
 - `hub check`: 入力設定とスライド構成（deck）を読み取り専用で検証します。コンパイル自体の成功を保証するものではありません。
 - `hub serve`: 静的ファイルを配信する常駐サーバーを起動します。既定では `127.0.0.1` のポート `4174` で待機し、ポート `0`（空きポートの自動割り当て）も指定できます。
 - `hub thumbnail`: 既存のビルド済みサイトからサムネイル画像を生成します。
-- `stage prepare`: Hub が生成した既存のレシート（既定では配信サイトディレクトリに隣接する `${site}.receipt.json`）を読み取り、ランタイム設定を生成します。Step 4 で策定されたランタイム設定の `schemaVersion: 1` は維持されます。
+- `stage prepare`: Hub が生成した既存のレシート（既定では配信サイトディレクトリに隣接する `${site}.receipt.json`）を読み取り、ランタイム設定を生成します。ランタイム設定の `schemaVersion: 1` は維持されます。
 - `stage connect`: 指定したオリジンへ接続します。位置引数または `--origin` で接続先を指定します。
 - `stage doctor`: ランタイム設定、Node.js バージョン、スキーマ、スライド構成、パス、認証ファイルを読み取り専用で検査します。ファイルへの書き込みは行わず、OS やネイティブバイナリ自体の動作準備を保証するものではありません。準備不備が検出された場合は終了コード 1 で終了します。
-- `publish`: Step 7 へ延期されているため、実行時は終了コード 2 で失敗します。
+- `hub publish --origin ROOT --id ID --source PATH`（各オプション必須）を実行すると、CLI から Workers API へ公開処理を行い、revision と entry を返却します。追加オプションとして `--assets JSON`、`--headers-file PATH`、`--json` を指定できます。HTTPS または loopback HTTP の利用条件や、パーミッション 0600 が必要な origin-bound headers などの仕様詳細は [workers.md](workers.md) を参照してください。
 
 ### 共通フラグ・入出力・終了コード
 
@@ -89,7 +89,7 @@
 - ファイルの制限: 各 tarball にはコンパイル済みの JS（dist）が含まれ、Hub に必要なフロントエンドのソースも含まれますが、生成されたスライドサイト、成果物、テスト用フィクスチャ、認証情報は含まれません。また、ネイティブ Stage バイナリは配布されません。
 - インストール手順: `artifacts/cli-package` フォルダ全体をリポジトリ外にコピーし、そのディレクトリで `pnpm install` を実行します。その後、`pnpm exec hub --help` や `pnpm exec stage --help` を実行できます。
 - 依存関係の解決: 生成された `pnpm-workspace.yaml` のオーバーライド定義を維持することで、内部パッケージはローカルの tarball から解決され、Slidev ツールチェーンの間接的な固定バージョンが保持されます。外部の依存関係は通常のレジストリやキャッシュから取得されます。npm レジストリへの公開は行いません。
-- 自動検証: `pnpm verify:packed-cli` は、使い捨ての外部インストール環境を作成し、空のカレントディレクトリから「ビルド → サムネイル生成 → prepare → doctor → HTTP serve → connect → doctor」の一連の処理を実行します（詳細は `docs/results/cli.json` に記録されます）。
+- 自動検証: `pnpm verify:packed-cli` は、使い捨ての外部インストール環境を作成し、空のカレントディレクトリから「ビルド → サムネイル生成 → prepare → doctor → HTTP serve → connect → doctor」の一連の処理を実行します（詳細は `docs/results/final-regression.json` に記録されます）。
 - テスト: `pnpm test:cli` および `pnpm check` を使用します。
 
 ## 移行ガイドと制限事項
@@ -109,6 +109,5 @@
 - ネイティブバイナリのパッケージングは未検証です。
 - 本番の Cloudflare 認証環境での動作は未検証です。
 - 既存のデスクトップ UI は変更されていません。
-- Step 6 で予定されている Web カスタマイズ機能は未実装（今後の課題）です。
 
 Web entry は `--frontend-entry PATH` または設定ファイルの `frontendEntry` で指定します。CSS とナビゲーションの設定例は [Web カスタマイズガイド](web-customization.md) を参照してください。

@@ -1,219 +1,118 @@
-# 開発環境セットアップガイド
+# 開発ガイド
 
-## 対象範囲と前提
+本ドキュメントは、GitHub リポジトリ `watabegg/slidev-stage-hub` の開発手順と検証方法を説明する開発者向けガイドです。本リポジトリは現在開発中であり、ソースコードは公開されていますが、npm やネイティブ向けのパッケージ配布、およびライセンスの選定は完了していません。
 
-本リポジトリは、過去の概念実証を取り込んで構成された非公開モノレポです。本稿は開発環境セットアップガイド（`docs/DEVELOPMENT.md`）であり、設計文書ではないため新たなアーキテクチャや API の決定は含みません。標準テーマには公開済みの公式 `@slidev/theme-default` 0.25.0 を採用し、`@slidev/cli` およびクライアントは 53.0.0 をワークスペースのロックファイルで固定しています。別ディレクトリの `examples/slidev52` は、既存の複数プロファイル実験専用として CLI とクライアントを 52.15.2 に固定しています。
-追加サンプル用には公開済みの `slidev-theme-watabegg` 1.2.1 を明示的に指定して利用し、隣接リポジトリへのリンクや古い `slidev-lab`、`slidev-watabegg` の直接編集は行いません。環境依存の解消は完了しています。Step 1〜8 の実装とローカル検証は完了しました。最新の進捗は [進捗台帳](plans/productization-todo.md) を参照してください。npm への公開、リモートへの push、クラウドへの配備は実施していません。実際の検証結果は `docs/results/portability.json` に記録されており、クリーンなコンテナ環境での Node.js およびブラウザ検証と、ローカル環境でのネイティブ回帰試験を区別して管理しています（独立したネイティブ配布を保証するものではありません）。
+## 前提条件と環境構築
 
-## 環境構築と初期セットアップ
+開発には以下の環境が必要です。
 
-Node.js 24.15.0 以上を使用します。CI 設定も 24.15.0 です。GitHub 上の CI は未実行です。パッケージマネージャーには pnpm 12.3.4 を指定します。リポジトリルートから以下の手順を実行します。
+- Node.js 24.15 以上
+- pnpm 12.3.4（ロックファイルを固定して使用）
+
+リポジトリを取得後、依存関係の解決、テスト用ブラウザの導入、パッケージのビルド、初期検証を順に実行します。
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm browser:install
+pnpm build:packages
 pnpm check
 ```
 
-`playwright-chromium` 1.63.0 はワークスペースの依存関係に含まれますが、意図しない自動ダウンロードを防ぐためインストールフックを明示的に無効化しています。そのため、`pnpm browser:install` を明示的に実行してブラウザを導入する必要があります。Linux 環境でシステムのブラウザライブラリが不足する場合は、`pnpm exec playwright install --with-deps chromium` を実行して OS 依存パッケージを導入するか、後述のコンテナを利用してください。
-ブラウザは Chrome の絶対パスではなく完全な Chromium headless チャネルを使用し（参考: [Playwright公式ドキュメント](https://playwright.dev/docs/browsers#chromium-new-headless-mode) ）、必要に応じて `CHROMIUM_EXECUTABLE` で明示的に上書きできます。ルートでの Hub ビルドでは画面撮影のためにブラウザが必要となるほか、フォントのダウンロードとローカル配置のためにネットワーク接続が必要です。成果物のオフライン出力であっても、ビルドやインストールがオフラインで行えることを意味しません。
-ツールチェーンの固定理由は以下のとおりです。厳密な依存関係の解決はロックファイルに委ねられており、広範な互換性を保証するものではありません。
-
-- Vite 8.3.2: 移行後のアダプター基準
-- PostCSS 8.5.28: 作業セッションにおいて 8.5.29 で CSS ビルドの失敗を確認したため
-- markdown-it 14: Comark プライベートモジュールとの整合
-- floating-vue 5.2.2: 以前の環境から引き継いだ Shiki の古い VMenu 形状を維持するため
-
-
-## 開発チェックとフォーマット
-
-### ベースラインと現状のステータス
-最新の進捗は [進捗台帳](plans/productization-todo.md)、Step 8 の実測は [最終回帰記録](results/final-regression.json) を参照してください。初期の 64 件のテストから始まる検証履歴は [開発基盤の記録](results/development-foundation.json) など `results/` に保存しています。
-
-### 検証コマンドと対象範囲
-開発時の検証を迅速に行うため、ルートの `package.json` に `pnpm lint`、`pnpm format`、`pnpm format:check`、`pnpm check:boundaries`、`pnpm check` のスクリプトを追加しています。
-
-#### `pnpm check` の実行順序
-統合検証コマンドである `pnpm check` は、軽量で高速な実行を維持するため、以下の順序で実行します。
-
-1. `pnpm lint`
-2. `pnpm format:check`
-3. `pnpm typecheck`
-4. `pnpm test`
-5. `pnpm check:boundaries`
-
-ブラウザ検証やフルビルドは処理に時間を要するため、この高速コマンドの対象外としています。
-
-#### ツールの固定と型検査
-ツールの挙動を揃えるため、バージョンを固定して運用します。
-
-- **oxlint**: 1.87.0
-- **oxfmt**: 0.72.0
-
-型検査は、既存の `vue-tsc` による型検査を維持したうえで、Workers ランタイム向けの厳格な型検査を追加しています。なお、Oxlint は Vue の重複キーを検出できるものの、Vue スクリプト内の `no-unused-vars` は対象外であり、Vue テンプレート全般の静的解析カバレッジは保証されません（公式の互換性表: [oxc.rs/compatibility](https://oxc.rs/compatibility)）。
-
-#### oxfmt の対象と除外設定
-`oxfmt` によるコード整形は、既存の選定された TypeScript、ECMAScript モジュール（`.mjs`）、Vue、設定ファイル、スタイルファイルに適用します。
-
-一方で、以下のファイルやパスは対象から除外します。
-
-- **Markdown ファイル**: Slidev のスライド記述およびドキュメントを含むすべての `**/*.md`
-- **パッケージ管理ファイル**: pnpm が管理するため、`pnpm-lock.yaml` は除外
-- **除外・生成物・履歴パス**: `artifacts`、`dist`、`target`、`node_modules`、生成物（`generated`）、`results`、`docs/legacy`、`docs/reports`、`docs/plans`、`docs/migration`、`examples/legacy-native-baseline`
-- **Rust 関連ファイル**: コード整形は Rust ツールで実施するため、すべての `**/*.toml` および `Cargo.lock` は oxfmt の対象外
-
-### 境界検査と移行例外の管理
-モジュール間の依存関係と境界を維持するため、`pnpm check:boundaries` による境界検査を実施します。ただし、現行の `scripts/check-boundaries.mjs` による静的解決は、外部 `node_modules` 内の依存関係解決、Vite の仮想 ID、外部テンプレートの内容、CSS の `url()` アセットを対象外としています。これらの解決経路はステップ 2 / ゲート G2 のバンドラ検証に委ねられます。また、既存コードの移行を円滑に進めるため、移行期間中に限って例外を許可します。
-
-- **例外定義ファイル**: 例外は `scripts/boundary-exceptions.json` で管理します。
-- **必須項目**: 各例外エントリは、厳密に `rule`、`file`、`specifier`、`owner`、`reason`、`removeStep` の 6 項目のみで構成します。
-- **運用の制約**: 例外は移行専用の措置です。Step 8 で移行例外を削除しました。新しい本番コードから `experiments/` への import は認めません。Workers の動的 import は `runtime/manifest.ts` の `validatedRevisionModuleUrl` を直接通す経路だけを許可し、同一オリジンのリリースモジュール URL を実行時に検証します。
-
-### コードとテストの規約
-コードベースの品質と保守性を保つため、以下の規約に従います。
-
-#### 設計および決定理由の記録
-設計や判断の理由は、媒体ごとに役割を分担して記録します。これは記述上の規約であり、コメント行数などを機械的に検査するものではありません。
-
-- **コード**: どのように動くか（How）を記述する。
-- **テスト**: 何を検証・保証するか（What）を記述する。
-- **コミット**: なぜその変更を行ったか（Why）を説明する。
-- **コメント**: なぜ他の方法を採用しなかったか（Why not）を説明する。
-
-#### 実装とテストの指針
-- 実装の詳細に依存せず、振る舞いテストを優先します。
-- 不要な抽象化は避けます。
-- `any` 型や `@ts-ignore` を使用する場合は、必ず理由を明記します。
-
-#### 実験環境の分離と保護
-- 実験的なコードと本番コードは明確に区別します。
-- `/home/watabegg/slidev-lab` および `/home/watabegg/slidev-watabegg` を編集してはなりません。
-- 秘密情報、認証情報、トークン、生成された成果物は、バージョン管理の追跡対象に含めないでください。
-
-## 共有契約とSlidev adapter
-
-Step 2のG2は通過済みです（2026-10-09）。`pnpm check` 115件、Rust共通フィクスチャ、Hub/Stage HTTP・HTTPS連携66項目を確認しました。当時の移行例外は16件でした。詳細は [検証記録](results/protocol-adapter.json) を参照してください。
-
-アプリケーション内部の状態すべてを公開APIとせず責務を分離するため、共有契約と処理系を整理しています。`packages/protocol/src/contracts`（ESM公開: `.`および`./contracts`）はCatalog、Discovery v1/v2、iframeブリッジ通信の型、純粋なTypeScriptランタイム検証器を担当し、Node API非依存でブラウザやWorker環境と互換性を持ちます。Stage固有のセッション、Tauri、ウィンドウ、UIの型は`apps/stage/src/types`へ移設されました。また、`src/bridge`からビルドされる独立したクラシックスクリプト`dist/deck-bridge.js`は`./bridge`から提供されますが、`./build`はNodeビルド専用ツールでありブラウザ向け契約APIではありません。
-
-`packages/slidev-adapter`のNode向け入口は`protocol`の型に一方向依存し、逆依存は持ちません。ここには`inspect-deck.ts`（パーサーとノートのバイトオフセット）、`native-manifest.ts`（ファイルシステムから読み込み、ソースパスや非公開ノートを除外する公開マニフェスト）、`runtime.ts`（CLIとクライアントの52.15.2および53.0.0完全一致バージョン解決）、`static-runtime.ts`（署名チェックで保護された非公開ソース向けパッチ適用）が配置されます。旧`protocol`の`./inspect-deck`と`./native-player`エクスポートは内部呼び出し元の移行に合わせて一括削除されたため、新アダプターのエクスポートを使用します。
-
-ビルド時は`pnpm build:packages`で`protocol`、アダプターの順にdistエクスポートを準備します。通常のルートビルドやテストラッパー、`pnpm check`で自動構築されますが、Nodeスクリプトを直接実行する場合はインストール後やソース変更後に一度本ビルドを実行する必要があります。`pnpm test:contracts`はJS検証器、アダプターテスト、ブラウザ・Worker向けバンドル、共有フィクスチャ、Rustコア連携フィクスチャを実行します（全体のゲートは`pnpm check`が担います）。`tests/fixtures/native-player/v1`の共有JSONはTypeScriptのDiscovery検証とRust実DeckのserdeおよびControllerページ境界の検証のみを対象とします。Rustは完全なDiscoveryドキュメントを受け取らないため、バージョンやID、非対応デッキの判定方針はNode側でテストされ、Rustとの同等性は保証されません。
-
-v1では未知の追加フィールドを許容し、capabilities契約やschema2は導入していません。オリジン、ウィンドウ、マウント、トークン、リビジョンの保護を維持しつつ、不正なブリッジフィールドや未対応ナビゲーションは拒否されます。なお、Hubのオーケストレーション移設はStep 3で完了し、Workersコンパイラ移設はStep 7で完了しました。`slidev-adapter/clicks` は Node 非依存のクリック解析入口として Workers からも使用します。互換ラッパーと過去の再現資産は保持します。
-
-## Hub と Stage の実行と検証
-
-Hub のビルドおよび開発サーバーの起動は以下のコマンドで行います。
+Linux 環境でテスト用ブラウザやシステム依存ライブラリが不足している場合は、以下のコマンドで Chromium と必要な依存パッケージを導入してください。
 
 ```bash
-pnpm build:hub
-pnpm dev:hub
+pnpm exec playwright install --with-deps chromium
 ```
 
-Hub は `localhost:4174` で起動し、`examples/fixtures` 内の 4 つの汎用スライドデックを使用して `packages/hub/artifacts/module-graph-offline/site` へ出力します。デフォルトテーマには公式テーマが適用されます。ブラウジングの確認は `pnpm verify:hub` で実行します。
-Stage の準備と画面ビルドは以下のコマンドで行います。
+ブラウザ検証には標準で Chromium の headless チャンネルを使用します。任意の実行バイナリを使用する場合は、環境変数 `CHROMIUM_EXECUTABLE` で上書きしてください。なお、ビルド時にフォント取得などの外部通信が発生するため、インターネット接続が必要です。
+
+## リポジトリ構成
+
+本リポジトリは以下のコンポーネントで構成されています。個別の設計理由については [DECISIONS.md](DECISIONS.md) を参照してください。
+
+- `apps/stage`: Rust によるコア・ホスト実装および TypeScript 製 UI
+- `apps/hub-worker`: Edge、ブラウザ、Node.js 向けスクリプト群
+- `packages/hub`: Node.js ビルドパイプライン、クライアント、フロントエンド
+- `packages/protocol`: 純粋な契約（contracts）およびブリッジ定義
+- `packages/slidev-adapter`: Node.js 向けの Slidev 非公開 API 境界に加え、Worker でも利用可能な Node.js 非依存のクリック操作
+- `packages/stage-tools`: 準備および接続用の Node.js ツール群
+- `packages/cli`: 各種機能を呼び出す薄いアダプター
+
+## 日常の開発と品質管理
+
+日々の変更に対する検証には `pnpm check` を使用します。内部では以下の順序で検査が実行されます。
+
+1. `lint`（静的解析）
+2. `format:check`（整形確認）
+3. `typecheck`（型検査）
+4. `test`（単体・結合テスト）
+5. `check:boundaries`（依存境界の検査）
+
+静的解析ツールの Oxlint は Vue テンプレート内の型整合性を保証しないため、型検査には `vue-tsc` を組み合わせて安全性を確保しています。コード整形の適用には `pnpm format` を実行してください。フォーマッターの除外対象（`**/*.md`、ロックファイル、`generated/`、`artifacts/`、`dist/`、`target/`、`results/`）の詳細は `.oxfmtrc.json` に定義されています。
+
+アーキテクチャ境界の例外は許容されず（例外数 0）、本番コードから実験用コード（`experiments`）をインポートすることは禁止されています。不要な抽象化を避け、コードには実装方法（How）、テストには振る舞い（What）、コミットには変更理由（Why）、コメントには採用しなかった理由（Why Not）を記述してください。また、ビルド成果物や秘密情報を Git に含めてはいけません。
+
+## ビルドと開発サーバー
+
+コンポーネントごとのビルドおよび開発サーバー起動コマンドは以下のとおりです。
+
+- **Hub**: `pnpm build:hub` / `pnpm dev:hub`
+- **Stage**: `pnpm stage:prepare` / `pnpm build:stage-ui`
+- **Workers**: `pnpm build:workers` / `pnpm dev:workers`
+
+各コンポーネントの詳細な利用手順は、以下のドキュメントを参照してください。
+
+- `guides/hub-service.md`
+- `guides/stage-tools.md`
+- `guides/cli.md`
+- `guides/workers.md`
+- `guides/web-customization.md`
+
+## 回帰テストと検証
+
+変更内容を網羅的に検証する際は、以下のコマンドで一括回帰テストを実行します。
 
 ```bash
-pnpm stage:prepare
-pnpm build:stage-ui
+pnpm check && pnpm verify:portable && pnpm verify:packed-cli && pnpm verify:workers-stage && pnpm verify:stage
 ```
 
-Node.js のみによる Stage の準備、UI、およびブラウザ通信プロトコルのテストは `node apps/stage/scripts/verify-remote.mjs` を実行します。これは Chromium 内で HTTP および HTTPS のテストホストを検証するものであり、テスト用証明書の例外処理を前提としています。実際の Cloudflare Access やネイティブ WebKit の検証ではありません。
-デスクトップ版の実行には Linux 環境で Rust、GTK、WebKit が必要です。`apps/stage/README.md` には任意の SDK 抽出と、元の開発機固有の回避策である `NO_AT_BRIDGE=1` を記載しています。起動は `pnpm stage` で行います。ルートの Node.js 向け検証には Rust は不要です。Windows、物理ディスプレイ、独立したネイティブ配布の動作は Node.js テストスイートでは保証されません。
+### Docker による Node 隔離環境での検証
 
-## 追加サンプルの実行
-
-`examples/watabegg/demo/slides.md` には 3 枚のスライド（表紙、FigureGrid とローカル SVG、QuestionList をインポートした 2 カラム構成および 2 クリック操作、セクション）が含まれます。ルートパッケージ定義で公開版 1.2.1 を直接指定しており、テーマのローカル取り込みや変更は行いません。
-
-```bash
-pnpm build:example:watabegg
-pnpm dev:example:watabegg
-pnpm verify:example:watabegg
-```
-
-`localhost:4175` で提供され、成果物は `packages/hub/artifacts/example-watabegg-offline/site` に出力されます。デフォルトの 4 デックとは分離されており、標準テーマの切り替えも行いません。Stage 側でこのサンプルを準備する場合は以下を実行します。
-
-```bash
-node apps/stage/scripts/prepare.mjs --site packages/hub/artifacts/example-watabegg-offline/site --fixtures-root examples/watabegg
-```
-
-デフォルトの Stage データに戻すには `pnpm stage:prepare` を実行します。どちらの発表者ノートも非公開のまま保持されます。なお、`docs/results/portability.json` に記録されている本サンプルの検証範囲は Hub での描画、画像、クリック動作、および Stage への検出（10 項目）に限られ、ネイティブ環境でのサンプル実行検証は含まれていません（ネイティブ WebKit の 18 項目の検証は標準の 4 デックを対象としています）。
-
-## 環境変数による上書き設定
-
-`SLIDEV_THEME_PATH` に `package.json` を含むテーマディレクトリの絶対パスまたはカレントディレクトリ相対パスを指定することで、テーマの配置先を変更できます。テーマ自体に独自の CLI や Chromium の導入は不要ですが、テーマ自体の依存関係はインストールされている必要があります。代替の環境変数は `SLIDEV_LAB_THEME`、`SLIDEV_THEME_DIR` の順で適用されます。
-標準の公式テーマはカレントディレクトリに依存せずワークスペースパッケージから解決されます。CLI の基準パスは通常リポジトリルートですが、実験的な特定バージョン固有のツールチェーンを利用する場合に限り `SLIDEV_LAB_DEPENDENCY_ROOT` で明示的に上書きできます。複数プロファイル用のパス設定は従来設計を維持しており、公開 API としての保証はありません。なお、テーマを変更した場合は再ビルドが必要です。
-
-## Workers のローカル開発
-
-現行実装は `apps/hub-worker/` です。公開と Stage 接続は [Workers ガイド](guides/workers.md) を参照してください。ビルドと検証は以下のコマンドで行います。
-
-```bash
-pnpm build:workers
-pnpm verify:workers
-pnpm dev:workers
-```
-
-これらはローカルでの実験のみを目的としています。実行時のテーマは公式テーマが標準ですが、ビルド時に環境変数で選択したテーマも使用できます。公開処理ではビルド済みテーマの別名または完全なパッケージ名のみを受け付け、任意の新しい実行時構成は受け付けません。スライド資料は独自の FigureGrid から標準の Markdown 画像記法へ変更されました。Mermaid などの制約は従来どおりです。
-過去にクラウドへ配備された環境は旧テーマと古い実行時設定のままであり、今回の作業で配備は行っていません。過去の検証結果は `packages/hub/workers/results` に残り、最新の移植結果は別個の `docs/results/portability.json` に記録されます。
-
-
-Step 7 のローカル検証結果は [Workers 統合記録](results/workers-integration.json) に記録しています。
-
-## 機能移行台帳
-
-### 移行台帳の目的と運用方針
-
-本台帳は、`docs/plans/productization-plan.html` のインベントリ（特にステップ 2、3、4、7）に基づき、各機能の現行実装、既存の検証手段、計画上の移行先、および移行進捗を一元管理して移行漏れやデグレードを防ぐことを目的としています。
-
-台帳の解釈と運用にあたっては、以下の原則を適用します。
-
-- **移行状況の定義**: `status` は本番向け移行作業自体の進捗を表し、現行コードでの動作可否を示すものではありません。移行が完了するまで、現行の移行元コードは現在の場所に維持します。
-- **進捗の正本**: Step 1〜8 は完了しています。検証状況は [進捗台帳](plans/productization-todo.md) で管理します。
-- **検証資産の保持**: 過去のベンチマークや比較用資産は検証・再現用として保持し、本番の実行時環境（ランタイム）にはインポートしません。
-
-### 機能移行一覧
-
-各機能の現行コード、検証手段、計画上の移行先、移行状況を以下に示す。
-
-| feature | current source | test / verification | planned destination | status |
-| --- | --- | --- | --- | --- |
-| module-graph shared build | `packages/hub/src/node/build.ts`, `src/node/internal/graph.mjs` | `packages/hub/tests/catalog.test.mjs`; `pnpm verify:hub` | `packages/hub/src/node/build.ts` and associated `packages/hub/src/node/` (Step 3) | Step 3 complete |
-| multi-profile resolution and process isolation | `packages/hub/src/node/internal/profiles.mjs`, `profile-probe.mjs`; `packages/hub/bundle-sharing/experiments/multi-profile/` | `packages/hub/bundle-sharing/experiments/multi-profile/scripts/browser.mjs`, `compare.mjs`; historical `packages/hub/bundle-sharing/experiments/multi-profile/results/experiment.md` | `packages/slidev-adapter/` isolation plus Hub profile service in `packages/hub/src/node/internal/profiles.mjs` (Steps 2–3) | Step 2 adapter complete; Step 3 complete |
-| offline output and fingerprint cache | `packages/hub/src/node/offline.ts`, `src/node/internal/fingerprint-offline.mjs`, `packages/hub/src/frontend/` | `packages/hub/scripts/fingerprint-offline.test.mjs`; `pnpm verify:hub` | Integrated Hub build pipeline in `packages/hub/src/node/` (Step 3) | Step 3 complete |
-| Hub thumbnail generation | `packages/hub/src/node/thumbnail.ts` | `pnpm thumbnails:hub`; `pnpm verify:hub` | `packages/hub/src/node/thumbnail.ts` (Step 3) | Step 3 complete |
-| native bridge and shared wire types | `packages/protocol/src/contracts/`, `src/bridge/`; `packages/slidev-adapter/src/native-manifest.ts` | `apps/stage/scripts/verify-remote.mjs`; Stage tests | `packages/protocol/src/contracts/` and `src/bridge/` (Step 2) | Step 2 complete |
-| Stage state, frame control, notes, auth | `apps/stage/core/`, `apps/stage/src/`, `apps/stage/src-tauri/`, `apps/stage/scripts/` | `pnpm --filter @slidev-stage-hub/stage test`; `cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core`; `node apps/stage/scripts/verify-remote.mjs` | `packages/stage-tools/src/` for prepare/connect plus modular `apps/stage/src-tauri/` (Step 4); UI and Rust core stay in Stage | Step 4 complete |
-| CLI commands and private installation | `packages/cli/`, `scripts/pack-cli.mjs` | `pnpm test:cli`; `pnpm verify:packed-cli` | thin adapters over Hub / Stage tools (Step 5) | Step 5 complete |
-| Headless Web client and custom entry/style | `packages/hub/src/client/`, `src/frontend/` | `pnpm test:web-client`; `pnpm verify:web-customization` | public client/frontend exports (Step 6) | Step 6 complete |
-| Workers compile, publish, and revision lifecycle | `apps/hub-worker/src/`, `apps/hub-worker/runtime/`, `packages/cli/src/publish.ts` | `compiler.test.mjs`; `pnpm verify:workers` | `apps/hub-worker/src/{worker,compiler,storage,versions,native-player}.ts` and `apps/hub-worker/runtime/` (Step 7) | Step 7 passed locally |
-| Workers thumbnails | `apps/hub-worker/src/thumbnail.ts`, `apps/hub-worker/scripts/local-thumbnail.mjs` | `apps/hub-worker/tests/thumbnail.test.mjs`; `pnpm verify:workers` | `apps/hub-worker/` thumbnail/cache path, preserving current cached-response and uncached-503 behavior (Step 7) | Step 7 passed locally |
-| Historical benchmark and comparison assets | `packages/hub/bundle-sharing/experiments/`, package `results/`, `docs/results/` | Existing result files and documented reproduction commands | Preserve as test/verification assets; never import into production runtime | Retained; no migration |
-
-## クリーン環境での検証とCI
-
-全体の検証シーケンスは以下の統合コマンドで実行します。
-
-```bash
-pnpm verify:portable
-```
-
-このコマンドは、型検査、単体テスト、Slidev 52 の解決、Hub のビルドとブラウザ検証、Stage と UI の準備、HTTP/HTTPS ブラウザテスト、追加サンプルのビルドと検証、カスタム Web、Workers のビルド・フィクスチャ・模擬認証の検証を順次実行します。実行時に既存の `SLIDEV_*`、`CHROMIUM_EXECUTABLE`、`NODE_PATH` を解除し、上書き設定による初期値の隠蔽を防ぎます。これは一連の検証手順であり、それ自体が環境を隔離するわけではありません。
-ホスト環境の依存関係や生成成果物から隔離して検証する場合は Docker を使用します。
+ホスト環境の差異を排除するため、Docker コンテナ内で隔離検証を実施できます。
 
 ```bash
 docker build -f scripts/portable.Dockerfile -t slidev-stage-hub:portable .
 docker run --rm --init --shm-size=1g slidev-stage-hub:portable sh -c 'pnpm check && pnpm verify:portable && pnpm verify:packed-cli'
 ```
 
-ホストのディレクトリはマウントせず、`.dockerignore` により `node_modules`、成果物、`target`、`dist`、`.git`、ローカル認証情報を除外します。セットアップとビルドにはネットワーク接続が必要です。
-`.github/workflows/checks.yml` では上記の Node.js およびブラウザ検証に加え、private tarball 導入、Rust core/host テスト、Linux SDK と Xvfb 上の `pnpm verify:workers-stage && pnpm verify:stage` をジョブの依存順に実行する設定です。リポジトリの push を行っていないため GitHub 上での CI 自体は未実行であり、手元の Docker による検証記録とは区別されます。コンテナ環境は独立したネイティブ GTK/WebKit アプリケーションとしての配布を保証するものではありません。ローカルのデスクトップ環境で回帰試験を実施した場合は別途記録します。
+`.dockerignore` により `node_modules/`、`artifacts/`、`target/`、`dist/`、`.git/`、および非公開設定はビルドコンテキストから除外されており、ホストディレクトリのマウントは行いません。依存パッケージの導入やビルドのため、コンテナ内からインターネット接続が必要です。
 
-Hubの公開Node API・設定・非公開receipt・通常失敗時の復元範囲は [Hubサービス開発ガイド](guides/hub-service.md)、Step 3の実測は [検証記録](results/hub-service.json) を参照。
+`portable` 検証では、実ブラウザ操作、静的配信、オフライン動作、カスタム Web、テーマ適用、HTTP/HTTPS 通信、Workers フィクスチャ、モック認証をテストします。`packed-cli` 検証では、外部の一時ディレクトリに非公開の 5 つの tarball パッケージを実際にインストールして動作を確認します。
 
-Stageの準備・接続API、設定探索、共有ロックは [Stageツール開発ガイド](guides/stage-tools.md)、Step 4の実測は [検証記録](results/stage-tools.json) を参照。
+### ネイティブ環境の検証（apps/stage）
 
-新CLIのコマンド、設定優先順位、非公開tarball導入手順は [CLI利用ガイド](guides/cli.md) を参照。旧環境変数は互換ラッパーでのみ使用します。
+`apps/stage` のネイティブ機能に関する 2 段階のゲート検証には、Rust に加えて Linux SDK およびディスプレイ環境（Xvfb 等）が必要です。詳細は [../apps/stage/README.md](../apps/stage/README.md) を参照してください。
 
-Web の取得元・entry・CSS の公開入口と検証コマンドは [Web カスタマイズガイド](guides/web-customization.md) を参照。`pnpm test:web-client` と `pnpm verify:web-customization` が Step 6 のゲートです。
+コアおよびホスト機能のテストは、並列ジョブ数を指定して実行します。
+
+```bash
+CARGO_BUILD_JOBS=2 cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core -p slidev-native-poc
+```
+
+必須の SDK が導入されていない環境では検証を行わず「未検証」として扱ってください。Node.js 側のテストが合格しても、ネイティブ機能が合格したとはみなせません。
+
+## CI パイプラインと検証記録の扱い
+
+CI のワークフロー定義は [../.github/workflows/checks.yml](../.github/workflows/checks.yml) に記載されており、portable 検証、Rust ビルド、Linux 上の Xvfb を用いたネイティブ検証の順で実行される設定となっています。GitHub Actions 上の実際の実行環境とローカル環境での計測結果は異なるため、本文書では CI が成功したとは記載しません。また、リポジトリ内の `results/final-regression.json` は 2026-10-10 時点のローカル検証スナップショットであり、現在の CI 成功を証明する記録ではありません。
+
+## 互換用環境変数と実験コードの分離
+
+従来のラッパー向けに以下の互換環境変数が用意されており、設定が存在する場合は優先順位に従って適用されます。
+
+1. `SLIDEV_THEME_PATH`（最優先）
+2. `SLIDEV_LAB_THEME`
+3. `SLIDEV_THEME_DIR`
+
+`SLIDEV_LAB_DEPENDENCY_ROOT` は実験用です。新しい API や CLI ではこれらを使用せず、明示的な設定を参照してください。
+
+また、検証用に保持されている比較用ハーネス（`packages/hub/bundle-sharing/experiments/` および `examples/legacy-native-baseline/`）を本番コードへインポートすることは禁止されています。過去の検証記録については、[DECISIONS.md](DECISIONS.md) 内の固定 Git リンクを参照してください。

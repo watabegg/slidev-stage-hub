@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const themeRoot = resolve(themeDirectory());
 const artifactRoot = resolve(root, 'bundle-sharing/artifacts/baseline');
-const resultsRoot = resolve(root, 'bundle-sharing/results');
+const resultsRoot = artifactRoot;
 const ids = ['aaa/aaa1', 'aaa/aaa2', 'bbb/bbb1', 'bbb/bbb2'];
 
 const cliRequire = slidevRequire();

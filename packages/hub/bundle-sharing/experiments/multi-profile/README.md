@@ -19,4 +19,4 @@ node bundle-sharing/experiments/multi-profile/scripts/broken-co-load.mjs
 
 資料側のsetup/components/layouts/styles、Vite/Uno設定、addonsはこのPoCでは明示的に拒否する。共有の拡張は宣言したテーマに置く。通常のブラウザではテーマのキー処理を維持し、ネイティブの既知キーはRust側の入力処理が優先する。
 
-結果は [results/experiment.md](results/experiment.md)。
+結果は [整理前の実験記録](https://github.com/watabegg/slidev-stage-hub/blob/c16f72f/packages/hub/bundle-sharing/experiments/multi-profile/results/experiment.md)。

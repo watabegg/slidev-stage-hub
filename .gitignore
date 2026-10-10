@@ -20,8 +20,6 @@ artifacts/
 .DS_Store
 Thumbs.db
 
-# Generated Slidev entry, recreated by the shared build
-/bundle-sharing/experiments/module-graph/index.html
 __pycache__/
 
 # Migrated Hub generated entry

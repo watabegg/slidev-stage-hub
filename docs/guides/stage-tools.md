@@ -1,9 +1,8 @@
 # ステージツール開発者ガイド
 
-## 目的と設計の背景
-従来のステージ環境では、準備（prepare）および接続（connect）処理において、CLI実行環境や既定パスの解決が、ソース検証、認証情報の取得、出力の書き込みと混在していました。また、Rust側の主処理もチェックアウト先への固定パスを保持し、配信に関する全コマンドを単一ファイルで管理していました。
+## 責務と構成
 
-Step 4 ではこれらの責務を分離するため、独立パッケージ `packages/stage-tools` を切り出し、Rust側を `config.rs`、`paths.rs`、`commands.rs`、`server.rs` の各モジュールに分割しました。状態遷移の制御は引き続きRustコアが担い、画面表示やスナップショット、既存の認証通信モジュールは変更していません。なお、本改修は内部構造の整理であり、将来の製品向けCLI新設（Step 5予定）やUIの再設計ではありません。
+`packages/stage-tools` では Node 側の prepare、connect、config と CLI 側の cwd、env、args が分離されています。Rust host は config、paths、commands、server の各モジュールで構成され、Rust core を正本として扱います。これらを操作する CLI は [cli.md](cli.md) から利用可能です（UI 刷新は別扱いとなります）。
 
 ## セットアップと提供機能
 本パッケージは外部公開しない非公開ワークスペース `@slidev-stage-hub/stage-tools` として配置され、ステージの準備と接続を担う関数、型定義、およびエラー型を提供します。
@@ -91,7 +90,7 @@ pnpm stage --config /abs/project/.slidev-stage/local-config.json
 - 設定ファイルの配置場所を変更しても、ノートデータの保存領域は自動で移行されません。
 
 ## 検証手順
-検証結果の件数は `docs/results/stage-tools.json` に記録されます。動作の再現と検証は以下の手順で行います。
+検証結果の件数は `docs/results/final-regression.json` に記録されます。動作の再現と検証は以下の手順で行います。
 
 ```bash
 pnpm test:stage-tools # Node サービス層テスト、および Rust コア、認証、ホスト設定の検証

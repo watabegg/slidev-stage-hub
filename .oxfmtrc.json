@@ -14,13 +14,9 @@
     "**/target/**",
     "**/generated/**",
     "**/results/**",
-    "docs/legacy/**",
-    "docs/reports/**",
-    "docs/plans/**",
     "examples/legacy-native-baseline/**",
     "**/*.md",
     "pnpm-lock.yaml",
-    "docs/migration/**",
     "**/*.toml",
     "**/Cargo.lock",
     "apps/hub-worker/worker-configuration.d.ts"

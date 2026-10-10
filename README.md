@@ -1,44 +1,79 @@
-# Slidev Stage / Slidev Hub
+# slidev-stage-hub
 
-**Stage** は安定した発表操作を提供するTauriアプリ。**Hub** は複数のSlidev資料を共有ランタイムで配信するWeb基盤。
+slidev-stage-hub は、Slidev で作成した複数のプレゼンテーション資料を一括でビルド・配信し、手元の端末による発表操作と連携させるための基盤です。
 
-旧PoCから機能を移植した開発用モノレポです。まず **[引き継ぎ](docs/HANDOFF.md)**、[TODO](TODO.md)、[移行後の検証結果](docs/migration/verification.json) を読んでください。開発環境の再現手順は **[開発ガイド](docs/DEVELOPMENT.md)** を参照してください。一般配布の準備はこれからです。
+スライド資料の共有・管理と、発表時のノート確認や画面操作を円滑につなぐことを目的に開発されています。現在は機能の実装を優先して進めており、画面表示（UI）の刷新は後回しとして開発を継続しています。
 
-App/Webの機能・コード構成・CLI・導入方法・今後の設計論点は、[再設計前のアーキテクチャレポート（HTML）](docs/reports/architecture-overview.html) にまとめています。
+## 主な構成要素
 
-実験機能の集約、パッケージ境界、CLI・Webの拡張性、開発基盤の整備は、[実装計画（HTML）](docs/plans/productization-plan.html) と [進捗台帳](docs/plans/productization-todo.md) を参照してください。Step 1〜8 は完了しました。日常の検証は `pnpm check`、結果は [最終回帰記録](docs/results/final-regression.json) を参照してください。
+- **Hub**: 複数の Slidev 資料をまとめてビルドし、配信する基盤です。
+- **Stage**: Rust と Tauri で構築されたデスクトップ環境です。発表時のスライド操作や、手元の端末上でのノート確認を担います。
+- **Worker**: 資料の公開や変換、および Stage との接続を担います。
 
-```sh
+## 前提条件
+
+- Node.js >= 24.15.0
+- pnpm 12.3.4
+- セットアップおよびビルド時のインターネット接続
+
+Hub の Node.js 環境やブラウザ向けの開発では、Rust のインストールは不要です。
+
+## クイックスタート
+
+リポジトリのルートディレクトリで以下のコマンドを実行すると、依存関係の解決とビルドを経て Hub の開発サーバーが起動します。
+
+```bash
 pnpm install --frozen-lockfile
 pnpm browser:install
-pnpm typecheck
-pnpm test
 pnpm build:hub
-pnpm thumbnails:hub
 pnpm dev:hub
 ```
 
-Hubは http://localhost:4174 。ポートが使用中なら `pnpm --filter @slidev-stage-hub/hub exec node scripts/serve.mjs artifacts/module-graph-offline/site 4194` で変更できます。
+起動後、ブラウザで `http://localhost:4174` を開くと Hub にアクセスできます。
 
-Stageは `pnpm stage:prepare` の後、`NO_AT_BRIDGE=1 pnpm stage` で起動します。このPCのSDK準備・検証手順は [Stage README](apps/stage/README.md) を参照。Hubの開発にRustは不要です。
+## Stage と CLI の利用
 
-- [Stage](apps/stage/): Rust/Tauri、TypeScript UI、端末内ノート、認証付き外部接続
-- [Hub](packages/hub/): Vueホーム、複数資料・テーマの共有ビルド
-- [Hub Worker](apps/hub-worker/): Workers上の変換・公開とStage接続（[ガイド](docs/guides/workers.md)）
-- [Protocol](packages/protocol/): 共通マニフェスト・Native bridge・型
-- [Slidev adapter](packages/slidev-adapter/): 資料解析・ツールチェーン解決・クリック判定
-- [Examples](examples/): 共通資料と旧実装の比較用fixture
+- **Stage（デスクトップアプリ）の起動**
+  実行には Linux SDK、Rust、およびディスプレイ環境が必要です。準備手順の詳細は [apps/stage/README.md](apps/stage/README.md) を参照してください。以下のコマンドでデスクトップアプリを起動します。
+  ```bash
+  pnpm stage:prepare
+  pnpm stage
+  ```
+- **Node CLI の利用**
+  パッケージをビルドしたあと、各 CLI のヘルプを確認できます。
+  ```bash
+  pnpm build:packages
+  pnpm hub --help
+  pnpm stage:cli --help
+  ```
 
-既定は公式 `@slidev/theme-default`。Slidev・テーマ・検証ツールはworkspaceのlockfileで管理します。公開済みwatabegg 1.2.1のexampleは `pnpm build:example:watabegg` → `pnpm dev:example:watabegg`（localhost:4175）で確認できます。
+## テーマとサンプル
 
-クリーン環境の検証は `scripts/portable.Dockerfile`、実行結果は [final-regression.json](docs/results/final-regression.json) を参照。旧リポジトリとテーマ開発ディレクトリは変更しません。GitHubへの公開、npm公開、Cloudflareへの再デプロイは行っていません。
+既定のテーマには `@slidev/theme-default` を使用します。追加テーマ `slidev-theme-watabegg`（バージョン 1.2.1）を使用したサンプルは、以下のコマンドでビルドおよび起動できます。起動後は `http://localhost:4175` にアクセスしてください。
 
-Hub Node APIの使い方は [Hubサービス開発ガイド](docs/guides/hub-service.md)、Step 3の検証結果は [hub-service.json](docs/results/hub-service.json) を参照。
+```bash
+pnpm build:example:watabegg
+pnpm dev:example:watabegg
+```
 
-Stageの準備・接続APIと設定パスは [Stageツール開発ガイド](docs/guides/stage-tools.md) を参照。
+## 現在の開発状況と制限事項
 
-CLIの仕様と設定移行は [CLI利用ガイド](docs/guides/cli.md) を参照。Node.js 24.15以上、pnpm 12.3.4を使用します。ワークスペースでは `pnpm build:packages` の後、`pnpm hub --help` / `pnpm stage:cli --help` で確認できます。
+本リポジトリは公開ソースコードとして開発を進めていますが、配布形態や検証状況に以下の未完了・未検証項目があります。
 
-非公開tarballは `pnpm pack:cli` で `artifacts/cli-package/` に生成します。フォルダ全体をリポジトリ外にコピーし、そこで `pnpm install` → `pnpm exec hub --help` / `pnpm exec stage --help` を実行します。npm公開はしておらず、ネイティブStageバイナリも含みません。既存の `pnpm stage` はデスクトップアプリの起動として維持します。
+- **パッケージとアプリの配布**: npm への一般公開や Stage のインストーラー（ネイティブ配布）は未整備です。現時点ではプライベートワークスペースおよびプライベート tarball（`pnpm pack:cli`、`pnpm verify:packed-cli`）による検証を行っています。
+- **未検証の環境**: Windows 環境、物理的な 2 画面環境、実際の Cloudflare Access と連携した動作は未検証です。
+- **UI の更新**: UI の刷新は別途実施する予定です。
+- **ライセンス**: ライセンスは未決定です。
 
-Web の取得元・entry・CSS の差し替えは [Web カスタマイズガイド](docs/guides/web-customization.md) と [実行例](examples/custom-frontend/) を参照してください。
+## 詳細ドキュメント
+
+開発手順や各種仕様の詳細は、以下のドキュメントを参照してください。
+
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): 開発および検証の手順
+- [docs/DECISIONS.md](docs/DECISIONS.md): 設計方針と採択理由
+- [docs/guides/cli.md](docs/guides/cli.md): CLI の利用方法と導入手順
+- [docs/guides/web-customization.md](docs/guides/web-customization.md): Web 画面の差し替え手順
+- [docs/guides/workers.md](docs/guides/workers.md): Worker のローカル検証と公開 API
+- [docs/guides/hub-service.md](docs/guides/hub-service.md): Hub サービスの API 詳細
+- [docs/guides/stage-tools.md](docs/guides/stage-tools.md): Stage ツールの API 詳細
+- [TODO.md](TODO.md): 今後の課題一覧

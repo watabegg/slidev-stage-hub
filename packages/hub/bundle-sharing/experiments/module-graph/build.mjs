@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { buildHub } from '../../../dist/node/index.js';
 import { legacyOptions } from '../../../scripts/legacy-options.mjs';
 import { hubRoot } from '../../../scripts/runtime-environment.mjs';
-import { persistDiagnostics } from './profiles.mjs';
+import { persistDiagnostics } from './diagnostics.mjs';
 
 const options = await legacyOptions();
 const env = process.env;

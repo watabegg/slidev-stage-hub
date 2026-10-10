@@ -191,7 +191,6 @@ function packageForPath(packages, fullPath) {
 function shouldSkipDirectory(root, dir) {
   const relative = relativePath(root, dir);
   if (relative === 'examples/legacy-native-baseline') return true;
-  if (relative === 'docs/legacy' || relative.startsWith('docs/legacy/')) return true;
   return SKIP_DIRECTORY_NAMES.has(path.basename(dir));
 }
 

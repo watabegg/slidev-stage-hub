@@ -115,9 +115,9 @@
     "githubRun": "not executed"
   },
   "documentation": {
-    "handoff": "docs/HANDOFF.md",
-    "history": "docs/legacy/handoff-through-step7.md",
-    "development": "docs/DEVELOPMENT.md",
+    "handoff": "https://github.com/watabegg/slidev-stage-hub/blob/c16f72f/docs/HANDOFF.md",
+    "history": "https://github.com/watabegg/slidev-stage-hub/blob/c16f72f/docs/legacy/handoff-through-step7.md",
+    "development": "https://github.com/watabegg/slidev-stage-hub/blob/c16f72f/docs/DEVELOPMENT.md",
     "writer": "agy-writer / Gemini; factual review and repair completed"
   },
   "unverified": [

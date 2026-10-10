@@ -1,9 +1,0 @@
-{
-  "source": "/home/watabegg/slidev-lab",
-  "head": "543fc5008048fbec46285069c4e279d7b8f72302",
-  "includesUncommittedNativeTypeScript": true,
-  "copiedFiles": 195,
-  "excluded": "ignored artifacts, credentials, dependencies, build output, Git metadata",
-  "sourceWorkingDiffSha256": "de93b05a054f380ee9c0ed1a86577f19fce1ae55f03bc8c3565a054ccdf95b11",
-  "themeWorkingDiffSha256": "7a8b0b22d5a385ff2f2fc437075698a5bae6c8655f4b6025e15aff0262f41277"
-}

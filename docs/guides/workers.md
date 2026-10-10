@@ -2,7 +2,7 @@
 
 ## 構成とローカル開発環境
 
-Workers 版 Hub は `apps/hub-worker` に配置されています。`src` は Worker および Durable Objects 向けの実装で厳格な型定義（strict TypeScript）を用い、`runtime` はブラウザ向けの Vue と Slidev、`scripts` は Node.js 限定で構成しています。過去の検証結果は `packages/hub/bundle-sharing/experiments/workers/results` に残り、実験用スクリプトは `docs/legacy/workers-tools` に保管されています。
+Workers 版 Hub は `apps/hub-worker` に配置されています。`src` は Worker および Durable Objects 向けの実装で厳格な型定義（strict TypeScript）を用い、`runtime` はブラウザ向けの Vue と Slidev、`scripts` は Node.js 限定で構成しています。過去の実験と設計の経緯は [設計判断](../DECISIONS.md) から参照できます。
 
 ローカル環境の構築と起動は以下のコマンドで行います。クラウドへの自動デプロイは行われません。
 

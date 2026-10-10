@@ -44,7 +44,7 @@ const directCatalog = await getCatalog(source);
 
 クライアントはプロトコル検証関数 `validateCatalog` を備えており、`getCatalog` の呼び出しごとにスキーマ仕様（v1）との整合性を検証します。キャッシュ処理は行われません。
 
-独自のデータソースアダプターを実装する場合、`load` メソッドはプロトコル仕様に準拠したカタログデータを返す必要があります。なお、Cloudflare Workers APIによるページネーションや実エンドポイントとの接続はStep 7で統合予定であり、現時点では契約検証用のテストデータ（フィクスチャ）のみが用意されています。静的配信と将来のWorkersアダプター双方が満たす戻り値として共通のプロトコル仕様（v1）が定義されていますが、現時点では契約検証用のフィクスチャのみが用意されており、実エンドポイントの応答変換を担うWorkers向けアダプターはStep 7で提供されます。
+公開入口 `@slidev-stage-hub/hub/client` の `createWorkersCatalogSource` は実装済みであり、Workers の `/catalog.json` から全ページを取得して共通 Catalog へ集約します。`CatalogSource` の `load` は protocol v1 の Catalog を返し、`getCatalog` がその内容を検証します。ページネーションの異常や上限超過が発生した場合は、一部のデータのみを暗黙に返すのではなくエラーとして扱います。詳細な仕様については [workers.md](workers.md) を参照してください。
 
 ### エラー処理と中断制御
 
@@ -224,7 +224,7 @@ pnpm hub build --config examples/custom-frontend/hub.config.json --frontend-entr
 
 ## 検証スクリプトとゲート検証
 
-Webクライアントおよびフロントエンドの仕様適合性を検証するため、Step 6のゲートコマンドが用意されています。
+Webクライアントおよびフロントエンドの仕様適合性を検証するため、検証コマンドが用意されています。
 
 ```bash
 # クライアント単体機能のテスト
@@ -236,7 +236,7 @@ pnpm verify:web-customization
 
 ### 検証範囲と動作確認項目
 
-これらのコマンドは、Step 6の受け入れ動作の検証を目的として定義されています。
+これらのコマンドは、Web カスタマイズの動作の検証を目的として定義されています。
 
 ブラウザゲート検証では、標準構成、バニラ構成、テーマ適用構成のそれぞれをビルドし、以下の項目を検証します。
 
@@ -245,4 +245,4 @@ pnpm verify:web-customization
 - ナビゲーションリンクの動作
 - フロントマターに含まれるテキストの安全な展開（HTMLとして実行されないこと）
 
-検証実行時の結果は `artifacts/step6/gate.json` に保存され、スクリーンショットは同ディレクトリ（`artifacts/step6/`）内にPNGファイルとして保存されます。実行後のテスト結果は `docs/results/web-customization.json` で追跡されます。なお、本検証はローカル環境向けに定義されたものであり、クラウド環境やあらゆるオペレーティングシステムでの動作を保証するものではありません。
+検証実行時の結果は `artifacts/step6/gate.json` に保存され、スクリーンショットは同ディレクトリ（`artifacts/step6/`）内にPNGファイルとして保存されます。実行後のテスト結果は `docs/results/final-regression.json` で追跡されます。なお、本検証はローカル環境向けに定義されたものであり、クラウド環境やあらゆるオペレーティングシステムでの動作を保証するものではありません。

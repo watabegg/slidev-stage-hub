@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-10",
+  "status": "passed",
+  "archiveCommit": "c16f72f",
+  "scope": "Remove obsolete code and historical documentation; retain current guides, concise design decisions and executable comparison harnesses.",
+  "checks": {
+    "pnpm check": {
+      "nodeTests": 203,
+      "boundaryViolations": 0,
+      "migrationExceptions": 0
+    },
+    "legacy module-graph build": {
+      "decks": 4
+    },
+    "baseline build": {
+      "decks": 4,
+      "metrics": "packages/hub/bundle-sharing/artifacts/baseline/baseline-metrics.json"
+    }
+  },
+  "logs": "artifacts/cleanup/",
+  "nativeRegression": "Not rerun: runtime implementation unchanged; prior native evidence remains in final-regression.json."
+}
