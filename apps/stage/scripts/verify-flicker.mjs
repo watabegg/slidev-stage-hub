@@ -346,7 +346,8 @@ results.runs[mode] = { sameDeck, switching };
   await page.evaluate(() => window.__nativePoc.action('selectDeck', 'aaa/aaa1'));
   await page.waitForFunction(
     () =>
-      /タイムアウト|runtime hook unavailable/.test(document.getElementById('status').textContent),
+      document.getElementById('status').textContent === 'スライドを表示できませんでした' &&
+      /タイムアウト|runtime hook unavailable/.test(document.getElementById('status').title),
     {},
     { timeout: 18000 },
   );
@@ -374,7 +375,9 @@ results.runs[mode] = { sameDeck, switching };
   );
   await page.evaluate(() => window.__nativePoc.action('selectDeck', 'aaa/aaa2'));
   await page.waitForFunction(
-    () => document.getElementById('status').textContent.includes('slide module failed to load'),
+    () =>
+      document.getElementById('status').textContent === 'スライドを表示できませんでした' &&
+      document.getElementById('status').title.includes('slide module failed to load'),
     {},
     { timeout: 15000 },
   );

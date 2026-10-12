@@ -126,7 +126,7 @@ function isNativeMessageRecord(value: unknown): value is Record<string, unknown>
       if (editing(target) || target.closest('a,button')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (!preview) post({ nativeInput: 'next', documentToken });
+      // Pointer clicks do not advance a presentation; navigation uses explicit controls or keys.
     },
     true,
   );
@@ -307,6 +307,11 @@ function isNativeMessageRecord(value: unknown): value is Record<string, unknown>
       window.dispatchEvent(
         new KeyboardEvent('keyup', { key: data.nativeTestKeyUp, bubbles: true }),
       );
+    }
+    if (data.nativeTestSlideClick) {
+      document
+        .querySelector('.slidev-page')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     }
     if (data.nativeTestNavClick) {
       document

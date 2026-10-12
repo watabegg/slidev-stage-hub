@@ -139,3 +139,9 @@ Cloudflare 環境（Workers、Durable Objects、R2）への過度な依存によ
 - [Stage 初期検証記録](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/apps/stage/results)
 - [旧比較ハーネス](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/packages/hub/bundle-sharing)
 - [過去版 Stage の比較用コピー](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/examples/legacy-native-baseline)
+
+## 11. Stage の資料一覧と発表操作
+
+Stage はサムネイルと公開 frontmatter を使う資料一覧から開く。既存の Hub カタログクライアントで全ページを検証・取得し、接続時の資料レジストリに含まれる資料だけを選択可能にする。カタログ取得はホストが固定した通信先を使い、認証付き接続では既存プロキシを通す。一覧の取得に失敗した場合も資料 ID から開けるようにする。
+
+発表中の誤操作を減らすため、スライド本文のクリックでは進めず、明示的な操作ボタンとキーボードを使う。アプリの外枠は OS に依存しない明るい配色とし、操作アイコンにはアクセシブルな名前と補足を付ける。ノートの保存契約は変更せず、ローカル資料の既存ノートがないページは編集不可とする。保存先は保存ボタンの補足に示し、内部エラーや通信状態を通常画面へ常時表示しない。

@@ -102,6 +102,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::snapshot,
+            commands::catalog_page,
             commands::transition,
             commands::read_notes,
             commands::save_notes,
@@ -132,7 +133,7 @@ fn main() {
                 "presenter",
                 WebviewUrl::App("index.html?role=presenter".into()),
             )
-            .title("Slidev Lab · Presenter")
+            .title("Stage · 発表者")
             .inner_size(1180., 820.)
             .build()?;
             WebviewWindowBuilder::new(
@@ -140,7 +141,8 @@ fn main() {
                 "audience",
                 WebviewUrl::App("index.html?role=audience".into()),
             )
-            .title("Slidev Lab · Audience")
+            .title("Stage · 投影")
+            .focused(false)
             .inner_size(960., 600.)
             .build()?;
             // Local HTTPS test fixture only: pin one supplied certificate to

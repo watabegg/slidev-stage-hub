@@ -29,6 +29,33 @@ type NativeQaElementMap = {
     await until(() => window.__nativePoc);
     const poc = window.__nativePoc!;
     const snapshot = await poc.invoke('snapshot');
+    check('presenter starts at library', document.body.classList.contains('library-open'));
+    await until(() => document.querySelector('.deck-card'));
+    if (snapshot.decks.some((deck) => deck.id === 'aaa/aaa1')) {
+      await until(() => document.querySelector('.deck-cover img'));
+      const cover = document.querySelector<HTMLImageElement>('.deck-cover img')!;
+      await until(() => cover.complete && cover.naturalWidth > 0);
+      check(
+        'library loads thumbnails and frontmatter',
+        document.querySelector('.deck-info h2')!.textContent!.includes('AAA 1'),
+      );
+      await sleep(16000);
+      check(
+        'idle library does not start hidden slide loads',
+        poc.frames.stats.documentLoads === 0 && !document.getElementById('status')!.textContent,
+      );
+      await poc.invoke('capture', { label: 'presenter', name: 'library' });
+      const search = document.getElementById('library-search') as HTMLInputElement;
+      search.value = 'bbb';
+      search.dispatchEvent(new Event('input'));
+      check('library search filters decks', document.querySelectorAll('.deck-card').length === 2);
+      search.value = '';
+      search.dispatchEvent(new Event('input'));
+    }
+    document.querySelector<HTMLButtonElement>('.deck-card')!.click();
+    await until(() => !document.body.classList.contains('library-open'));
+    check('card opens presenter without deck select', !document.getElementById('decks'));
+
     const rendered = async (): Promise<NativeRenderedReport> => {
       const state = poc.getState();
       const deck = snapshot.decks.find((item) => item.id === state.deckId);
@@ -103,7 +130,7 @@ type NativeQaElementMap = {
           element('save').click();
           await until(
             () =>
-              element('save').disabled && element('note-status').textContent!.includes('端末内'),
+              element('save').disabled && element('note-status').textContent!.includes('保存済み'),
           );
           await poc.invoke('capture', { label: 'presenter', name: 'step7-note-saved' });
           await poc.invoke('capture', { label: 'presenter', name: 'revision-a-before-b' });
@@ -114,7 +141,8 @@ type NativeQaElementMap = {
         element('notes').dispatchEvent(new Event('input'));
         element('save').click();
         await until(
-          () => element('save').disabled && element('note-status').textContent!.includes('端末内'),
+          () =>
+            element('save').disabled && element('note-status').textContent!.includes('保存済み'),
         );
       }
       const reopened = await poc.invoke('qa_reopen_notes', { deckId, page });
@@ -374,6 +402,9 @@ type NativeQaElementMap = {
       'frame repeats and stock controls cannot bypass Rust',
       poc.getState().sessionRevision === blocked,
     );
+    element('deck').contentWindow!.postMessage({ nativeTestSlideClick: true }, '*');
+    await sleep(300);
+    check('slide click does not advance', poc.getState().sessionRevision === blocked);
     const clickOne = await rendered();
     check(
       'actual rendered click-one visibility',
@@ -458,7 +489,7 @@ type NativeQaElementMap = {
     await until(() => element('notes').value.endsWith('Preserved draft.'));
     check(
       'draft restored after audience navigation',
-      element('note-status').textContent === '未保存の下書きを復元',
+      element('note-status').textContent === '未保存',
     );
     editor.value = original;
     editor.dispatchEvent(new Event('input', { bubbles: true }));

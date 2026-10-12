@@ -461,3 +461,19 @@ pub(crate) fn audience_display(
         move_result.unwrap_or_else(|e| format!("position rejected: {e}"))
     ))
 }
+
+#[tauri::command]
+pub(crate) async fn catalog_page(
+    window: WebviewWindow,
+    state: tauri::State<'_, Runtime>,
+    cursor: Option<String>,
+) -> Result<String, String> {
+    require_presenter(&window)?;
+    let origin = state.viewer_origin.clone();
+    let config = state.config_path.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        slidev_native_poc::catalog::load(&origin, &config, cursor.as_deref())
+    })
+    .await
+    .map_err(|_| "catalog task failed".to_owned())?
+}

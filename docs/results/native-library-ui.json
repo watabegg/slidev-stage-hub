@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-11",
+  "scope": "Native library, presenter controls and copy, light application palette, pointer navigation removal",
+  "checks": {
+    "rootCheck": {
+      "status": "passed",
+      "command": "pnpm check",
+      "tests": 361,
+      "pass": 352,
+      "fail": 0,
+      "skipped": 9,
+      "log": "artifacts/native-ui-check.log"
+    },
+    "rust": {
+      "status": "passed",
+      "tests": 44
+    },
+    "nativeWebKit": {
+      "status": "passed",
+      "assertions": 24,
+      "sourceRestored": true,
+      "evidence": "artifacts/native-ui/native-qa.json"
+    },
+    "httpHttpsBridge": {
+      "status": "passed",
+      "checksPerTransport": 33,
+      "log": "artifacts/native-ui/remote.log"
+    },
+    "persistentFrames": {
+      "status": "passed",
+      "log": "artifacts/native-ui/flicker.log"
+    }
+  },
+  "screenshots": {
+    "library": "artifacts/native-ui/library.png",
+    "presenter": "artifacts/native-ui/presenter.png"
+  },
+  "limitations": [
+    "PostgreSQL-dependent checks skipped without HUB_TEST_DATABASE_URL (9 tests).",
+    "Physical dual displays, Windows and live Cloudflare Access were not tested.",
+    "Local note editing still requires an existing notes comment; no note creation or storage migration.",
+    "Native acceptance used the local catalog; live authenticated catalog acceptance is not claimed."
+  ]
+}

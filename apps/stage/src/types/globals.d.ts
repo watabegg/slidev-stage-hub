@@ -75,6 +75,7 @@ declare global {
   }
 
   interface NativeCommandMap {
+    catalog_page: { args: { cursor: string | null }; result: string };
     snapshot: { args: undefined; result: NativeSnapshot };
     transition: { args: { input: NativeTransitionInput }; result: NativeSession };
     read_notes: { args: { deckId: string; page: number }; result: NativeNoteView };

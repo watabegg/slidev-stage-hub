@@ -3,63 +3,148 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Slidev Lab</title>
+    <title>Stage</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <header id="presenter-header">
-      <div>
-        <span class="label">SLIDEV LAB / LOCAL</span>
-        <h1>発表者画面</h1>
-      </div>
-      <select id="decks" aria-label="資料"></select>
-      <div id="status">起動中</div>
+      <button
+        id="home-button"
+        class="icon-button"
+        title="資料一覧へ"
+        aria-label="資料一覧へ"
+        data-icon="home"
+      ></button>
+      <h1 id="deck-title">資料</h1>
+      <div id="status" role="status"></div>
+      <details id="display-settings">
+        <summary class="icon-button" title="投影先の設定" aria-label="投影先の設定">
+          <span data-icon="monitor"></span>
+        </summary>
+        <div class="display-popover">
+          <h2>投影先</h2>
+          <select id="displays" aria-label="投影先ディスプレイ"></select>
+          <label><input type="checkbox" id="fullscreen" /> 全画面で表示</label>
+          <div class="display-actions">
+            <button id="apply-display">適用</button
+            ><button
+              id="swap"
+              class="icon-button"
+              aria-label="画面を入れ替える"
+              title="画面を入れ替える"
+              data-icon="swap"
+            ></button>
+          </div>
+          <p id="display-status" role="status"></p>
+        </div>
+      </details>
     </header>
-    <main>
+    <section id="library" hidden>
+      <div class="library-heading">
+        <div>
+          <h2>資料を選ぶ</h2>
+          <p id="library-status" role="status"></p>
+        </div>
+        <label class="search"
+          ><span data-icon="search"></span
+          ><input
+            id="library-search"
+            type="search"
+            placeholder="資料を検索"
+            aria-label="資料を検索"
+        /></label>
+      </div>
+      <div id="library-grid"></div>
+    </section>
+    <main id="presentation">
       <div id="viewer">
         <iframe id="deck" title="スライド" sandbox="allow-scripts allow-same-origin"></iframe>
         <div id="blackout"></div>
       </div>
       <aside id="notes-panel">
-        <div class="next-heading" id="next-heading">次スライド · 操作無効</div>
-        <iframe
-          id="next-preview"
-          title="次スライドの読み取り専用プレビュー"
-          tabindex="-1"
-          sandbox="allow-scripts allow-same-origin"
-        ></iframe>
+        <div class="next-heading" id="next-heading">次のスライド</div>
+        <div id="preview-container">
+          <iframe
+            id="next-preview"
+            title="次のスライド"
+            tabindex="-1"
+            sandbox="allow-scripts allow-same-origin"
+          ></iframe>
+        </div>
         <div class="notes-heading">
-          <h2>発表者ノート</h2>
-          <span id="page"></span>
+          <h2>ノート</h2>
+          <label class="font-size" title="ノートの文字サイズ"
+            ><span aria-hidden="true">Aa</span
+            ><input
+              id="note-size"
+              type="range"
+              min="12"
+              max="28"
+              value="16"
+              aria-label="ノートの文字サイズ"
+          /></label>
         </div>
-        <label class="font-size"
-          >文字サイズ
-          <input
-            id="note-size"
-            type="range"
-            min="12"
-            max="28"
-            value="16"
-            aria-label="ノートの文字サイズ" /></label
-        ><textarea id="notes" aria-label="発表者ノート" spellcheck="false"></textarea>
+        <textarea
+          id="notes"
+          aria-label="発表者ノート"
+          placeholder="ノート"
+          spellcheck="false"
+        ></textarea>
         <div class="notes-footer">
-          <button id="save">ソースへ保存</button><span id="note-status"></span>
+          <span id="note-status" role="status"></span
+          ><button
+            id="save"
+            class="icon-button"
+            title="ノートを保存"
+            aria-label="ノートを保存"
+            data-icon="save"
+          ></button>
         </div>
-        <section>
-          <h2>投影先</h2>
-          <select id="displays" aria-label="投影先ディスプレイ"></select
-          ><label><input type="checkbox" id="fullscreen" />全画面</label
-          ><button id="apply-display">反映</button><button id="swap">配置を入れ替え</button>
-          <p id="display-status"></p>
-        </section>
       </aside>
     </main>
     <footer id="controls">
-      <button data-action="previous">← 戻る</button><button data-action="next">進む →</button
-      ><button data-action="toggleBlackout">暗転 · B</button
-      ><button data-action="toggleTimer">タイマー</button
-      ><button data-action="resetTimer">リセット</button><span id="timer">00:00</span
-      ><span id="revision"></span>
+      <div class="page-controls">
+        <button
+          class="icon-button"
+          data-action="previous"
+          title="前へ（←）"
+          aria-label="前へ"
+          data-icon="previous"
+        ></button
+        ><span id="page"></span
+        ><button
+          class="icon-button"
+          data-action="next"
+          title="次へ（→）"
+          aria-label="次へ"
+          data-icon="next"
+        ></button>
+      </div>
+      <button
+        class="icon-button"
+        data-action="toggleBlackout"
+        title="投影を暗転（B）"
+        aria-label="投影を暗転"
+        aria-pressed="false"
+        data-icon="blackout"
+      ></button>
+      <div class="timer-controls">
+        <span id="timer">00:00</span
+        ><button
+          class="icon-button"
+          data-action="toggleTimer"
+          title="タイマー開始"
+          aria-label="タイマー開始"
+          data-icon="play"
+        ></button
+        ><button
+          class="icon-button"
+          data-action="resetTimer"
+          title="タイマーをリセット"
+          aria-label="タイマーをリセット"
+          data-icon="reset"
+        ></button>
+      </div>
     </footer>
     <script src="frame-controller.js"></script>
     <script src="app.js"></script>
