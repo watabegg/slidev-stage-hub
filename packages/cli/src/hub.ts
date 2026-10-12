@@ -1,11 +1,11 @@
 import { stat } from 'node:fs/promises';
-import { createServer } from '@slidev-stage-hub/hub/serve';
+import { createServer } from '@slidock/slidock/serve';
 import {
   buildHub,
   generateThumbnails,
   normalizeHubConfig,
   type HubBuildOptions,
-} from '@slidev-stage-hub/hub/node';
+} from '@slidock/slidock/node';
 import { resolve } from 'node:path';
 import { type ParseArgsOptionsConfig } from 'node:util';
 import { CliFailure, failInput, failRuntime } from './errors.js';
@@ -208,7 +208,7 @@ async function runHubBuildOrCheck(
   json: boolean,
 ): Promise<void> {
   if (parsed.positionals.length !== 0)
-    failInput(`hub ${command} does not accept positional arguments`);
+    failInput(`slidock ${command} does not accept positional arguments`);
   const { options } = await loadHubOptions(cwd, parsed.values);
   let normalized: NormalizedHubConfig;
   try {
@@ -224,7 +224,7 @@ async function runHubBuildOrCheck(
 
   if (command === 'check') {
     emitSuccess(
-      'hub check',
+      'slidock check',
       {
         deckCount: normalized.decks.length,
         deckIds: normalized.decks.map((deck) => deck.id),
@@ -257,10 +257,10 @@ async function runHubBuildOrCheck(
   try {
     const result = await buildHub({
       ...normalizedToOptions(normalized),
-      onProgress: ({ phase }) => process.stderr.write(`hub build: ${phase}\n`),
+      onProgress: ({ phase }) => process.stderr.write(`slidock build: ${phase}\n`),
     });
     emitSuccess(
-      'hub build',
+      'slidock build',
       {
         output: result.output,
         receiptPath: result.receiptPath,
@@ -292,7 +292,8 @@ async function loadHubServingConfig(
 }
 
 async function hubServe(parsed: ParsedCommand, cwd: string, json: boolean): Promise<void> {
-  if (parsed.positionals.length !== 0) failInput('hub serve does not accept positional arguments');
+  if (parsed.positionals.length !== 0)
+    failInput('slidock serve does not accept positional arguments');
   const { config, configPath } = await loadHubServingConfig(cwd, parsed.values);
   const configuredSite = config?.outDir;
   const siteArg = optionString(parsed.values, 'site');
@@ -344,7 +345,7 @@ async function hubServe(parsed: ParsedCommand, cwd: string, json: boolean): Prom
         reject(new CliFailure('SERVER_START_FAILED', 'Hub server could not start', 1));
         return;
       }
-      process.stderr.write('hub serve: server error\n');
+      process.stderr.write('slidock serve: server error\n');
       shutdown();
       process.exitCode = 1;
     };
@@ -365,7 +366,7 @@ async function hubServe(parsed: ParsedCommand, cwd: string, json: boolean): Prom
       const urlHost = address.address.includes(':') ? `[${address.address}]` : address.address;
       const origin = `http://${urlHost}:${address.port}`;
       emitSuccess(
-        'hub serve',
+        'slidock serve',
         { origin, host: address.address, port: address.port, site },
         json,
         `Serving ${site} at ${origin}`,
@@ -376,10 +377,10 @@ async function hubServe(parsed: ParsedCommand, cwd: string, json: boolean): Prom
 
 async function hubThumbnail(parsed: ParsedCommand, cwd: string, json: boolean): Promise<void> {
   if (parsed.positionals.length !== 0)
-    failInput('hub thumbnail does not accept positional arguments');
+    failInput('slidock thumbnail does not accept positional arguments');
   const { config, configPath } = await loadHubServingConfig(cwd, parsed.values);
   const siteValue = optionString(parsed.values, 'site');
-  if (siteValue === undefined) failInput('hub thumbnail requires --site');
+  if (siteValue === undefined) failInput('slidock thumbnail requires --site');
   const site = callerPath(cwd, siteValue);
   try {
     if (!(await stat(site)).isDirectory())
@@ -410,7 +411,7 @@ async function hubThumbnail(parsed: ParsedCommand, cwd: string, json: boolean): 
       ...(chromiumExecutable === undefined ? {} : { chromiumExecutable }),
     });
     emitSuccess(
-      'hub thumbnail',
+      'slidock thumbnail',
       { count: thumbnails.length, thumbnails },
       json,
       `Generated ${thumbnails.length} thumbnails`,
@@ -425,7 +426,7 @@ async function hubThumbnail(parsed: ParsedCommand, cwd: string, json: boolean): 
 
 function hubHelp(): string {
   return [
-    'Usage: hub <build|check|serve|thumbnail|publish|init|doctor|jobs> [options]',
+    'Usage: slidock <build|check|serve|thumbnail|publish|init|doctor|jobs> [options]',
     '',
     'Commands:',
     '  build       Build the configured Hub site',
@@ -453,10 +454,10 @@ function hubHelp(): string {
     'Remote settings: ./hub.remote.json; auth headers live in a separate private file.',
     'Settings: ./hub.config.json; defaults: ./slides -> ./dist',
     'Publish requires explicit inputs and never reads hub.config.json.',
-    'Examples: hub check --config ./hub.config.json; hub serve --site ./dist',
-    '          hub init --origin https://hub.example; hub publish --id course/topic --source slides.md',
-    '          hub jobs watch --id course/topic --job 00000000-0000-4000-8000-000000000000',
-    '          hub jobs cleanup --id course/topic --apply',
+    'Examples: slidock check --config ./hub.config.json; slidock serve --site ./dist',
+    '          slidock init --origin https://hub.example; slidock publish --id course/topic --source slides.md',
+    '          slidock jobs watch --id course/topic --job 00000000-0000-4000-8000-000000000000',
+    '          slidock jobs cleanup --id course/topic --apply',
   ].join('\n');
 }
 
@@ -501,9 +502,10 @@ function hubCommandOptions(command: string): ParseArgsOptionsConfig {
 }
 
 async function runHubInit(parsed: ParsedCommand, cwd: string, json: boolean): Promise<void> {
-  if (parsed.positionals.length !== 0) failInput('hub init does not accept positional arguments');
+  if (parsed.positionals.length !== 0)
+    failInput('slidock init does not accept positional arguments');
   const origin = optionString(parsed.values, 'origin');
-  if (origin === undefined) failInput('hub init requires --origin', 'INVALID_ORIGIN');
+  if (origin === undefined) failInput('slidock init requires --origin', 'INVALID_ORIGIN');
   const configPath = resolveRemoteConfigPath(cwd, parsed.values);
   await createHubRemoteProfile(configPath, origin);
   const normalizedOrigin = (
@@ -513,7 +515,7 @@ async function runHubInit(parsed: ParsedCommand, cwd: string, json: boolean): Pr
     })
   ).origin;
   emitSuccess(
-    'hub init',
+    'slidock init',
     { remoteConfig: configPath, origin: normalizedOrigin },
     json,
     `Created ${configPath} for ${normalizedOrigin}`,
@@ -521,7 +523,8 @@ async function runHubInit(parsed: ParsedCommand, cwd: string, json: boolean): Pr
 }
 
 async function runHubDoctor(parsed: ParsedCommand, cwd: string, json: boolean): Promise<void> {
-  if (parsed.positionals.length !== 0) failInput('hub doctor does not accept positional arguments');
+  if (parsed.positionals.length !== 0)
+    failInput('slidock doctor does not accept positional arguments');
   const settings = await loadHubRemoteSettings(cwd, parsed.values);
   let capability;
   try {
@@ -569,7 +572,7 @@ async function runHubDoctor(parsed: ParsedCommand, cwd: string, json: boolean): 
   if (!json)
     for (const check of checks) process.stderr.write(`ok ${check.name}: ${check.message}\n`);
   emitSuccess(
-    'hub doctor',
+    'slidock doctor',
     Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)),
     json,
     `Hub configuration is ready; publication jobs ${enabled ? 'enabled' : 'not enabled'} (worker liveness not checked)`,
@@ -592,11 +595,11 @@ export async function runHub(
   const parsed = parseCommand('hub', command, args, hubCommandOptions(command));
   const json = optionBoolean(parsed.values, 'json') ?? false;
   if (optionBoolean(parsed.values, 'help')) {
-    emitSuccess(`hub ${command}`, { help: hubHelp() }, json, hubHelp());
+    emitSuccess(`slidock ${command}`, { help: hubHelp() }, json, hubHelp());
     return;
   }
   if (optionBoolean(parsed.values, 'version')) {
-    emitSuccess(`hub ${command}`, { version: CLI_VERSION }, json, CLI_VERSION);
+    emitSuccess(`slidock ${command}`, { version: CLI_VERSION }, json, CLI_VERSION);
     return;
   }
   if (!['build', 'check', 'serve', 'thumbnail', 'publish', 'init', 'doctor'].includes(command))

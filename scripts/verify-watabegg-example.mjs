@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from 'playwright-chromium';
-import { createServer } from '@slidev-stage-hub/hub/serve';
+import { createServer } from '@slidock/slidock/serve';
 import { repositoryRoot } from './runtime-environment.mjs';
 
-const site = join(repositoryRoot, 'packages/hub/artifacts/example-watabegg-offline/site');
+const site = join(repositoryRoot, 'packages/slidock/artifacts/example-watabegg-offline/site');
 const out = join(repositoryRoot, 'artifacts/example-watabegg');
 await mkdir(out, { recursive: true });
 const manifest = JSON.parse(await readFile(join(site, 'manifest.json'), 'utf8'));

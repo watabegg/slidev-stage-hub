@@ -1,5 +1,5 @@
 {
-  "name": "@slidev-stage-hub/adapter-node",
+  "name": "@slidock/adapter-node",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -35,8 +35,8 @@
   },
   "dependencies": {
     "@hono/node-server": "2.1.4",
-    "@slidev-stage-hub/protocol": "workspace:*",
-    "@slidev-stage-hub/server": "workspace:*"
+    "@slidock/protocol": "workspace:*",
+    "@slidock/server": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.10.0",

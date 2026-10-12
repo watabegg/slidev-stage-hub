@@ -2,16 +2,13 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { chmod, lstat, open, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {
-  createPublicationJobClient,
-  PublicationJobClientError,
-} from '@slidev-stage-hub/hub/client';
-import { isJobId, isJobViewToken, isTerminalJobStatus } from '@slidev-stage-hub/protocol/contracts';
+import { createPublicationJobClient, PublicationJobClientError } from '@slidock/slidock/client';
+import { isJobId, isJobViewToken, isTerminalJobStatus } from '@slidock/protocol/contracts';
 import type {
   JobSnapshot,
   JobStatus,
   PublicationJobRetryRequest,
-} from '@slidev-stage-hub/protocol/contracts';
+} from '@slidock/protocol/contracts';
 import { failInput, failRuntime, CliFailure } from './errors.js';
 import { emitSuccess } from './output.js';
 import { ensurePrivateReceiptDirectory, loadHubRemoteSettings } from './remote-config.js';
@@ -238,7 +235,7 @@ export function resumeCommand(
   jobId: string,
   options: { origin: string; remoteConfig?: string; headersFile?: string },
 ): string {
-  const values = ['hub jobs watch', '--id', shellQuote(deckId), '--job', shellQuote(jobId)];
+  const values = ['slidock jobs watch', '--id', shellQuote(deckId), '--job', shellQuote(jobId)];
   values.push('--origin', shellQuote(options.origin));
   if (options.remoteConfig !== undefined)
     values.push('--remote-config', shellQuote(options.remoteConfig));
@@ -257,7 +254,7 @@ function cleanupCommand(
   },
 ): string {
   const values = [
-    'hub jobs cleanup',
+    'slidock jobs cleanup',
     '--id',
     shellQuote(deckId),
     '--origin',
@@ -510,26 +507,29 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
   const parsed = parseCommand('hub', 'jobs', args, jobOptions());
   const [subcommand, ...rest] = parsed.positionals;
   const help = [
-    'Usage: hub jobs <status|watch|list|retry|cleanup> [options]',
+    'Usage: slidock jobs <status|watch|list|retry|cleanup> [options]',
     'status/watch: --id ID --job UUID [--remote-config PATH]',
     'list:         --id ID [--limit N] [--cursor CURSOR]',
     'retry:        --id ID --job UUID --stage thumbnail|all [--timeout 300] [--no-wait]',
     'cleanup:      --id ID [--apply] [--limit N] (dry-run by default)',
   ].join('\n');
   if (!subcommand || optionBoolean(parsed.values, 'help')) {
-    emitSuccess('hub jobs', { help }, json, help);
+    emitSuccess('slidock jobs', { help }, json, help);
     return;
   }
   if (optionBoolean(parsed.values, 'version')) {
-    emitSuccess('hub jobs', { version: CLI_VERSION }, json, CLI_VERSION);
+    emitSuccess('slidock jobs', { version: CLI_VERSION }, json, CLI_VERSION);
     return;
   }
   if (!subcommand || rest.length !== 0)
-    failInput('usage: hub jobs <status|watch|list|retry|cleanup> [options]', 'INVALID_ARGUMENTS');
+    failInput(
+      'usage: slidock jobs <status|watch|list|retry|cleanup> [options]',
+      'INVALID_ARGUMENTS',
+    );
   if (!['status', 'watch', 'list', 'retry', 'cleanup'].includes(subcommand))
-    failInput('unknown hub jobs command', 'UNKNOWN_COMMAND');
+    failInput('unknown slidock jobs command', 'UNKNOWN_COMMAND');
   if (subcommand !== 'cleanup' && optionBoolean(parsed.values, 'apply') !== undefined)
-    failInput('--apply is only supported by hub jobs cleanup');
+    failInput('--apply is only supported by slidock jobs cleanup');
 
   const settings = await loadHubRemoteSettings(cwd, parsed.values);
   const deckId = requireDeckId(optionString(parsed.values, 'id'), settings.defaultDeckId);
@@ -541,7 +541,7 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
 
   if (subcommand === 'list') {
     if (jobId !== undefined || optionString(parsed.values, 'stage') !== undefined)
-      failInput('hub jobs list does not accept --job or --stage');
+      failInput('slidock jobs list does not accept --job or --stage');
     const rawLimit = optionString(parsed.values, 'limit') ?? '20';
     if (!/^\d+$/u.test(rawLimit))
       failInput('--limit must be an integer between 1 and 100', 'INVALID_LIMIT');
@@ -560,7 +560,7 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
       failJobRead(error, 'list');
     }
     emitSuccess(
-      'hub jobs list',
+      'slidock jobs list',
       {
         deckId,
         items: result.items,
@@ -580,7 +580,7 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
       optionString(parsed.values, 'timeout') !== undefined ||
       optionBoolean(parsed.values, 'no-wait') !== undefined
     )
-      failInput('hub jobs cleanup only accepts --id, --apply, and --limit');
+      failInput('slidock jobs cleanup only accepts --id, --apply, and --limit');
     const apply = optionBoolean(parsed.values, 'apply') ?? false;
     const rawLimit = optionString(parsed.values, 'limit') ?? '100';
     if (!/^\d+$/u.test(rawLimit))
@@ -664,7 +664,7 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
     }
 
     emitSuccess(
-      'hub jobs cleanup',
+      'slidock jobs cleanup',
       result,
       json,
       apply
@@ -730,7 +730,14 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
     const viewUrl = makeJobViewUrl(settings.origin, deckId, response, identity.viewToken);
     printAcceptedJob(identity.jobId, viewUrl, response.job.status);
     if (optionBoolean(parsed.values, 'no-wait')) {
-      acceptedOutput(identity.jobId, deckId, response.job.status, response, 'hub jobs retry', json);
+      acceptedOutput(
+        identity.jobId,
+        deckId,
+        response.job.status,
+        response,
+        'slidock jobs retry',
+        json,
+      );
       return;
     }
     const snapshot = await waitForPublicationJob({
@@ -745,7 +752,7 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
       json,
       progressLabel: 'jobs retry',
     });
-    exitForJob(snapshot, 'hub jobs retry', json);
+    exitForJob(snapshot, 'slidock jobs retry', json);
     return;
   }
 
@@ -753,7 +760,7 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
     optionString(parsed.values, 'stage') !== undefined ||
     optionString(parsed.values, 'cursor') !== undefined
   )
-    failInput(`hub jobs ${subcommand} does not accept --stage or --cursor`);
+    failInput(`slidock jobs ${subcommand} does not accept --stage or --cursor`);
   const timeout = timeoutSeconds(parsed.values);
   const receipt = await readJobReceipt(settings.origin, deckId, selectedJobId);
   const key = {
@@ -769,7 +776,7 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
       failJobRead(error, 'status');
     }
     emitSuccess(
-      'hub jobs status',
+      'slidock jobs status',
       result.job,
       json,
       `Publication job ${result.job.id}: ${result.job.status} (${result.job.phase})`,
@@ -789,7 +796,7 @@ export async function runHubJobs(args: string[], cwd: string, json: boolean): Pr
     json,
     progressLabel: 'jobs watch',
   });
-  exitForJob(snapshot, 'hub jobs watch', json);
+  exitForJob(snapshot, 'slidock jobs watch', json);
 }
 
 export function requireJobUUID(value: string): string {

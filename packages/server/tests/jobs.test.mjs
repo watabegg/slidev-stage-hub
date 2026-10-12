@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHubServer, runPublicationJob, publishDeck } from '../dist/index.js';
 import { ThumbnailError } from '../dist/thumbnail.js';
-import { isJobSnapshot } from '@slidev-stage-hub/protocol/contracts';
+import { isJobSnapshot } from '@slidock/protocol/contracts';
 import { jobOptions } from './jobs-support.mjs';
 import { compileResult, pngHeader } from './support.mjs';
 const token = 'A'.repeat(43);

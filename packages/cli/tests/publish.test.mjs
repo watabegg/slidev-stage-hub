@@ -80,7 +80,7 @@ function publishArgs(origin, extra = []) {
   ];
 }
 
-test('hub publish sends Markdown, allowed text assets, and private headers and emits only metadata', async () => {
+test('slidock publish sends Markdown, allowed text assets, and private headers and emits only metadata', async () => {
   await withTempDir(async (cwd) => {
     const secret = 'Bearer PUBLISH_AUTH_CANARY';
     const markdown = '# MARKDOWN_BODY_CANARY\n';
@@ -128,7 +128,7 @@ test('hub publish sends Markdown, allowed text assets, and private headers and e
         const envelope = jsonOutput(result);
         assert.deepEqual(envelope, {
           ok: true,
-          command: 'hub publish',
+          command: 'slidock publish',
           data: {
             origin,
             id: 'course/topic',
@@ -161,7 +161,7 @@ test('hub publish sends Markdown, allowed text assets, and private headers and e
   });
 });
 
-test('hub publish rejects missing, malformed, and positional inputs with exit code 2', async () => {
+test('slidock publish rejects missing, malformed, and positional inputs with exit code 2', async () => {
   await withTempDir(async (cwd) => {
     const missing = await run(hubBin, ['publish', '--json'], cwd);
     assert.equal(missing.status, 2);
@@ -195,7 +195,7 @@ test('hub publish rejects missing, malformed, and positional inputs with exit co
   });
 });
 
-test('hub publish rejects non-private and mismatched private header files without sending them', async () => {
+test('slidock publish rejects non-private and mismatched private header files without sending them', async () => {
   await withTempDir(async (cwd) => {
     const secret = 'Bearer BAD_AUTH_CANARY';
     await writeFile(path.join(cwd, 'source.md'), '# Deck\n');
@@ -233,7 +233,7 @@ test('hub publish rejects non-private and mismatched private header files withou
   });
 });
 
-test('hub publish maps 401 and 403 to a sanitized authentication failure', async () => {
+test('slidock publish maps 401 and 403 to a sanitized authentication failure', async () => {
   await withTempDir(async (cwd) => {
     const secret = 'Bearer AUTH_FAILURE_CANARY';
     const responseCanary = 'AUTH_RESPONSE_BODY_CANARY';
@@ -260,7 +260,7 @@ test('hub publish maps 401 and 403 to a sanitized authentication failure', async
   });
 });
 
-test('hub publish reports 409 as superseded and does not expose response or source content', async () => {
+test('slidock publish reports 409 as superseded and does not expose response or source content', async () => {
   await withTempDir(async (cwd) => {
     const responseCanary = 'SUPERSEDED_RESPONSE_CANARY';
     await writeFile(path.join(cwd, 'source.md'), '# PRIVATE_MARKDOWN_CANARY\n');
@@ -280,7 +280,7 @@ test('hub publish reports 409 as superseded and does not expose response or sour
   });
 });
 
-test('hub publish does not forward private headers through a redirect', async () => {
+test('slidock publish does not forward private headers through a redirect', async () => {
   await withTempDir(async (cwd) => {
     const secret = 'Bearer REDIRECT_AUTH_CANARY';
     await writeFile(path.join(cwd, 'source.md'), '# Deck\n');
@@ -315,7 +315,7 @@ test('hub publish does not forward private headers through a redirect', async ()
   });
 });
 
-test('hub publish maps other HTTP failures to a sanitized runtime error', async () => {
+test('slidock publish maps other HTTP failures to a sanitized runtime error', async () => {
   await withTempDir(async (cwd) => {
     const responseCanary = 'HTTP_FAILURE_BODY_CANARY';
     await writeFile(path.join(cwd, 'source.md'), '# PRIVATE_MARKDOWN_CANARY\n');
@@ -335,7 +335,7 @@ test('hub publish maps other HTTP failures to a sanitized runtime error', async 
   });
 });
 
-test('hub publish rejects successful responses that do not match the requested deck', async () => {
+test('slidock publish rejects successful responses that do not match the requested deck', async () => {
   await withTempDir(async (cwd) => {
     const responseCanary = 'INVALID_SUCCESS_BODY_CANARY';
     await writeFile(path.join(cwd, 'source.md'), '# PRIVATE_MARKDOWN_CANARY\n');
@@ -366,7 +366,7 @@ test('hub publish rejects successful responses that do not match the requested d
   });
 });
 
-test('hub publish rejects a response larger than 1 MiB', async () => {
+test('slidock publish rejects a response larger than 1 MiB', async () => {
   await withTempDir(async (cwd) => {
     await writeFile(path.join(cwd, 'source.md'), '# Deck\n');
     await withServer(

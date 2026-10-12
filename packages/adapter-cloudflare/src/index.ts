@@ -1,5 +1,5 @@
-import type { ArtifactMetadata, ArtifactStore, HubServerOptions } from '@slidev-stage-hub/server';
-import { runtimeSnapshotFromManifest } from '@slidev-stage-hub/server';
+import type { ArtifactMetadata, ArtifactStore, HubServerOptions } from '@slidock/server';
+import { runtimeSnapshotFromManifest } from '@slidock/server';
 import { captureThumbnail } from './thumbnail.js';
 import type { BrowserRunBinding } from './types.js';
 import { createDurableObjectPublicationJobStore } from './publication-jobs.js';

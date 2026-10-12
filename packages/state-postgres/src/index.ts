@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import type { PublicationStore } from '@slidev-stage-hub/server';
+import type { PublicationStore } from '@slidock/server';
 import {
   POSTGRES_PUBLICATION_JOBS_SCHEMA,
   POSTGRES_PUBLICATION_JOB_CLEANUP_SCHEMA,

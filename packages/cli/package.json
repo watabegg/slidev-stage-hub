@@ -1,9 +1,11 @@
 {
-  "name": "@slidev-stage-hub/cli",
+  "name": "@slidock/cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
+    "slidock": "dist/bin/slidock.js",
+    "slive": "dist/bin/slive.js",
     "hub": "dist/bin/hub.js",
     "stage": "dist/bin/stage.js"
   },
@@ -16,9 +18,9 @@
     "test": "pnpm build && node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@slidev-stage-hub/hub": "workspace:*",
-    "@slidev-stage-hub/protocol": "workspace:*",
-    "@slidev-stage-hub/stage-tools": "workspace:*"
+    "@slidock/slidock": "workspace:*",
+    "@slidock/protocol": "workspace:*",
+    "@slidock/slive-tools": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.10.0",

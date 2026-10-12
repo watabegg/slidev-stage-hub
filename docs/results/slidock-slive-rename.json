@@ -1,0 +1,187 @@
+{
+  "date": "2026-10-12T23:28:47.384903+00:00",
+  "scope": "Slidock (Web) / Slive (Native) naming, workspace paths, package scope, CLI, documentation and repository rename",
+  "repository": "https://github.com/watabegg/slidock",
+  "localDirectory": "/home/watabegg/slidock",
+  "checks": {
+    "frozenInstall": "passed; pnpm install --frozen-lockfile --ignore-scripts",
+    "pnpmCheck": {
+      "status": "passed",
+      "passed": 352,
+      "skipped": 9,
+      "skipReason": "PostgreSQL integration tests require HUB_TEST_DATABASE_URL",
+      "boundaries": 0
+    },
+    "rust": {
+      "status": "passed",
+      "passed": 44,
+      "command": "cargo test --locked --manifest-path apps/slive/Cargo.toml -p slive-core -p slive"
+    },
+    "nativeDesktopBuild": "passed; Linux SDK, slive binary, desktop feature",
+    "packedCli": {
+      "status": "passed",
+      "checks": [
+        "five private tarballs installed outside workspace without repository symlinks",
+        "slidock --help (exit 0)",
+        "slive --version (exit 0)",
+        "hub --help (exit 0)",
+        "stage --version (exit 0)",
+        "slidock publish (exit 2)",
+        "slive prepare (exit 2)",
+        "slidock init (exit 0)",
+        "slidock doctor (exit 0)",
+        "slidock jobs (exit 0)",
+        "packed remote profile, doctor and publication job client run outside workspace",
+        "slidock check (exit 0)",
+        "slidock build (exit 0)",
+        "slidock thumbnail (exit 0)",
+        "slive prepare (exit 0)",
+        "slive doctor (exit 0)",
+        "packed slidock serve returns site over HTTP",
+        "slive connect (exit 0)",
+        "slive doctor (exit 0)",
+        "packed client runs without browser globals",
+        "slidock build (exit 0)",
+        "packed frontend and stylesheet exports build outside repository"
+      ]
+    },
+    "webLibrary": {
+      "status": "pass",
+      "checks": [
+        "All decks are displayed",
+        "Real thumbnails loaded",
+        "Homepage avoids Slidev runtime",
+        "Category filter aaa",
+        "Category contains only aaa",
+        "Category filter bbb",
+        "Home link persists while controls hide",
+        "Home link has an accessible label",
+        "Home link returns to library",
+        "Mobile does not overflow",
+        "Deep route home link visible",
+        "Deep route link returns to library",
+        "Embedded has no overlay",
+        "No browser errors"
+      ]
+    },
+    "nativeWebKit": {
+      "status": "passed",
+      "assertions": [
+        {
+          "name": "presenter starts at library",
+          "pass": true
+        },
+        {
+          "name": "library loads thumbnails and frontmatter",
+          "pass": true
+        },
+        {
+          "name": "idle library does not start hidden slide loads",
+          "pass": true
+        },
+        {
+          "name": "library search filters decks",
+          "pass": true
+        },
+        {
+          "name": "card opens presenter without deck select",
+          "pass": true
+        },
+        {
+          "name": "wrapper Enter one transition",
+          "pass": true
+        },
+        {
+          "name": "frame Enter one transition with theme shortcut suppressed",
+          "pass": true
+        },
+        {
+          "name": "frame repeats and stock controls cannot bypass Rust",
+          "pass": true
+        },
+        {
+          "name": "slide click does not advance",
+          "pass": true
+        },
+        {
+          "name": "actual rendered click-one visibility",
+          "pass": true
+        },
+        {
+          "name": "native third slide code and math loaded",
+          "pass": true
+        },
+        {
+          "name": "click sequence then page advance",
+          "pass": true
+        },
+        {
+          "name": "previous returns previous final click",
+          "pass": true
+        },
+        {
+          "name": "notes keyboard suppression",
+          "pass": true
+        },
+        {
+          "name": "notes native save",
+          "pass": true
+        },
+        {
+          "name": "saved private mapping survives new document instance",
+          "pass": true
+        },
+        {
+          "name": "notes restore roundtrip",
+          "pass": true
+        },
+        {
+          "name": "audience input reaches Rust and preserves editor draft",
+          "pass": true
+        },
+        {
+          "name": "draft restored after audience navigation",
+          "pass": true
+        },
+        {
+          "name": "next preview is read only",
+          "pass": true
+        },
+        {
+          "name": "Rust timer pause elapsed",
+          "pass": true
+        },
+        {
+          "name": "Rust timer reset",
+          "pass": true
+        },
+        {
+          "name": "blackout",
+          "pass": true
+        },
+        {
+          "name": "deck switch resets page/click/blackout",
+          "pass": true
+        }
+      ],
+      "sourceRestored": true
+    }
+  },
+  "compatibility": [
+    "hub/stage CLI aliases",
+    "hub.config.json, hub.remote.json and stage.config.json",
+    "HUB_* environment variables",
+    "HTTP/JSON contracts and public API identifiers",
+    "local.slidev.lab Tauri identifier and note storage",
+    "existing Cloudflare resource identifiers",
+    "historical docs/results records retain original paths"
+  ],
+  "notRun": [
+    "full portable container regression",
+    "Workers/Slive remote regression after rename",
+    "live cloud deployment",
+    "Windows and physical two-display validation"
+  ],
+  "artifacts": "artifacts/rename (ignored)",
+  "readmeReview": "agy-writer Japanese draft and repair, compared with repository scripts and actual validation"
+}

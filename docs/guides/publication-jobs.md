@@ -1,14 +1,14 @@
-# Hub 公開ジョブの利用と運用
+# Slidock 公開ジョブの利用と運用
 
 ## CLI から接続して公開する
 
 ### 動作要件と開発時の実行
-Hub CLI は Node.js 24.15.0 以上（エンジン要件 `>=24.15.0`）で動作します。リポジトリ直下でのパッケージのビルドや開発中のコマンド実行には、`pnpm build:packages` と `pnpm hub ...` を使用します。配布用の tarball はプライベートな成果物として管理されており、npm には公開されていないものとして扱います。
+Slidock CLI は Node.js 24.15.0 以上（エンジン要件 `>=24.15.0`）で動作します。リポジトリ直下でのパッケージのビルドや開発中のコマンド実行には、`pnpm build:packages` と `pnpm slidock ...` を使用します。配布用の tarball はプライベートな成果物として管理されており、npm には公開されていないものとして扱います。
 
 なお、CLI のコマンド契約は実装と照合済みですが、検証の実施状況はリポジトリの[検証記録](../results/publication-jobs.json)を参照してください。また、実クラウドへのデプロイ、クラウド実環境での受け入れ、および本番認証を通した受け入れ検証は未実施として扱います。
 
 ### 接続プロファイルの管理と認証設定
-Hub への接続設定は、リモート接続プロファイルを用いて管理します。CLI は既定で実行ディレクトリの `./hub.remote.json` を参照しますが、`--remote-config PATH` オプションを指定して別の設定ファイルを読み込むことも可能です。
+Slidock への接続設定は、リモート接続プロファイルを用いて管理します。CLI は既定で実行ディレクトリの `./hub.remote.json` を参照しますが、`--remote-config PATH` オプションを指定して別の設定ファイルを読み込むことも可能です。
 
 プロファイルは `schemaVersion: 1` に準拠し、以下の構造を持ちます。
 ```json
@@ -26,19 +26,19 @@ Hub への接続設定は、リモート接続プロファイルを用いて管�
 - **パス解決の基準**: プロファイル内の `headersFile` は、プロファイルファイル自体の配置ディレクトリを基準に解決されます。一方、CLI 引数で渡すファイルパスフラグや、スライド本体（source）および添付アセット（assets）のパスは、コマンドを呼び出した際のカレントワーキングディレクトリ（cwd）を基準に解決されます。なお、CLI のオプションフラグは常にプロファイルの設定値より優先されます。
 - **認証情報の保護**: 認証ヘッダーを付与する場合は、特定の origin に紐づいた専用の private JSON ファイルを用意し、Unix パーミッション mode `0600`（所有者のみ読み書き可能）に設定した上で `headersFile` に指定します。認証トークンをコマンドライン引数に直接指定すると、シェルの実行履歴やプロセス一覧から漏洩する危険があるため、引数には含めず独立した保護ファイルから読み込ませます。
 
-### 接続の初期化と診断（hub init / hub doctor）
+### 接続の初期化と診断（slidock init / slidock doctor）
 安全な接続環境の準備と状態確認のために、以下のコマンドが用意されています。
 
-- **`hub init --origin URL [--remote-config PATH]`**
+- **`slidock init --origin URL [--remote-config PATH]`**
   指定した接続先 origin を含む、`schemaVersion: 1` 形式の新しいプロファイル（`{ origin }`）を作成します。既存の設定を不用意に上書きして失わないよう、対象ファイルがすでに存在する場合は作成を行いません。
-- **`hub doctor [--remote-config PATH] [--origin URL] [--headers-file PATH]`**
+- **`slidock doctor [--remote-config PATH] [--origin URL] [--headers-file PATH]`**
   設定プロファイル、認証ファイル、およびサーバーの `GET /api/capabilities` エンドポイントを読み取り専用で診断します。API 応答を検証してジョブ機能への対応状況を報告しますが、この診断はサーバー側のワーカープロセスやレンダリング用ブラウザーの実稼働までを保証するものではありません。
 
-### スライドの公開（hub publish）
-スライドを Hub に登録して公開するには `hub publish` コマンドを使用します。
+### スライドの公開（slidock publish）
+スライドを Slidock に登録して公開するには `slidock publish` コマンドを使用します。
 
 ```sh
-hub publish --id ID --source PATH [--assets PATH] [--origin URL] [--headers-file PATH] [--remote-config PATH] [--thumbnail auto|none] [--no-wait] [--timeout 300] [--require-jobs] [--job UUID] [--json]
+slidock publish --id ID --source PATH [--assets PATH] [--origin URL] [--headers-file PATH] [--remote-config PATH] [--thumbnail auto|none] [--no-wait] [--timeout 300] [--require-jobs] [--job UUID] [--json]
 ```
 
 #### 非同期ジョブへの投入と同期フォールバック
@@ -62,18 +62,18 @@ hub publish --id ID --source PATH [--assets PATH] [--origin URL] [--headers-file
 
 なお、クライアント側で監視を中断したりタイムアウトが発生したりした場合でも、サーバー側で受け付け済みのジョブは中断されず処理が継続します。
 
-### ジョブの追跡と再試行（hub jobs）
-投入した公開ジョブの進捗確認や再試行には `hub jobs` サブコマンドを使用します。
+### ジョブの追跡と再試行（slidock jobs）
+投入した公開ジョブの進捗確認や再試行には `slidock jobs` サブコマンドを使用します。
 
 #### 状態確認と監視（読み取り権限）
-- `hub jobs status --id ID --job UUID`
-- `hub jobs watch --id ID --job UUID`
+- `slidock jobs status --id ID --job UUID`
+- `slidock jobs watch --id ID --job UUID`
 
 これらのコマンドは、スライドの公開権限（publish token）だけでなく、投入時にローカルの受付票へ記録された閲覧トークン（view token）を用いても照会可能です。これにより、公開権限を持たない環境からでも進捗や結果を安全に追跡できます。
 
 #### ジョブ一覧の取得と再試行（公開権限が必要）
-- `hub jobs list --id ID [--limit N] [--cursor CURSOR]`
-- `hub jobs retry --id ID --job PARENT_UUID --stage thumbnail|all [--timeout 300] [--no-wait]`
+- `slidock jobs list --id ID [--limit N] [--cursor CURSOR]`
+- `slidock jobs retry --id ID --job PARENT_UUID --stage thumbnail|all [--timeout 300] [--no-wait]`
 
 スライドの管理に関わるこれらの一覧取得と再試行には、公開認証（publish 認証）が必要です。
 
@@ -83,18 +83,18 @@ hub publish --id ID --source PATH [--assets PATH] [--origin URL] [--headers-file
 
 `--stage all` を再試行できるのは、その親ジョブが最新世代（generation）の場合に限られます。後から新しい世代が始まっていると API は HTTP 409（`superseded`）を返します。その場合は古い入力で再試行せず、新しい公開ジョブを送信してください。
 
-#### 完了ジョブの整理（`hub jobs cleanup`）
+#### 完了ジョブの整理（`slidock jobs cleanup`）
 保持期限を過ぎたジョブは、次のコマンドでデッキ単位に整理できます。
 
 ```sh
 # 対象のプレビュー（既定で dry-run）
-pnpm hub jobs cleanup --id talks/intro
+pnpm slidock jobs cleanup --id talks/intro
 
 # 結果を確認してから実行
-pnpm hub jobs cleanup --id talks/intro --apply
+pnpm slidock jobs cleanup --id talks/intro --apply
 ```
 
-`--limit N` は1回に処理する上限で、既定値は100、指定できる範囲は1〜100です。コマンドは1回だけ API を呼び出します。dry-run の `jobs` はそのバッチの候補一覧です。`more` は後続のジョブまたは入力削除作業が残ることを、`pendingInputs` は保留中の入力削除件数を示します。一度の要求では全履歴の合計件数を返しません。対象が残る場合は CLI が再実行コマンドを案内するので、案内に従って `more` が false になり、`pendingInputs` もなくなるまで繰り返してください。`--apply` はジョブ履歴を削除するため、プレビュー結果を確認してから指定します。`--origin`、`--remote-config`、`--headers-file` は他の `hub jobs` コマンドと同様に使えます。認証には publish 権限が必要で、ジョブ閲覧トークンは使えません。ローカルの CLI receipt は変更されません。
+`--limit N` は1回に処理する上限で、既定値は100、指定できる範囲は1〜100です。コマンドは1回だけ API を呼び出します。dry-run の `jobs` はそのバッチの候補一覧です。`more` は後続のジョブまたは入力削除作業が残ることを、`pendingInputs` は保留中の入力削除件数を示します。一度の要求では全履歴の合計件数を返しません。対象が残る場合は CLI が再実行コマンドを案内するので、案内に従って `more` が false になり、`pendingInputs` もなくなるまで繰り返してください。`--apply` はジョブ履歴を削除するため、プレビュー結果を確認してから指定します。`--origin`、`--remote-config`、`--headers-file` は他の `slidock jobs` コマンドと同様に使えます。認証には publish 権限が必要で、ジョブ閲覧トークンは使えません。ローカルの CLI receipt は変更されません。
 
 サーバーは `POST /api/jobs/cleanup` を提供します。リクエストは `{deckId, apply?, limit?}` 形式で、保持期限の判定にはサーバー時刻を使います。応答には期限、対象ジョブ ID と完了時刻、削除数、保留中の入力削除数、続きがあるかを含み、ソースやトークンは含みません。ジョブストアの保守機能または ArtifactStore の削除機能がない場合は、変更前に `503 JOB_CLEANUP_UNAVAILABLE` を返します。削除に失敗した入力が残ると `pendingInputs` が正の値になり、`--apply` は `JOB_CLEANUP_PARTIAL` で非ゼロ終了します。保留作業を再試行するには、案内されたコマンドをもう一度 `--apply` 付きで実行してください。新規受付を `HUB_JOBS_ENABLED=false` で停止していても、ジョブストアが構成されていれば整理を実行できます。
 
@@ -118,28 +118,28 @@ pnpm hub jobs cleanup --id talks/intro --apply
 pnpm build:packages
 
 # リモート接続プロファイルの初期化
-pnpm hub init --origin https://hub.example
+pnpm slidock init --origin https://hub.example
 
 # 接続状態と機能の事前診断
-pnpm hub doctor
+pnpm slidock doctor
 
 # スライドの公開（処理完了まで待機）
-pnpm hub publish --id talks/intro --source slides/intro.md
+pnpm slidock publish --id talks/intro --source slides/intro.md
 
 # 非同期ジョブとして投入し、受け付け後にすぐ終了
-pnpm hub publish --id talks/intro --source slides/intro.md --no-wait
+pnpm slidock publish --id talks/intro --source slides/intro.md --no-wait
 
 # ジョブの進行状況を監視
-pnpm hub jobs watch --id talks/intro --job 550e8400-e29b-41d4-a716-446655440000
+pnpm slidock jobs watch --id talks/intro --job 550e8400-e29b-41d4-a716-446655440000
 
 # ジョブの最新状態を確認
-pnpm hub jobs status --id talks/intro --job 550e8400-e29b-41d4-a716-446655440000
+pnpm slidock jobs status --id talks/intro --job 550e8400-e29b-41d4-a716-446655440000
 
 # デッキのジョブ一覧を取得
-pnpm hub jobs list --id talks/intro
+pnpm slidock jobs list --id talks/intro
 
 # サムネイルが未生成の公開ジョブを再試行
-pnpm hub jobs retry --id talks/intro --job 550e8400-e29b-41d4-a716-446655440000 --stage thumbnail
+pnpm slidock jobs retry --id talks/intro --job 550e8400-e29b-41d4-a716-446655440000 --stage thumbnail
 ```
 
 ### 関連資料
@@ -154,7 +154,7 @@ CLI の詳細な共通仕様や、サーバーおよびプラットフォーム�
 ## ジョブ API と状態遷移
 
 ### 公開受付の処理フロー
-スライド公開のジョブ化は、CLI から `POST /api/jobs` へ HTTP リクエストを送信することで開始します。Hub ではクライアントが R2、S3、GCS などのオブジェクトストレージへ直接書き込む方式は採用しておらず、オブジェクトストレージのイベント通知も使用しません。また、webhook も実装していません。
+スライド公開のジョブ化は、CLI から `POST /api/jobs` へ HTTP リクエストを送信することで開始します。Slidock ではクライアントが R2、S3、GCS などのオブジェクトストレージへ直接書き込む方式は採用しておらず、オブジェクトストレージのイベント通知も使用しません。また、webhook も実装していません。
 
 サーバーはリクエストを受け付けると、まず元のソース（source）を非公開の ArtifactStore へ保存します。続いて、公開状態とジョブ情報を同じトランザクション内に記録し、クライアントに HTTP 202 と job ID を返します。Cloudflare では Durable Object の alarm、Node/PostgreSQL ではワーカーのポーリングがジョブを実行します。
 
@@ -168,7 +168,7 @@ CLI の詳細な共通仕様や、サーバーおよびプラットフォーム�
 - `POST /api/jobs/:jobId/retry?deckId=...`
 - `POST /api/jobs/cleanup`
 
-各操作には用途に応じた認証が必要です。ジョブの登録（submit）、再試行（retry）、一覧取得（list）には publish 認証が求められます。ジョブの状態取得（status）は、publish 認証のほか、対象ジョブの閲覧専用トークンである `X-Hub-Job-View` を使ってアクセスすることも可能です。
+各操作には用途に応じた認証が必要です。ジョブの登録（submit）、再試行（retry）、一覧取得（list）には publish 認証が求められます。ジョブの状態取得（status）は、publish 認証のほか、対象ジョブの閲覧専用トークンである `X-Slidock-Job-View` を使ってアクセスすることも可能です。
 
 なお、API レスポンスおよび公開スナップショットには、Markdown 本文、発表者ノート、内部の生のエラースタック（error stack）を含めない仕様となっています。
 
@@ -200,7 +200,7 @@ status には以下の値が割り当てられます。
 
 ## 確認画面とアクセス制御
 
-CLI から公開ジョブを投入すると、受け付け応答をもとに進捗確認用のリンクが生成されます。API が返す `statusUrl` と `viewPath` はオリジン相対パスであり、クライアント向けの絶対 URL は返されません。CLI は設定済みの Hub オリジン（プロファイルまたは `--origin`）を基準に URL を解決し、閲覧トークンをフラグメントに付加します。利用者はこのリンクを通じて Web 画面からジョブの進行状況を確認できます。
+CLI から公開ジョブを投入すると、受け付け応答をもとに進捗確認用のリンクが生成されます。API が返す `statusUrl` と `viewPath` はオリジン相対パスであり、クライアント向けの絶対 URL は返されません。CLI は設定済みの Slidock オリジン（プロファイルまたは `--origin`）を基準に URL を解決し、閲覧トークンをフラグメントに付加します。利用者はこのリンクを通じて Web 画面からジョブの進行状況を確認できます。
 
 ### 確認リンクの形式と閲覧権限
 
@@ -233,14 +233,14 @@ CLI が受け付け応答から生成する確認リンクは、以下の形式�
 ### アーキテクチャと設計判断
 ジョブ管理の中核を担う `packages/server` は、特定のクラウド基盤向け SDK に依存せず、共通のジョブ API と実行機構（ランナー）を提供します。
 
-公開の確定とジョブ状態は同じトランザクションで更新し、外部メッセージブローカーや cron は追加しません。first-party store は terminal publication finish と同じトランザクションでデッキ単位の cleanup 要求を記録し、Node worker または既存の Durable Object alarm が処理します。起動条件と日次上限は「自動クリーンアップ」に記載します。手動の `hub jobs cleanup` も引き続き利用できます。
+公開の確定とジョブ状態は同じトランザクションで更新し、外部メッセージブローカーや cron は追加しません。first-party store は terminal publication finish と同じトランザクションでデッキ単位の cleanup 要求を記録し、Node worker または既存の Durable Object alarm が処理します。起動条件と日次上限は「自動クリーンアップ」に記載します。手動の `slidock jobs cleanup` も引き続き利用できます。
 - **Cloudflare Workers**: 既存の `DeckVersions` Durable Object の SQLite トランザクション内で公開状態とジョブを扱い、Durable Object のアラーム（alarm）によってワーカーを起床させます。
 - **Node.js**: 公開ストアとジョブストアを同一の PostgreSQL トランザクションに参加させ、ワーカーは `SKIP LOCKED` による行ロックを使ったポーリングでジョブを取得します。
 
 公開の確定（commit）とジョブ状態を同一のトランザクションで更新できる永続化境界を設けることで、両者がアトミックに結合され、世代の不整合を防ぎます。単にデータベースの接続情報（credentials）を共有するだけでは、この原子性は保証されません。カスタムアダプターを実装する場合も、公開コミットとジョブ遷移が同じトランザクションに参加するストアが必要です。Webhook や Cloudflare R2 のイベント通知キューはジョブ受付時の検証や重複排除（冪等性）の仕組みを代替しません。プロバイダー固有のアップロードや通知フローを増やさず、既存の公開ストアと起床機構を使う理由は[設計判断](../DECISIONS.md)に記録しています。
 
 ### Node.js 環境での運用
-Node.js 環境で `apps/hub-server` を運用する場合、利用するデータストアによって役割と起動構成が異なります。サーバー配置やコンテナ運用の詳細な手順は[platforms.md](platforms.md)、CLI の共通仕様は[cli.md](cli.md)を参照してください。
+Node.js 環境で `apps/slidock-server` を運用する場合、利用するデータストアによって役割と起動構成が異なります。サーバー配置やコンテナ運用の詳細な手順は[platforms.md](platforms.md)、CLI の共通仕様は[cli.md](cli.md)を参照してください。
 
 #### ローカルインメモリ・ファイルシステム構成
 インメモリおよびローカルファイルシステムを用いた構成は、ローカル開発や使い捨ての検証用途を対象としており、本番環境の永続化には利用できません。環境変数 `HUB_JOBS_ENABLED=true` を設定すると、API と同一の Node.js アプリケーション内でワーカーが起動してジョブを処理しますが、アプリケーションの再起動によってメモリ上の状態はすべて失われます。
@@ -270,7 +270,7 @@ Cloudflare Workers 環境では、既存の `DeckVersions` Durable Object の SQ
 Docker イメージのビルド処理では、Playwright によるブラウザの自動ダウンロードはスキップされます。Dockerfile から直接ビルドする場合は `INSTALL_CHROMIUM=true`、Compose からビルドする場合は `HUB_INSTALL_CHROMIUM=true` を指定して Chromium を明示的に含めます。実行時にレンダラーを動作させるには、上記の環境変数を設定して明示的に有効化（オプトイン）する必要があります。
 
 #### オリジンの使い分けと未設定時の動作
-- **オリジンの扱い**: Node.js の `HUB_PUBLIC_ORIGIN` は Playwright が描画対象のスライドへアクセスする際の接続先としてのみ使用されます。API は閲覧リンクをオリジン相対パスで返し、CLI がプロファイルまたは `--origin` で設定された Hub オリジンを基準に解決します。
+- **オリジンの扱い**: Node.js の `HUB_PUBLIC_ORIGIN` は Playwright が描画対象のスライドへアクセスする際の接続先としてのみ使用されます。API は閲覧リンクをオリジン相対パスで返し、CLI がプロファイルまたは `--origin` で設定された Slidock オリジンを基準に解決します。
 - **レンダラー未設定時の動作**: レンダラーが設定されていない場合、サムネイルの自動生成ジョブは `partial`（一部完了）として終了し、結果は利用不可（unavailable）になります。ただし、サムネイルが生成されなくても、公開されたスライド自体は公開状態（live）を保ちます。Web ライブラリ側の表示拡張については[web-customization.md](web-customization.md)を参照してください。
 
 ### 30日保持と削除範囲
@@ -288,13 +288,13 @@ first-party job store は `kind=publication` のジョブが `finish` によっ�
 
 Node worker は各 publication attempt の後と idle poll 時に cleanup を await して試します。PostgreSQL 構成では API と別に `node dist/worker.js` を起動してください。Cloudflare は既存の Durable Object alarm を使い、publication の後に cleanup を試行します。外部 cron や新しい queue service は必要ありません。メモリストアは開発用で、スケジュールもジョブ状態と同様にプロセス再起動後は残りません。
 
-マイグレーション前の完了履歴は、そのデッキで新たな terminal publication finish が発生すれば後続の cleanup 対象になり得ます。新たな publication がないデッキを整理する場合は、手動の `hub jobs cleanup` を使ってください。手動 cleanup は自動の日次上限を消費しません。`PublicationJobMaintenanceStore.automatic` は optional なので、custom store がこの port または ArtifactStore の delete 操作を実装しない場合、自動 cleanup は安全のため skip します。
+マイグレーション前の完了履歴は、そのデッキで新たな terminal publication finish が発生すれば後続の cleanup 対象になり得ます。新たな publication がないデッキを整理する場合は、手動の `slidock jobs cleanup` を使ってください。手動 cleanup は自動の日次上限を消費しません。`PublicationJobMaintenanceStore.automatic` は optional なので、custom store がこの port または ArtifactStore の delete 操作を実装しない場合、自動 cleanup は安全のため skip します。
 
 ### 運用上の制約と検証状況
 
 #### システムの制約事項
 本機能の運用にあたっては、以下の制約事項を考慮する必要があります。
-- **自動保持の範囲**: first-party worker は terminal publication finish で要求されたデッキを日次上限付きで整理します。古い idle deck は新たな publication がなければ自動走査されないため、手動の `hub jobs cleanup` を使ってください。未受理の孤立入力、公開成果物、サムネイル、ランタイム、CLI のローカル receipt は対象外です。
+- **自動保持の範囲**: first-party worker は terminal publication finish で要求されたデッキを日次上限付きで整理します。古い idle deck は新たな publication がなければ自動走査されないため、手動の `slidock jobs cleanup` を使ってください。未受理の孤立入力、公開成果物、サムネイル、ランタイム、CLI のローカル receipt は対象外です。
 - **管理・操作機能の制限**: ジョブのキャンセル機能、サイト管理者用の管理コンソール、WebSocket や SSE（Server-Sent Events）を用いたリアルタイム通信、ロールバック機能、およびブラウザからの直接アップロード機能は提供されていません。
 - **ブラウザの自動取得不可**: オプションのレンダラー機能は、実行時にブラウザを自動でダウンロードしません。
 

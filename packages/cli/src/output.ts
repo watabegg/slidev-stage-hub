@@ -6,8 +6,12 @@ export function writeJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value)}\n`);
 }
 
+function productLabel(value: string): string {
+  return value.replace(/^hub(?= |$)/u, 'slidock').replace(/^stage(?= |$)/u, 'slive');
+}
+
 export function emitSuccess(command: string, data: unknown, json: boolean, human: string): void {
-  if (json) writeJson({ ok: true, command, data });
+  if (json) writeJson({ ok: true, command: productLabel(command), data });
   else process.stdout.write(`${human}\n`);
 }
 
@@ -24,7 +28,7 @@ export function emitDoctorResult(
         : {
             ok: false,
             command,
-            error: { code: 'NOT_READY', message: 'Stage runtime checks failed', checks },
+            error: { code: 'NOT_READY', message: 'Slive runtime checks failed', checks },
           },
     );
   } else {
@@ -41,7 +45,7 @@ export function emitFailure(
 ): void {
   const failure =
     error instanceof CliFailure ? error : new CliFailure('RUNTIME_ERROR', 'command failed', 1);
-  const label = command ? `${product} ${command}` : product;
+  const label = productLabel(command ? `${product} ${command}` : product);
   if (json) {
     writeJson({
       ok: false,

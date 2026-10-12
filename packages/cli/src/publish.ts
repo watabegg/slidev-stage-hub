@@ -1,9 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import {
-  createPublicationJobClient,
-  PublicationJobClientError,
-} from '@slidev-stage-hub/hub/client';
-import type { PublicationJobRequest } from '@slidev-stage-hub/protocol/contracts';
+import { createPublicationJobClient, PublicationJobClientError } from '@slidock/slidock/client';
+import type { PublicationJobRequest } from '@slidock/protocol/contracts';
 import { isRecord, callerPath, optionBoolean, optionString, type ParsedCommand } from './args.js';
 import { CliFailure, failInput, failRuntime } from './errors.js';
 import { emitSuccess } from './output.js';
@@ -229,7 +226,7 @@ async function runLegacyPublish(options: {
 
     const entry = pinnedUrl.href;
     emitSuccess(
-      'hub publish',
+      'slidock publish',
       {
         origin: options.origin,
         id: options.id,
@@ -263,17 +260,18 @@ export async function runHubPublish(
   json: boolean,
 ): Promise<void> {
   if (parsed.positionals.length !== 0)
-    failInput('hub publish does not accept positional arguments');
+    failInput('slidock publish does not accept positional arguments');
   const settings = await loadHubRemoteSettings(cwd, parsed.values);
   const idValue = optionString(parsed.values, 'id') ?? settings.defaultDeckId;
-  if (idValue === undefined) failInput('hub publish requires --id or defaultDeckId', 'INVALID_ID');
+  if (idValue === undefined)
+    failInput('slidock publish requires --id or defaultDeckId', 'INVALID_ID');
   if (!CANONICAL_ID.test(idValue))
     failInput(
       'Hub publish id must be slash-separated letters, digits, underscores, or hyphens',
       'INVALID_ID',
     );
   const sourceValue = optionString(parsed.values, 'source');
-  if (sourceValue === undefined) failInput('hub publish requires --source', 'INVALID_SOURCE');
+  if (sourceValue === undefined) failInput('slidock publish requires --source', 'INVALID_SOURCE');
   const markdown = await readUtf8File(callerPath(cwd, sourceValue), 'Source', MAX_REQUEST_BYTES);
   if (markdown.trim().length === 0)
     failInput('Source must contain non-empty Markdown', 'INVALID_SOURCE');
@@ -405,7 +403,7 @@ export async function runHubPublish(
   const viewUrl = makeJobViewUrl(settings.origin, idValue, response, viewToken);
   printAcceptedJob(jobId, viewUrl, response.job.status);
   if (noWait) {
-    acceptedOutput(jobId, idValue, response.job.status, response, 'hub publish', json, {
+    acceptedOutput(jobId, idValue, response.job.status, response, 'slidock publish', json, {
       origin: settings.origin,
     });
     return;
@@ -421,7 +419,7 @@ export async function runHubPublish(
     remoteConfig: optionString(parsed.values, 'remote-config'),
     headersFile: optionString(parsed.values, 'headers-file'),
     json,
-    progressLabel: 'hub publish',
+    progressLabel: 'slidock publish',
   });
-  exitForJob(snapshot, 'hub publish', json, { origin: settings.origin, id: idValue });
+  exitForJob(snapshot, 'slidock publish', json, { origin: settings.origin, id: idValue });
 }

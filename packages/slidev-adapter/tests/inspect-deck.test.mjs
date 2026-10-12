@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { inspectDeckSource } from '@slidev-stage-hub/slidev-adapter/inspect-deck';
+import { inspectDeckSource } from '@slidock/slidev-adapter/inspect-deck';
 
 test('UTF-8 note slots preserve source byte offsets across CRLF and multibyte text', () => {
   const text =

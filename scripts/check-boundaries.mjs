@@ -280,7 +280,7 @@ function boundNames(name, names = []) {
 function resolvesToRuntimeManifest(fileName, specifier, root) {
   if (!specifier.startsWith('.')) return false;
   const basePath = path.resolve(path.dirname(fileName), specifier);
-  const manifestPath = path.resolve(root, 'apps/hub-worker/runtime/manifest.ts');
+  const manifestPath = path.resolve(root, 'apps/slidock-worker/runtime/manifest.ts');
   return basePath === manifestPath || `${basePath}.ts` === manifestPath;
 }
 
@@ -735,12 +735,12 @@ async function normalizeExceptions(input, filePath, violations) {
 function isProductionFile(root, fullPath) {
   const file = relativePath(root, fullPath);
   return (
-    file.startsWith('apps/stage/src/') ||
-    file.startsWith('apps/hub-worker/src/') ||
-    file.startsWith('apps/hub-worker/runtime/') ||
-    file.startsWith('packages/hub/frontend/') ||
-    file.startsWith('packages/hub/src/frontend/') ||
-    file.startsWith('packages/hub/src/client/') ||
+    file.startsWith('apps/slive/src/') ||
+    file.startsWith('apps/slidock-worker/src/') ||
+    file.startsWith('apps/slidock-worker/runtime/') ||
+    file.startsWith('packages/slidock/frontend/') ||
+    file.startsWith('packages/slidock/src/frontend/') ||
+    file.startsWith('packages/slidock/src/client/') ||
     file.startsWith('packages/protocol/src/') ||
     file.startsWith('packages/server/src/')
   );
@@ -847,7 +847,7 @@ export async function checkBoundaries({
   const graphEdges = declaredDependencyEdges(packages);
   const files = await collectFiles(absoluteRoot, packages);
   const parsed = new Map();
-  const runtimeManifestPath = path.resolve(absoluteRoot, 'apps/hub-worker/runtime/manifest.ts');
+  const runtimeManifestPath = path.resolve(absoluteRoot, 'apps/slidock-worker/runtime/manifest.ts');
   let runtimeResolverExported = false;
   try {
     runtimeResolverExported = exportedRuntimeResolver(
@@ -1020,9 +1020,9 @@ export async function checkBoundaries({
         relativePath(absoluteRoot, normalized).startsWith('packages/server/src/') &&
         (ref.specifier.startsWith('cloudflare:') ||
           ref.specifier.startsWith('@cloudflare/') ||
-          ref.specifier.startsWith('@slidev-stage-hub/adapter-') ||
-          ref.specifier.startsWith('@slidev-stage-hub/storage-') ||
-          ref.specifier === '@slidev-stage-hub/state-postgres')
+          ref.specifier.startsWith('@slidock/adapter-') ||
+          ref.specifier.startsWith('@slidock/storage-') ||
+          ref.specifier === '@slidock/state-postgres')
       ) {
         addViolation(violations, {
           file: ref.file,

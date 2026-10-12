@@ -1,17 +1,17 @@
-# Workers 版 Hub ガイド
+# Workers 版 Slidock ガイド
 
 ## 構成とローカル開発環境
 
-Cloudflare Workers 向け実装（`apps/hub-worker/src`）は、Worker と Durable Objects を組み合わせる合成層として再編されました。HTTP ルーティングや公開処理といった中核ロジックは共通パッケージ `packages/server`（`createHubServer`）および `packages/adapter-cloudflare` へ移譲され、アダプターは R2（`FILES`）、Durable Objects（`VERSIONS`）、静的アセット（`STATIC`）、プロファイル環境変数のマッピングと任意のブラウザキャプチャ機能のみを担当します。Durable Objects の `DeckVersions` クラスと内部 SQL 状態は `apps/hub-worker/src/versions.ts`、マイグレーション v1 設定は `apps/hub-worker/wrangler.jsonc` で従来通り維持されており、ブラウザランタイムのビルド（`apps/hub-worker/scripts/build-runtime.mjs`）も変更ありません。
+Cloudflare Workers 向け実装（`apps/slidock-worker/src`）は、Worker と Durable Objects を組み合わせる合成層として再編されました。HTTP ルーティングや公開処理といった中核ロジックは共通パッケージ `packages/server`（`createHubServer`）および `packages/adapter-cloudflare` へ移譲され、アダプターは R2（`FILES`）、Durable Objects（`VERSIONS`）、静的アセット（`STATIC`）、プロファイル環境変数のマッピングと任意のブラウザキャプチャ機能のみを担当します。Durable Objects の `DeckVersions` クラスと内部 SQL 状態は `apps/slidock-worker/src/versions.ts`、マイグレーション v1 設定は `apps/slidock-worker/wrangler.jsonc` で従来通り維持されており、ブラウザランタイムのビルド（`apps/slidock-worker/scripts/build-runtime.mjs`）も変更ありません。
 
-なお、カタログ取得クライアントは中立な `createPaginatedCatalogSource` を `@slidev-stage-hub/hub/client` から公開しており、従来の `createWorkersCatalogSource` は同等のエイリアス（非推奨）として後方互換性を保っています。Node.js 環境での起動や S3、GCS、PostgreSQL を用いた構成手順については [プラットフォーム導入ガイド](platforms.md) を参照してください。
+なお、カタログ取得クライアントは中立な `createPaginatedCatalogSource` を `@slidock/slidock/client` から公開しており、従来の `createWorkersCatalogSource` は同等のエイリアス（非推奨）として後方互換性を保っています。Node.js 環境での起動や S3、GCS、PostgreSQL を用いた構成手順については [プラットフォーム導入ガイド](platforms.md) を参照してください。
 
 ローカル環境の構築と起動は以下のコマンドで行います。クラウドへの自動デプロイは行われません。
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm build:workers
-pnpm --filter @slidev-stage-hub/workers dev
+pnpm --filter @slidock/workers dev
 ```
 
 起動後は既定で `http://127.0.0.1:4180` で待機し、ローカルの R2 と Durable Objects に成果物や状態を永続化します。テーマには Slidev 公式のデフォルトテーマを使用します。
@@ -24,7 +24,7 @@ pnpm --filter @slidev-stage-hub/workers dev
 node packages/cli/dist/bin/hub.js publish --origin http://127.0.0.1:4180 --id demo/intro --source examples/workers/slides.md
 ```
 
-保存先は自動推測されないため、明示的な引数指定が必要です。接続先オリジンは HTTP ループバックまたは HTTPS に限られます。リクエスト本文は 512KiB の JSON、スライド数は最大 100 枚までであり、任意のバイナリ送信には対応していません。オプションとして `--assets path/to/assets.json`、`--headers-file path/to/auth.json`、`--json` を指定できます。アセット JSON はファイル名からテキストへのオブジェクトであり、キーには ASCII のスラッシュ区切りパス（拡張子は `.svg`、`.txt`、`.css` 限定）、値には文字列を指定します。認証は任意であり、指定する場合は Stage のオリジン紐付けに対応したファイル権限 0600 のヘッダーファイルを使用します。
+保存先は自動推測されないため、明示的な引数指定が必要です。接続先オリジンは HTTP ループバックまたは HTTPS に限られます。リクエスト本文は 512KiB の JSON、スライド数は最大 100 枚までであり、任意のバイナリ送信には対応していません。オプションとして `--assets path/to/assets.json`、`--headers-file path/to/auth.json`、`--json` を指定できます。アセット JSON はファイル名からテキストへのオブジェクトであり、キーには ASCII のスラッシュ区切りパス（拡張子は `.svg`、`.txt`、`.css` 限定）、値には文字列を指定します。認証は任意であり、指定する場合は Slive のオリジン紐付けに対応したファイル権限 0600 のヘッダーファイルを使用します。
 
 ジョブ API が有効な Workers サーバーでは、この CLI コマンドは HTTP 経由で `POST /api/jobs` に公開要求を送り、Durable Object の `DeckVersions` が公開状態とジョブを同じ SQLite transaction で更新します。Durable Object alarm が実行を起こすため、R2 直接アップロード通知や webhook は使いません。`HUB_JOBS_ENABLED` は新規受付の切替です。自動サムネイル生成には、Cloudflare Browser Rendering の `BROWSER` binding と Wrangler 変数 `PUBLIC_ORIGIN` の両方が必要です。CLI のジョブ状態、確認リンク、制約は[公開ジョブガイド](publication-jobs.md)を参照してください。
 
@@ -32,11 +32,11 @@ node packages/cli/dist/bin/hub.js publish --origin http://127.0.0.1:4180 --id de
 
 ソース、アセット、コンパイラ、ランタイムプロファイルの変更により、不変なリビジョンが生成されます。保存処理は書き込み、インデックスマーカー配置、Durable Objects コミットの順序で実行され、最新の開始処理が優先されます。従来の同期公開 API（`POST /api/decks/:id`）では競合時に HTTP 409（`superseded`）が返され、書き込み失敗時に既存リビジョンが置き換わることはありません。一方、非同期ジョブ受付 API（`POST /api/jobs`）は受付時に HTTP 202 を返し、その後の処理ステータスが `superseded` になる場合があります。ストレージでは R2 の `FILES`、Durable Objects の `VERSIONS` および `DeckVersions` を扱い、migration v1 と SQL の状態は維持されます。
 
-## カタログ提供と Stage 連携
+## カタログ提供と Slive 連携
 
-レガシーな `/api/catalog` は維持され、`/catalog.json` ではカーソル（任意）付きの protocolCatalog v1 を提供します。`@slidev-stage-hub/hub/client` の `createWorkersCatalogSource()` は全ページを取得して共通の `mountHub` に渡します。最大ページ数は既定で 100 であり、上限超過、ループ検知、応答異常の発生時は失敗し、不完全な結果を暗黙に返すことはありません。サムネイル欠落時は代替表示を行います。`/native-player.json` v2 では再生リビジョン照会が追加されました。メタデータのない過去のバンドルもブラウザでは閲覧可能ですが、Stage 向けには汎用的な理由で非対応として一覧されます。
+レガシーな `/api/catalog` は維持され、`/catalog.json` ではカーソル（任意）付きの protocolCatalog v1 を提供します。`@slidock/slidock/client` の `createWorkersCatalogSource()` は全ページを取得して共通の `mountHub` に渡します。最大ページ数は既定で 100 であり、上限超過、ループ検知、応答異常の発生時は失敗し、不完全な結果を暗黙に返すことはありません。サムネイル欠落時は代替表示を行います。`/native-player.json` v2 では再生リビジョン照会が追加されました。メタデータのない過去のバンドルもブラウザでは閲覧可能ですが、Slive 向けには汎用的な理由で非対応として一覧されます。
 
-Stage は discovery v1 および v2 に対応し、保存設定スキーマは 1 を維持します。v2 はセッションを通じて URL リビジョンを固定するため、新規リビジョン B が発行されても開いているリビジョン A のセッションは更新されず、再接続時に B が選択されます。リモートノートの識別子は `origin/id/page` のまま保たれるため内容は維持され、変更時は `sourceChanged` 警告が通知されます。ネイティブブリッジのプロトコルはバージョン 1 のままです。
+Slive は discovery v1 および v2 に対応し、保存設定スキーマは 1 を維持します。v2 はセッションを通じて URL リビジョンを固定するため、新規リビジョン B が発行されても開いているリビジョン A のセッションは更新されず、再接続時に B が選択されます。リモートノートの識別子は `origin/id/page` のまま保たれるため内容は維持され、変更時は `sourceChanged` 警告が通知されます。ネイティブブリッジのプロトコルはバージョン 1 のままです。
 
 ## 検証ゲートと未検証事項
 
@@ -44,11 +44,11 @@ Stage は discovery v1 および v2 に対応し、保存設定スキーマは 1
 
 ```bash
 pnpm verify:workers
-pnpm verify:workers-stage
+pnpm verify:workers-slive
 pnpm check
 ```
 
-`verify:workers` はローカルの workerd およびブラウザ環境での動作を対象とし、`verify:workers-stage` は実デスクトップ（Tauri および WebKit、Linux ディスプレイ環境が必要）の検証を目的としています。
+`verify:workers` はローカルの workerd およびブラウザ環境での動作を対象とし、`verify:workers-slive` は実デスクトップ（Tauri および WebKit、Linux ディスプレイ環境が必要）の検証を目的としています。
 
 なお、以下の項目は現時点で未検証のままです。
 - クラウド環境への実際のデプロイ

@@ -5,8 +5,8 @@ import { join, resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { chromium } from 'playwright-chromium';
-import { createConfiguredHub } from '@slidev-stage-hub/server-app';
-import { startHubServer } from '@slidev-stage-hub/adapter-node';
+import { createConfiguredHub } from '@slidock/server-app';
+import { startHubServer } from '@slidock/adapter-node';
 
 const output = resolve('artifacts/portability');
 await mkdir(output, { recursive: true });
@@ -15,7 +15,7 @@ const checks = [];
 const id = `portable/deck-${Date.now()}`;
 const token = 'local-verification-only';
 const env = {
-  HUB_STATIC_DIR: resolve('apps/hub-worker/artifacts/site'),
+  HUB_STATIC_DIR: resolve('apps/slidock-worker/artifacts/site'),
   HUB_STORAGE: 'filesystem',
   HUB_ARTIFACT_DIR: join(directory, 'objects'),
   HUB_PUBLICATIONS: process.env.HUB_TEST_DATABASE_URL ? 'postgres' : 'memory',

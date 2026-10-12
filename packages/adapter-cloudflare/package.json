@@ -1,5 +1,5 @@
 {
-  "name": "@slidev-stage-hub/adapter-cloudflare",
+  "name": "@slidock/adapter-cloudflare",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -22,7 +22,7 @@
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@slidev-stage-hub/server": "workspace:*"
+    "@slidock/server": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20261010.1",

@@ -21,6 +21,6 @@
     "**/target/**",
     "**/generated/**",
     "**/results/**",
-    "apps/hub-worker/worker-configuration.d.ts"
+    "apps/slidock-worker/worker-configuration.d.ts"
   ]
 }

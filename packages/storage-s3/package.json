@@ -1,5 +1,5 @@
 {
-  "name": "@slidev-stage-hub/storage-s3",
+  "name": "@slidock/storage-s3",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1149.0",
-    "@slidev-stage-hub/server": "workspace:*"
+    "@slidock/server": "workspace:*"
   },
   "devDependencies": {
     "typescript": "6.0.3"

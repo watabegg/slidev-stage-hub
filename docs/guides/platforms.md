@@ -1,10 +1,10 @@
-# Hubサーバーの実行環境と導入
+# Slidockサーバーの実行環境と導入
 
-本ドキュメントは、Hubサーバーを運用または開発するエンジニアに向けて、サポートされている各実行環境の責務分担、Node.js環境でのローカル起動手順、本番環境向けのストレージ構成、コンテナおよびデプロイ用テンプレートの利用方法、プライベートパッケージの導入手順、ならびに現在の制約事項を解説する導入ガイドです。アーキテクチャの背景や決定事項については [../DECISIONS.md](../DECISIONS.md) を、Cloudflare Workers 固有の運用については [workers.md](workers.md) を、CLI の利用法については [cli.md](cli.md) を参照してください。
+本ドキュメントは、Slidockサーバーを運用または開発するエンジニアに向けて、サポートされている各実行環境の責務分担、Node.js環境でのローカル起動手順、本番環境向けのストレージ構成、コンテナおよびデプロイ用テンプレートの利用方法、プライベートパッケージの導入手順、ならびに現在の制約事項を解説する導入ガイドです。アーキテクチャの背景や決定事項については [../DECISIONS.md](../DECISIONS.md) を、Cloudflare Workers 固有の運用については [workers.md](workers.md) を、CLI の利用法については [cli.md](cli.md) を参照してください。
 
 ## 実行環境とパッケージの責務分担
 
-Hubサーバーは、中核ロジックを共有パッケージに集約し、実行基盤や永続化の差異をアダプター層で吸収する構成を採用しています。
+Slidockサーバーは、中核ロジックを共有パッケージに集約し、実行基盤や永続化の差異をアダプター層で吸収する構成を採用しています。
 
 ### パッケージ構成と責務
 
@@ -13,12 +13,12 @@ Hubサーバーは、中核ロジックを共有パッケージに集約し、�
 | `packages/server` | コアロジック（HTTP ルーティング、配信処理 `publishDeck`、スライドコンパイラ） | 外部プラットフォーム依存を持たず、ES2022 および DOM 型定義のみに依存（`types: []`）。`createHubServer(options)` は `{ fetch(Request): Promise<Response> }` オブジェクトを返却 |
 | `packages/protocol` | サーバー・クライアント間のデータ構造および API リクエスト／レスポンス型定義 | 共通型定義 |
 | `packages/slidev-adapter` | Slidev スライドのパース、メタデータ抽出、ビルド連携 | スライド変換抽象化 |
-| `packages/adapter-cloudflare` | Cloudflare Workers 環境への接続。R2（`FILES`）、Durable Objects（`VERSIONS`）、静的アセット（`STATIC`）、プロファイル環境変数のマッピングとサムネイル取得 | Wrangler 生成型および実プラットフォーム型を使用。Durable Objects の `DeckVersions` クラスや SQL 状態は `apps/hub-worker/src/versions.ts`、マイグレーション v1 設定は `apps/hub-worker/wrangler.jsonc` に配置され、本アダプターには内包されない |
+| `packages/adapter-cloudflare` | Cloudflare Workers 環境への接続。R2（`FILES`）、Durable Objects（`VERSIONS`）、静的アセット（`STATIC`）、プロファイル環境変数のマッピングとサムネイル取得 | Wrangler 生成型および実プラットフォーム型を使用。Durable Objects の `DeckVersions` クラスや SQL 状態は `apps/slidock-worker/src/versions.ts`、マイグレーション v1 設定は `apps/slidock-worker/wrangler.jsonc` に配置され、本アダプターには内包されない |
 | `packages/adapter-node` | Node.js 環境への接続。`@hono/node-server` による HTTP 起動、ローカルファイルシステム成果物保存、インメモリ配信ストア、静的アセット配信 | HTTP 起動や静的アセット配信は Node.js 実行共通で利用され、ファイルシステム保存とインメモリ配信ストアのみがローカル開発専用 |
 | `packages/storage-s3` | AWS S3 をバックエンドとする成果物保存（`ArtifactStore`）の実装 | AWS SDK クレデンシャルチェーンに依存。ストリーム PUT はメモリへバッファして Content-Length を指定した単一条件付き PUT として送信 |
 | `packages/storage-gcs` | Google Cloud Storage をバックエンドとする成果物保存（`ArtifactStore`）の実装 | Google Cloud ADC（Application Default Credentials）に依存。GCS SDK 依存関係を隔離 |
 | `packages/state-postgres` | PostgreSQL をバックエンドとする配信ストア（`PublicationStore`）の実装 | `pg.Pool` を利用したマニフェスト永続化、世代管理、初期化関数を提供 |
-| `apps/hub-server` | Node.js リファレンスサーバーアプリケーション | 各種アダプターと永続化層を統合して起動 |
+| `apps/slidock-server` | Node.js リファレンスサーバーアプリケーション | 各種アダプターと永続化層を統合して起動 |
 
 ## Node.js環境でのローカル起動とCLI配信
 
@@ -37,7 +37,7 @@ Node.js 環境上で手軽にサーバーを起動し、CLI からスライド�
    pnpm install --frozen-lockfile
    pnpm build:server-runtime
    ```
-   ※ `build:server-runtime` は単一のビルダー（`apps/hub-worker/scripts/build-runtime.mjs`）を実行し、`apps/hub-worker/artifacts/site` 配下に静的アセットと `runtime-manifest.json` を生成します。
+   ※ `build:server-runtime` は単一のビルダー（`apps/slidock-worker/scripts/build-runtime.mjs`）を実行し、`apps/slidock-worker/artifacts/site` 配下に静的アセットと `runtime-manifest.json` を生成します。
 
 2. ローカルでの変更操作を許可して開発サーバーを起動します。
    ```bash
@@ -47,7 +47,7 @@ Node.js 環境上で手軽にサーバーを起動し、CLI からスライド�
 
 3. 別のターミナルから CLI を用いてスライドを配信します。
    ```bash
-   pnpm hub publish --origin http://127.0.0.1:4180 --id demo/intro --source examples/workers/slides.md
+   pnpm slidock publish --origin http://127.0.0.1:4180 --id demo/intro --source examples/workers/slides.md
    ```
 
 ### ローカル起動時の挙動と留意事項
@@ -59,14 +59,14 @@ Node.js 環境上で手軽にサーバーを起動し、CLI からスライド�
 
 ## 環境変数一覧と設定仕様
 
-サーバーアプリケーション（`apps/hub-server/src/config.ts` および `start.ts`）で読み込まれる環境変数の仕様は以下のとおりです。
+サーバーアプリケーション（`apps/slidock-server/src/config.ts` および `start.ts`）で読み込まれる環境変数の仕様は以下のとおりです。
 
 | 環境変数名 | デフォルト値 | 許容値 / 型 | 説明 |
 | :--- | :--- | :--- | :--- |
 | `NODE_ENV` | なし | 文字列 | `production` 指定時、`HUB_STORAGE=filesystem` または `HUB_PUBLICATIONS=memory` の組み合わせは起動時に明示的に拒否されます |
 | `HOST` | `127.0.0.1` | 任意のホスト名文字列 | サーバーがリッスンするホストアドレス |
 | `PORT` | `4180` | 整数（`0`〜`65535`） | リッスンポート番号。`0` を指定した場合はエフェメラルポートを使用 |
-| `HUB_STATIC_DIR` | `apps/hub-worker/artifacts/site` | ディレクトリパス | 静的アセット配置先。ビルド済みの `runtime-manifest.json` が必須であり、プロファイルはこのマニフェストから導出されます（Node.js 環境向けの `PROFILE_*` 環境変数は存在しません） |
+| `HUB_STATIC_DIR` | `apps/slidock-worker/artifacts/site` | ディレクトリパス | 静的アセット配置先。ビルド済みの `runtime-manifest.json` が必須であり、プロファイルはこのマニフェストから導出されます（Node.js 環境向けの `PROFILE_*` 環境変数は存在しません） |
 | `HUB_STORAGE` | `filesystem` | `filesystem` / `s3` / `gcs` | 成果物の保存先ドライバー |
 | `HUB_ARTIFACT_DIR` | `artifacts/hub-server/objects` | ディレクトリパス | `HUB_STORAGE=filesystem` 選択時の保存先ディレクトリ |
 | `HUB_BUCKET` | なし | 文字列 | `s3` または `gcs` 利用時に必須となるバケット名 |
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS hub_publications (
 リポジトリルートから以下のコマンドでビルドします。
 
 ```bash
-docker build -f apps/hub-server/Dockerfile -t slidev-stage-hub:server .
+docker build -f apps/slidock-server/Dockerfile -t slidock:server .
 ```
 
 - マルチステージビルドにより、単一のランタイムビルダーで静的アセットを構築し、本番依存関係のみ（`deploy --prod`）で構成されたアプリケーションイメージを出力します。
@@ -128,10 +128,10 @@ docker build -f apps/hub-server/Dockerfile -t slidev-stage-hub:server .
 
 ### ローカル検証用Docker Compose
 
-ローカルで PostgreSQL と組み合わせた動作確認を行うための構成が `apps/hub-server/deploy/compose.yaml` に用意されています。
+ローカルで PostgreSQL と組み合わせた動作確認を行うための構成が `apps/slidock-server/deploy/compose.yaml` に用意されています。
 
 ```bash
-docker compose -f apps/hub-server/deploy/compose.yaml up --build
+docker compose -f apps/slidock-server/deploy/compose.yaml up --build
 ```
 
 - 開発用構成（`HUB_STORAGE=filesystem` + PostgreSQL）で動作し、`localhost:8080` で待機します。
@@ -143,16 +143,16 @@ docker compose -f apps/hub-server/deploy/compose.yaml up --build
 
 デプロイ構成のひな型として以下のテンプレートが同梱されています。
 
-- **AWS ECS Fargate向け**: `apps/hub-server/deploy/aws-ecs-task-definition.template.json`（ECS Fargate + S3 + PostgreSQL）
-- **Google Cloud Run向け**: `apps/hub-server/deploy/gcp-cloud-run-service.template.yaml`（Cloud Run + GCS + PostgreSQL）
+- **AWS ECS Fargate向け**: `apps/slidock-server/deploy/aws-ecs-task-definition.template.json`（ECS Fargate + S3 + PostgreSQL）
+- **Google Cloud Run向け**: `apps/slidock-server/deploy/gcp-cloud-run-service.template.yaml`（Cloud Run + GCS + PostgreSQL）
 
-`apps/hub-server/deploy/aws-ecs-task-definition.template.json` および `apps/hub-server/deploy/gcp-cloud-run-service.template.yaml` は、リソースをプロビジョニングするコマンドではなく参照用の設定テンプレートであるため、含まれるすべての `REPLACE_*` プレースホルダーを運用者の実際の値に置き換える必要があります。テンプレートは PostgreSQL の API と別 worker を `HUB_PUBLICATIONS=postgres`、`HUB_JOBS_ENABLED=true` で構成し、両方に同じ database と ArtifactStore の設定を渡します。`HUB_DATABASE_INIT=false` のため、既存の `hub_publications` テーブルを用意した上で `002-publication-jobs.sql`、`003-job-retention.sql`、`004-job-cleanup-schedule.sql`（`packages/state-postgres/migrations/`）をデプロイ前に順に適用してください。クリーンアップを使う実行主体には、対象となる private input のみを削除できる `s3:DeleteObject` または `storage.objects.delete` が必要です。実際の AWS/GCP 受け入れ検証、デプロイ、IAM やネットワークの設定検証は実施されていないため、利用側で既存の bucket、接続可能な PostgreSQL database、実行・サービスアカウントの IAM 権限、シークレット連携、ネットワーク設定、イメージレジストリとイメージを事前に準備してください。
+`apps/slidock-server/deploy/aws-ecs-task-definition.template.json` および `apps/slidock-server/deploy/gcp-cloud-run-service.template.yaml` は、リソースをプロビジョニングするコマンドではなく参照用の設定テンプレートであるため、含まれるすべての `REPLACE_*` プレースホルダーを運用者の実際の値に置き換える必要があります。テンプレートは PostgreSQL の API と別 worker を `HUB_PUBLICATIONS=postgres`、`HUB_JOBS_ENABLED=true` で構成し、両方に同じ database と ArtifactStore の設定を渡します。`HUB_DATABASE_INIT=false` のため、既存の `hub_publications` テーブルを用意した上で `002-publication-jobs.sql`、`003-job-retention.sql`、`004-job-cleanup-schedule.sql`（`packages/state-postgres/migrations/`）をデプロイ前に順に適用してください。クリーンアップを使う実行主体には、対象となる private input のみを削除できる `s3:DeleteObject` または `storage.objects.delete` が必要です。実際の AWS/GCP 受け入れ検証、デプロイ、IAM やネットワークの設定検証は実施されていないため、利用側で既存の bucket、接続可能な PostgreSQL database、実行・サービスアカウントの IAM 権限、シークレット連携、ネットワーク設定、イメージレジストリとイメージを事前に準備してください。
 
 いずれのテンプレートも `HUB_DATABASE_INIT=false`、`HUB_THUMBNAIL_RENDERER=none` を設定しています。レンダラーを有効にする場合は Chromium を明示的に含むイメージをビルドして `HUB_THUMBNAIL_RENDERER=playwright`、`HUB_CHROMIUM_EXECUTABLE`、`HUB_PUBLIC_ORIGIN` を構成してください。Playwright のインストールはブラウザを自動ダウンロードしません。認証情報はテンプレートやイメージ内に含めず、各種シークレット管理サービスから注入してください。テンプレート単体でのデプロイコマンドや実環境での展開テストは提供されていません。
 
 クリーンアップはオブジェクトキーの削除を要求しますが、S3 バージョニングでは delete marker が作成され、GCS の soft delete や Object Versioning では過去データが保持される場合があります。物理消去やバックアップの消去を保証しない点と、削除権限の設定は[公開ジョブガイド](publication-jobs.md)を参照してください。詳細は公式資料の [S3 DeleteObject](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html)、[Cloud Storage deleting objects](https://docs.cloud.google.com/storage/docs/deleting-objects)、[soft delete](https://docs.cloud.google.com/storage/docs/soft-delete)、[Object Versioning](https://docs.cloud.google.com/storage/docs/object-versioning) を参照してください。
 
-Cloudflare Workers では `DeckVersions` クラスと Wrangler migration v1 を維持したまま、Durable Object の内部 SQLite スキーマを v4 に進めます。v4 初期化後はスキーマ v3 までしか扱えない古い Worker イメージに戻せません。無停止移行や旧イメージへのロールバックは検証されていません。既存の alarm は publication の後に自動クリーンアップも試し、外部 cron や新しい queue は追加しません。初期化前の完了 job は自動では再登録されないため、後続 publication がない場合は手動 `hub jobs cleanup` が必要です。詳細と検証状況は[公開ジョブガイド](publication-jobs.md)および[自動保持記録](../results/publication-jobs-auto-retention.json)を参照してください。
+Cloudflare Workers では `DeckVersions` クラスと Wrangler migration v1 を維持したまま、Durable Object の内部 SQLite スキーマを v4 に進めます。v4 初期化後はスキーマ v3 までしか扱えない古い Worker イメージに戻せません。無停止移行や旧イメージへのロールバックは検証されていません。既存の alarm は publication の後に自動クリーンアップも試し、外部 cron や新しい queue は追加しません。初期化前の完了 job は自動では再登録されないため、後続 publication がない場合は手動 `slidock jobs cleanup` が必要です。詳細と検証状況は[公開ジョブガイド](publication-jobs.md)および[自動保持記録](../results/publication-jobs-auto-retention.json)を参照してください。
 
 ## プライベートtarballパッケージの利用
 
@@ -175,7 +175,7 @@ pnpm pack:server
   ```
 - インポートの疎通確認は以下で行えます（モジュールのインポート可否を確認するものであり、完全なワークフローを検証するものではありません）。
   ```bash
-  node --input-type=module -e 'import {createHubServer} from "@slidev-stage-hub/server"; console.log(typeof createHubServer)'
+  node --input-type=module -e 'import {createHubServer} from "@slidock/server"; console.log(typeof createHubServer)'
   ```
 - 独自のカスタムサーバーを構築する場合はランタイムアセットを別途準備してライブラリ群と合成する必要があります。既製のリファレンスサーバーをそのまま利用する場合は、ソースリポジトリのチェックアウトを推奨します。
 
@@ -188,7 +188,7 @@ pnpm pack:server
 - **コンパイラ制約**: JSON 本文上限 512 KiB、スライド数最大 100 枚（Cloudflare / Node.js 共通）。テキスト形式（`.svg`, `.txt`, `.css`）アセットのみを扱い、任意のスクリプト実行や include は禁止。テーマ等は事前ビルドで固定し、発表者ノートは非公開ストレージにのみ保持されます。
 - **サムネイル生成の環境差分**: Cloudflare Workers の自動生成には Browser Rendering の `BROWSER` バインディングと Wrangler 変数 `PUBLIC_ORIGIN` の両方が必要で、どちらかがなければ生成結果は利用不可になります。Node.js リファレンス環境では `HUB_THUMBNAIL_RENDERER=playwright`、Chromium 実行ファイル、`HUB_PUBLIC_ORIGIN` を明示した場合に自動生成を利用できます。どちらも renderer がない場合、`POST /api/thumbnail/:id` は画像がキャッシュ済みなら利用できますが、未生成画像では 503 を返します。レンダラーを使わない場合も、1200×675・4 MiB 以下の有効な PNG を直接 `PUT` 登録できます。ライブラリ利用側は `renderThumbnail` を注入できます。
 
-Hub のカスタムサーバーは `HubServerOptions.onJobEvent` に telemetry callback を渡せます。イベントには phase、attempt、queue age、duration、status、error code が含まれ、Node.js / Cloudflare の参照アダプターは機密内容を含めず JSON として記録します。
+Slidock のカスタムサーバーは `HubServerOptions.onJobEvent` に telemetry callback を渡せます。イベントには phase、attempt、queue age、duration、status、error code が含まれ、Node.js / Cloudflare の参照アダプターは機密内容を含めず JSON として記録します。
 
 ## 検証状況とスコープ・制約事項
 
@@ -199,7 +199,7 @@ Hub のカスタムサーバーは `HubServerOptions.onJobEvent` に telemetry c
 ### 未検証事項
 
 - 実際の AWS、Google Cloud、Cloudflare Access 環境での受け入れ検証、およびクラウド実環境へのデプロイは未実施です。
-- CI ワークフローの実行および今回の native Stage 検証は実施していません。
+- CI ワークフローの実行および今回の native Slive 検証は実施していません。
 
 ### 運用上の制約とスコープ外事項
 
@@ -213,4 +213,4 @@ Hub のカスタムサーバーは `HubServerOptions.onJobEvent` に telemetry c
 
 `runtimeId` のない過去ビルドや旧マニフェストは従来の挙動を維持し、遡及して保護されません。欠損した過去のランタイムは事後復元できないため、過去に未固定で公開されたURLが保護されたとはみなせません。保護を適用するには共有ランタイムを再ビルドしてスライドソースを再公開し、ランタイムが固定された新規リビジョンを作成する必要があります。
 
-全スナップショットは自動TTLなしで無期限保持され、自動GCや削除エンドポイントは提供されません。保持状況の監査には `@slidev-stage-hub/server` の `auditRuntimeRetention({artifacts})` を使用します。孤立版を含む全保存済みリリースを対象に、ランタイムごとの参照状態（`referenced` または `unreferenced`）、参照一覧、旧形式リリース、欠損ランタイムを返します。メタデータ異常や一覧取得失敗時は監査を中断します。`unreferenced` は参照関係の観測結果に過ぎず、稼働環境や進行中の公開処理が必要とする可能性もあるため安全な削除許可ではありません。手動削除は公開を停止し、稼働環境を考慮して過去参照が一切存在しないオフライン保守時のみ実施可能です。検証結果の集約状況は [../results/runtime-pinning.json](../results/runtime-pinning.json) を参照してください。
+全スナップショットは自動TTLなしで無期限保持され、自動GCや削除エンドポイントは提供されません。保持状況の監査には `@slidock/server` の `auditRuntimeRetention({artifacts})` を使用します。孤立版を含む全保存済みリリースを対象に、ランタイムごとの参照状態（`referenced` または `unreferenced`）、参照一覧、旧形式リリース、欠損ランタイムを返します。メタデータ異常や一覧取得失敗時は監査を中断します。`unreferenced` は参照関係の観測結果に過ぎず、稼働環境や進行中の公開処理が必要とする可能性もあるため安全な削除許可ではありません。手動削除は公開を停止し、稼働環境を考慮して過去参照が一切存在しないオフライン保守時のみ実施可能です。検証結果の集約状況は [../results/runtime-pinning.json](../results/runtime-pinning.json) を参照してください。

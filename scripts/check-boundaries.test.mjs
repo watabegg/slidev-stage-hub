@@ -49,10 +49,10 @@ function rules(result) {
 }
 
 async function addWorkersRuntime(fixture, routesSource, manifestSource) {
-  await fixture.package('packages/hub', { name: '@fixture/hub' });
-  await fixture.package('apps/hub-worker', { name: '@fixture/workers' });
-  await fixture.file('apps/hub-worker/runtime/manifest.ts', manifestSource);
-  await fixture.file('apps/hub-worker/runtime/routes.ts', routesSource);
+  await fixture.package('packages/slidock', { name: '@fixture/hub' });
+  await fixture.package('apps/slidock-worker', { name: '@fixture/workers' });
+  await fixture.file('apps/slidock-worker/runtime/manifest.ts', manifestSource);
+  await fixture.file('apps/slidock-worker/runtime/routes.ts', routesSource);
 }
 
 test('a package can consume its own public exports without a workspace cycle', async (t) => {
@@ -223,9 +223,9 @@ test('reports a cycle between workspace packages', async (t) => {
 
 test('finds a Node builtin imported transitively from a Vue script setup block', async (t) => {
   const fixture = await makeFixture(t);
-  await fixture.package('packages/hub', { name: '@fixture/hub' });
+  await fixture.package('packages/slidock', { name: '@fixture/hub' });
   await fixture.file(
-    'packages/hub/frontend/Widget.vue',
+    'packages/slidock/frontend/Widget.vue',
     [
       '<script setup lang="ts">',
       "import { load } from '../src/internal/helper'",
@@ -235,7 +235,7 @@ test('finds a Node builtin imported transitively from a Vue script setup block',
     ].join('\n'),
   );
   await fixture.file(
-    'packages/hub/src/internal/helper.ts',
+    'packages/slidock/src/internal/helper.ts',
     "import { readFile } from 'node:fs';\nexport const load = readFile;\n",
   );
 
@@ -243,20 +243,20 @@ test('finds a Node builtin imported transitively from a Vue script setup block',
   const builtinViolation = result.violations.find(
     (violation) => violation.rule === 'production-node-builtin',
   );
-  assert.equal(builtinViolation?.file, 'packages/hub/src/internal/helper.ts');
+  assert.equal(builtinViolation?.file, 'packages/slidock/src/internal/helper.ts');
   assert.equal(builtinViolation?.specifier, 'node:fs');
 });
 
 test('follows a Vue script src to detect a transitive Node builtin', async (t) => {
   const fixture = await makeFixture(t);
-  await fixture.package('apps/stage', { name: '@fixture/stage' });
-  await fixture.package('packages/hub', { name: '@fixture/hub' });
+  await fixture.package('apps/slive', { name: '@fixture/stage' });
+  await fixture.package('packages/slidock', { name: '@fixture/hub' });
   await fixture.file(
-    'apps/stage/src/RemoteScript.vue',
-    '<script lang="ts" src="../../../packages/hub/src/boot.ts"></script>\n<template><div /></template>\n',
+    'apps/slive/src/RemoteScript.vue',
+    '<script lang="ts" src="../../../packages/slidock/src/boot.ts"></script>\n<template><div /></template>\n',
   );
   await fixture.file(
-    'packages/hub/src/boot.ts',
+    'packages/slidock/src/boot.ts',
     "import { readFile } from 'node:fs';\nexport const boot = readFile;\n",
   );
 
@@ -265,14 +265,14 @@ test('follows a Vue script src to detect a transitive Node builtin', async (t) =
     result.violations.some(
       (violation) =>
         violation.rule === 'production-node-builtin' &&
-        violation.file === 'packages/hub/src/boot.ts' &&
+        violation.file === 'packages/slidock/src/boot.ts' &&
         violation.specifier === 'node:fs',
     ),
   );
   assert.ok(
     result.violations.some(
       (violation) =>
-        violation.file === 'apps/stage/src/RemoteScript.vue' &&
+        violation.file === 'apps/slive/src/RemoteScript.vue' &&
         violation.rule === 'cross-package-relative-import',
     ),
   );
@@ -280,34 +280,34 @@ test('follows a Vue script src to detect a transitive Node builtin', async (t) =
 
 test('turns Vue template assets and template src into package dependency edges', async (t) => {
   const fixture = await makeFixture(t);
-  await fixture.package('apps/stage', { name: '@fixture/stage' });
-  await fixture.package('packages/hub', { name: '@fixture/hub' });
+  await fixture.package('apps/slive', { name: '@fixture/stage' });
+  await fixture.package('packages/slidock', { name: '@fixture/hub' });
   await fixture.file(
-    'apps/stage/src/TemplateAsset.vue',
-    '<template><img src="../../../packages/hub/frontend/asset.svg"></template>\n',
+    'apps/slive/src/TemplateAsset.vue',
+    '<template><img src="../../../packages/slidock/frontend/asset.svg"></template>\n',
   );
   await fixture.file(
-    'apps/stage/src/ExternalTemplate.vue',
-    '<template src="../../../packages/hub/frontend/template.html"></template>\n',
+    'apps/slive/src/ExternalTemplate.vue',
+    '<template src="../../../packages/slidock/frontend/template.html"></template>\n',
   );
   await fixture.file(
-    'packages/hub/frontend/asset.svg',
+    'packages/slidock/frontend/asset.svg',
     '<svg xmlns="http://www.w3.org/2000/svg"/>\n',
   );
-  await fixture.file('packages/hub/frontend/template.html', '<img src="./asset.svg">\n');
+  await fixture.file('packages/slidock/frontend/template.html', '<img src="./asset.svg">\n');
 
   const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
   assert.ok(
     result.violations.some(
       (violation) =>
-        violation.file === 'apps/stage/src/TemplateAsset.vue' &&
+        violation.file === 'apps/slive/src/TemplateAsset.vue' &&
         violation.rule === 'cross-package-relative-import',
     ),
   );
   assert.ok(
     result.violations.some(
       (violation) =>
-        violation.file === 'apps/stage/src/ExternalTemplate.vue' &&
+        violation.file === 'apps/slive/src/ExternalTemplate.vue' &&
         violation.rule === 'cross-package-relative-import',
     ),
   );
@@ -315,37 +315,40 @@ test('turns Vue template assets and template src into package dependency edges',
 
 test('follows Vue style src and CSS @import dependency edges', async (t) => {
   const fixture = await makeFixture(t);
-  await fixture.package('apps/stage', { name: '@fixture/stage' });
-  await fixture.package('packages/hub', { name: '@fixture/hub' });
+  await fixture.package('apps/slive', { name: '@fixture/stage' });
+  await fixture.package('packages/slidock', { name: '@fixture/hub' });
   await fixture.file(
-    'apps/stage/src/Styled.vue',
+    'apps/slive/src/Styled.vue',
     '<template><div class="styled" /></template>\n<style src="./styles.css"></style>\n',
   );
   await fixture.file(
-    'apps/stage/src/DirectStyle.vue',
-    '<template><div class="direct-style" /></template>\n<style src="../../../packages/hub/frontend/direct-theme.css"></style>\n',
+    'apps/slive/src/DirectStyle.vue',
+    '<template><div class="direct-style" /></template>\n<style src="../../../packages/slidock/frontend/direct-theme.css"></style>\n',
   );
   await fixture.file(
-    'apps/stage/src/styles.css',
-    '@import "../../../packages/hub/frontend/theme.css";\n.styled { color: red; }\n',
+    'apps/slive/src/styles.css',
+    '@import "../../../packages/slidock/frontend/theme.css";\n.styled { color: red; }\n',
   );
-  await fixture.file('packages/hub/frontend/theme.css', '.theme { color: blue; }\n');
-  await fixture.file('packages/hub/frontend/direct-theme.css', '.direct-style { color: green; }\n');
+  await fixture.file('packages/slidock/frontend/theme.css', '.theme { color: blue; }\n');
+  await fixture.file(
+    'packages/slidock/frontend/direct-theme.css',
+    '.direct-style { color: green; }\n',
+  );
 
   const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
   assert.ok(
     result.violations.some(
       (violation) =>
-        violation.file === 'apps/stage/src/styles.css' &&
-        violation.specifier === '../../../packages/hub/frontend/theme.css' &&
+        violation.file === 'apps/slive/src/styles.css' &&
+        violation.specifier === '../../../packages/slidock/frontend/theme.css' &&
         violation.rule === 'cross-package-relative-import',
     ),
   );
   assert.ok(
     result.violations.some(
       (violation) =>
-        violation.file === 'apps/stage/src/DirectStyle.vue' &&
-        violation.specifier === '../../../packages/hub/frontend/direct-theme.css' &&
+        violation.file === 'apps/slive/src/DirectStyle.vue' &&
+        violation.specifier === '../../../packages/slidock/frontend/direct-theme.css' &&
         violation.rule === 'cross-package-relative-import',
     ),
   );
@@ -353,24 +356,24 @@ test('follows Vue style src and CSS @import dependency edges', async (t) => {
 
 test('includes Workers edge entrypoints in the production dependency graph', async (t) => {
   const fixture = await makeFixture(t);
-  await fixture.package('packages/hub', { name: '@fixture/hub' });
-  await fixture.package('apps/hub-worker', {
+  await fixture.package('packages/slidock', { name: '@fixture/hub' });
+  await fixture.package('apps/slidock-worker', {
     name: '@fixture/workers',
   });
   await fixture.file(
-    'apps/hub-worker/src/worker.mjs',
+    'apps/slidock-worker/src/worker.mjs',
     "import { start } from './edge-helper.mjs';\nexport default { fetch: start };\n",
   );
   await fixture.file(
-    'apps/hub-worker/src/edge-helper.mjs',
+    'apps/slidock-worker/src/edge-helper.mjs',
     "import { createServer } from 'node:http';\nexport const start = createServer;\n",
   );
   await fixture.file(
-    'apps/hub-worker/src/compiler.mjs',
+    'apps/slidock-worker/src/compiler.mjs',
     "import { readFile } from 'node:fs';\nexport const compile = readFile;\n",
   );
   await fixture.file(
-    'apps/hub-worker/src/thumbnail.mjs',
+    'apps/slidock-worker/src/thumbnail.mjs',
     "import { Buffer } from 'node:buffer';\nexport const render = Buffer;\n",
   );
 
@@ -399,9 +402,9 @@ test('includes Workers edge entrypoints in the production dependency graph', asy
 
 test('includes Stage src files in the production dependency graph', async (t) => {
   const fixture = await makeFixture(t);
-  await fixture.package('apps/stage', { name: '@fixture/stage' });
+  await fixture.package('apps/slive', { name: '@fixture/stage' });
   await fixture.file(
-    'apps/stage/src/app.ts',
+    'apps/slive/src/app.ts',
     "import { readFile } from 'node:fs';\nexport const load = readFile;\n",
   );
 
@@ -410,7 +413,7 @@ test('includes Stage src files in the production dependency graph', async (t) =>
     result.violations.some(
       (violation) =>
         violation.rule === 'production-node-builtin' &&
-        violation.file === 'apps/stage/src/app.ts' &&
+        violation.file === 'apps/slive/src/app.ts' &&
         violation.specifier === 'node:fs',
     ),
   );
@@ -418,9 +421,9 @@ test('includes Stage src files in the production dependency graph', async (t) =>
 
 test('does not treat a type-only import from a Node builtin as a runtime dependency', async (t) => {
   const fixture = await makeFixture(t);
-  await fixture.package('apps/stage', { name: '@fixture/stage' });
+  await fixture.package('apps/slive', { name: '@fixture/stage' });
   await fixture.file(
-    'apps/stage/src/types.ts',
+    'apps/slive/src/types.ts',
     "import { type Stats } from 'node:fs';\nexport type FileStats = Stats;\n",
   );
 
@@ -560,14 +563,14 @@ test('fails when a migration exception no longer matches a violation', async (t)
 
 test('preserves consumed migration exceptions in the API but fails the CLI gate', async (t) => {
   const fixture = await makeFixture(t);
-  await fixture.package('apps/stage', { name: '@fixture/stage' });
-  await fixture.file('apps/stage/src/index.ts', "import 'node:fs';\n");
+  await fixture.package('apps/slive', { name: '@fixture/stage' });
+  await fixture.file('apps/slive/src/index.ts', "import 'node:fs';\n");
 
   const result = await checkBoundaries({
     root: fixture.root,
     exceptions: [
       {
-        file: 'apps/stage/src/index.ts',
+        file: 'apps/slive/src/index.ts',
         specifier: 'node:fs',
         rule: 'production-node-builtin',
         owner: 'Stage',
@@ -585,10 +588,10 @@ test('preserves consumed migration exceptions in the API but fails the CLI gate'
 
 test('Hub client and frontend source roots independently reject Node imports', async (t) => {
   const fixture = await makeFixture(t);
-  await fixture.package('packages/hub', { name: '@fixture/hub' });
+  await fixture.package('packages/slidock', { name: '@fixture/hub' });
   for (const scope of ['client', 'frontend']) {
     await fixture.file(
-      `packages/hub/src/${scope}/index.ts`,
+      `packages/slidock/src/${scope}/index.ts`,
       "export { readFile } from 'node:fs/promises';\n",
     );
   }
@@ -596,35 +599,35 @@ test('Hub client and frontend source roots independently reject Node imports', a
   assert.deepEqual(
     result.violations.map(({ rule, file }) => ({ rule, file })),
     [
-      { rule: 'production-node-builtin', file: 'packages/hub/src/client/index.ts' },
-      { rule: 'production-node-builtin', file: 'packages/hub/src/frontend/index.ts' },
+      { rule: 'production-node-builtin', file: 'packages/slidock/src/client/index.ts' },
+      { rule: 'production-node-builtin', file: 'packages/slidock/src/frontend/index.ts' },
     ],
   );
 });
 
 test('bundler queries preserve public CSS exports without hiding private or relative imports', async (t) => {
   const fixture = await makeFixture(t);
-  await fixture.package('packages/hub', {
+  await fixture.package('packages/slidock', {
     name: '@fixture/hub',
     exports: { './frontend/style.css': './src/frontend/style.css' },
   });
-  await fixture.file('packages/hub/src/frontend/style.css', '.library { color: black; }');
-  await fixture.package('apps/stage', {
+  await fixture.file('packages/slidock/src/frontend/style.css', '.library { color: black; }');
+  await fixture.package('apps/slive', {
     name: '@fixture/stage',
     dependencies: { '@fixture/hub': 'workspace:*' },
   });
   await fixture.file(
-    'apps/stage/src/main.ts',
+    'apps/slive/src/main.ts',
     "import styles from '@fixture/hub/frontend/style.css?inline';\nexport { styles };\n",
   );
   assert.deepEqual((await checkBoundaries({ root: fixture.root, exceptions: [] })).violations, []);
   await fixture.file(
-    'apps/stage/src/private.ts',
+    'apps/slive/src/private.ts',
     "import '@fixture/hub/src/frontend/style.css?inline';\n",
   );
   await fixture.file(
-    'apps/stage/src/relative.ts',
-    "import '../../../packages/hub/src/frontend/style.css?inline';\n",
+    'apps/slive/src/relative.ts',
+    "import '../../../packages/slidock/src/frontend/style.css?inline';\n",
   );
   const result = await checkBoundaries({ root: fixture.root, exceptions: [] });
   assert.ok(

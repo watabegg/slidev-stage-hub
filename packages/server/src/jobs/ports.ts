@@ -6,7 +6,7 @@ import type {
   JobError,
   StageSnapshot,
   ThumbnailMode,
-} from '@slidev-stage-hub/protocol';
+} from '@slidock/protocol';
 import type { PublicationStore } from '../ports.js';
 import type { ReleaseManifest } from '../manifest.js';
 export const JOB_LEASE_MS = 120_000;

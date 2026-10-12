@@ -4,12 +4,12 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { test } from 'node:test';
-import { inspectDeckSource } from '@slidev-stage-hub/slidev-adapter/inspect-deck';
+import { inspectDeckSource } from '@slidock/slidev-adapter/inspect-deck';
 import {
   assertSupportedVersions,
   loadSlidevParser,
   resolveRuntime,
-} from '@slidev-stage-hub/slidev-adapter/runtime';
+} from '@slidock/slidev-adapter/runtime';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const runtimes = [

@@ -4,8 +4,8 @@ import { repositoryRoot } from './runtime-environment.mjs';
 // Keep the Rust fixture check serial with the package build and JS checks.
 for (const [command, args] of [
   ['pnpm', ['build:packages']],
-  ['pnpm', ['--filter', '@slidev-stage-hub/protocol', 'test']],
-  ['pnpm', ['--filter', '@slidev-stage-hub/slidev-adapter', 'test']],
+  ['pnpm', ['--filter', '@slidock/protocol', 'test']],
+  ['pnpm', ['--filter', '@slidock/slidev-adapter', 'test']],
   ['node', ['--test', 'scripts/wire-contracts.test.mjs']],
   [
     'cargo',
@@ -13,9 +13,9 @@ for (const [command, args] of [
       'test',
       '--locked',
       '--manifest-path',
-      'apps/stage/Cargo.toml',
+      'apps/slive/Cargo.toml',
       '-p',
-      'slidev-native-core',
+      'slive-core',
       '--test',
       'wire_contracts',
     ],

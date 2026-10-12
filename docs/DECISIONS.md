@@ -1,12 +1,12 @@
 # 設計判断記録
 
-リポジトリ `watabegg/slidev-stage-hub` は、Slidev によるプレゼンテーションの作成、実行、配信を統合する基盤である。本リポジトリは公開ソースコードとして開発中であり、npm レジストリへのパッケージ登録や各 OS 向けネイティブバイナリの一般配布、ライセンス選定は未完了の開発中プロジェクトである。本書では、本システムのアーキテクチャにおける主要な技術的判断、採用理由、およびそれに伴う制約やトレードオフを記録する。
+リポジトリ `watabegg/slidock` は、Slidev によるプレゼンテーションの作成、実行、配信を統合する基盤である。本リポジトリは公開ソースコードとして開発中であり、npm レジストリへのパッケージ登録や各 OS 向けネイティブバイナリの一般配布、ライセンス選定は未完了の開発中プロジェクトである。本書では、本システムのアーキテクチャにおける主要な技術的判断、採用理由、およびそれに伴う制約やトレードオフを記録する。
 
 ---
 
 ## 1. モノレポ構造と実行環境ごとの責務分離
 
-pnpm ワークスペースによるモノレポ構成を採用し、実行基盤ごとに責務を物理的に分離している。デスクトップ表示環境の `apps/stage` では Rust core を状態の正本（Single Source of Truth）とし、`src-tauri` がホスト側の入出力、認証、発表者ノート処理を担当し、`src` の TypeScript コードは表示フレームと UI 操作に特化する。`packages/hub` は Slidev のビルド処理、画面描画を伴わないヘッドレスクライアント、任意の Vue フロントエンド実装を提供する。エッジ環境の `apps/hub-worker` には Cloudflare Workers 向け実装、ブラウザランタイム、ビルド用 Node スクリプトを配置する。共通層には純粋な通信規約を定義する `packages/protocol`（contracts と bridge）、解析・パッチおよび `/clicks` 処理を担う `packages/slidev-adapter`、環境準備・接続・設定サービスを提供する `packages/stage-tools`、薄い CLI アダプターである `packages/cli` を設けている。
+pnpm ワークスペースによるモノレポ構成を採用し、実行基盤ごとに責務を物理的に分離している。デスクトップ表示環境の `apps/slive` では Rust core を状態の正本（Single Source of Truth）とし、`src-tauri` がホスト側の入出力、認証、発表者ノート処理を担当し、`src` の TypeScript コードは表示フレームと UI 操作に特化する。`packages/slidock` は Slidev のビルド処理、画面描画を伴わないヘッドレスクライアント、任意の Vue フロントエンド実装を提供する。エッジ環境の `apps/slidock-worker` には Cloudflare Workers 向け実装、ブラウザランタイム、ビルド用 Node スクリプトを配置する。共通層には純粋な通信規約を定義する `packages/protocol`（contracts と bridge）、解析・パッチおよび `/clicks` 処理を担う `packages/slidev-adapter`、環境準備・接続・設定サービスを提供する `packages/slive-tools`、薄い CLI アダプターである `packages/cli` を設けている。
 
 デスクトップ実行、Web ビルド、エッジ配信、共通プロトコル定義では求められる実行要件が異なる。境界を物理的に分けることで、特定環境に依存したコードが他方へ漏れ出す事態を防ぎ、安全なモジュール構造を維持するためである。
 
@@ -36,7 +36,7 @@ pnpm ワークスペースによるモノレポ構成を採用し、実行基盤
 
 ## 4. 発表者ノートの秘匿と端末ローカル管理
 
-公開用の配信マニフェストには、ローカル環境のファイルパスや私有の発表者ノートを一切含めず、非公開レシート（private receipt）と Stage 側の内部管理領域に完全に分離する。ローカル資料のノート更新は、あらかじめ指定された許可ルートディレクトリ内に存在し、ハッシュ照合が一致する場合に限り、各スライド末尾の既存コメントブロックを上書き更新する。リモートから取得した資料のノートは、オリジン、資料 ID、ページ番号ごとに端末内のローカルサイドカー領域にのみ保存し、ネットワーク外部へ送信しない。スライド操作は単純なクリック構文のみに対応し、複雑な構文のネイティブ対応は保守的に拒否する。Web 側で表示可能な表現とネイティブ側で安全に扱える構文を混同しない。
+公開用の配信マニフェストには、ローカル環境のファイルパスや私有の発表者ノートを一切含めず、非公開レシート（private receipt）と Slive 側の内部管理領域に完全に分離する。ローカル資料のノート更新は、あらかじめ指定された許可ルートディレクトリ内に存在し、ハッシュ照合が一致する場合に限り、各スライド末尾の既存コメントブロックを上書き更新する。リモートから取得した資料のノートは、オリジン、資料 ID、ページ番号ごとに端末内のローカルサイドカー領域にのみ保存し、ネットワーク外部へ送信しない。スライド操作は単純なクリック構文のみに対応し、複雑な構文のネイティブ対応は保守的に拒否する。Web 側で表示可能な表現とネイティブ側で安全に扱える構文を混同しない。
 
 登壇用の非公開メモや作業ファイルパスが外部へ流出するセキュリティ事故を防ぎ、構文解釈の破綻による表示不具合を未然に防ぐためである。
 
@@ -46,7 +46,7 @@ pnpm ワークスペースによるモノレポ構成を採用し、実行基盤
 
 ## 5. CLI プロセスの独立性とヘッドレス Web クライアント設計
 
-Stage および Hub の主要ロジックを、CLI 実行プロセスから独立したライブラリ構造として実装している。CLI ツール内では、設定基準ディレクトリ（settings root）と作業ディレクトリ（cwd）からの相対引数を明確に区別してパスを解決する。外部検証用としてプライベート tarball を用い、公開コマンド名として `hub` および `stage` を提供する。Web 向けには、画面描画を伴わないヘッドレスな `CatalogSource` およびクライアントを提供し、Vue 用のコンポーネントマウント（`mountHub` や `mountNavigation`）を任意利用の拡張として位置づける。エントリーポイント、スタイルシート、データ取得元は自由に差し替え可能とし、無条件な DOM マウントやグローバル CSS の適用を排除して UI コードの重複を避ける。
+Slive および Slidock の主要ロジックを、CLI 実行プロセスから独立したライブラリ構造として実装している。CLI ツール内では、設定基準ディレクトリ（settings root）と作業ディレクトリ（cwd）からの相対引数を明確に区別してパスを解決する。外部検証用としてプライベート tarball を用い、公開コマンド名として `slidock` および `slive` を提供する。Web 向けには、画面描画を伴わないヘッドレスな `CatalogSource` およびクライアントを提供し、Vue 用のコンポーネントマウント（`mountHub` や `mountNavigation`）を任意利用の拡張として位置づける。エントリーポイント、スタイルシート、データ取得元は自由に差し替え可能とし、無条件な DOM マウントやグローバル CSS の適用を排除して UI コードの重複を避ける。
 
 CLI 実行時の作業ディレクトリの違いによるパス解決の誤りを防ぐとともに、Web アプリケーション側で独自の UI やスタイルへ安全に組み込める柔軟性を確保するためである。
 
@@ -56,7 +56,7 @@ CLI 実行時の作業ディレクトリの違いによるパス解決の誤り�
 
 ## 6. Workers R2 と Durable Objects によるアトミック配信とリビジョン固定
 
-Cloudflare Workers 上で、R2（静的アセット保管用 FILES）と Durable Objects（DeckVersions migration v1 によるバージョン管理 VERSIONS）を組み合わせた配信基盤を採用している。公開フローは「begin（公開開始宣言）→ アーティファクトとマニフェストの配置 → インデックスマーカー作成 → commit（公開確定）」の順序を強制する。最新の begin セッションのみが commit を実行でき、途中で失敗した場合は現在の配信バージョンを維持する。各リリースは内容に基づく SHA-256 ハッシュをリビジョン識別子として管理するが、ハッシュ値自体が改ざん不能性を保証するものではない。また、失敗時に現在の配信バージョンを維持する仕組みはあるものの、過去バージョンへ任意に戻すロールバック機能は未実装である。Stage の native-player v2 では、`native-player.json` において `playback.kind = "revision-query"`、パラメータ名 `revision` を指定して接続中リビジョンを固定する。接続中に新しい版が公開されても接続先リビジョンは維持され、再接続前に新バージョンを通知する機能はない。新しいリビジョンを採用して再接続した際に、既存ノートとリビジョンの不一致に関する警告を表示する。カタログ API（Catalog v1）は全ページを順次取得し、Bridge v1 および設定スキーマ（config v1）の後方互換性を不変として維持する。動的モジュール読み込みは、同一オリジンかつ不変リビジョンを検証する URL ガードで保護する。
+Cloudflare Workers 上で、R2（静的アセット保管用 FILES）と Durable Objects（DeckVersions migration v1 によるバージョン管理 VERSIONS）を組み合わせた配信基盤を採用している。公開フローは「begin（公開開始宣言）→ アーティファクトとマニフェストの配置 → インデックスマーカー作成 → commit（公開確定）」の順序を強制する。最新の begin セッションのみが commit を実行でき、途中で失敗した場合は現在の配信バージョンを維持する。各リリースは内容に基づく SHA-256 ハッシュをリビジョン識別子として管理するが、ハッシュ値自体が改ざん不能性を保証するものではない。また、失敗時に現在の配信バージョンを維持する仕組みはあるものの、過去バージョンへ任意に戻すロールバック機能は未実装である。Slive の native-player v2 では、`native-player.json` において `playback.kind = "revision-query"`、パラメータ名 `revision` を指定して接続中リビジョンを固定する。接続中に新しい版が公開されても接続先リビジョンは維持され、再接続前に新バージョンを通知する機能はない。新しいリビジョンを採用して再接続した際に、既存ノートとリビジョンの不一致に関する警告を表示する。カタログ API（Catalog v1）は全ページを順次取得し、Bridge v1 および設定スキーマ（config v1）の後方互換性を不変として維持する。動的モジュール読み込みは、同一オリジンかつ不変リビジョンを検証する URL ガードで保護する。
 
 登壇中にバックエンドの資料が更新されてアセットの不整合が生じ、スライド表示が破損するトラブルを防止するためである。また、安全で一貫した公開フローを実現するためである。
 
@@ -118,7 +118,7 @@ Cloudflare 環境（Workers、Durable Objects、R2）への過度な依存によ
 
 カスタムアダプターの実装者は、publication commit と job transitions が同じトランザクションに参加する store を用意する必要がある。データベース接続情報を共有するだけでは、公開状態とジョブ状態の原子性は保証されない。first-party store は terminal publication finish と同じトランザクションで、デッキ単位の cleanup 要求を記録する。Node worker と既存の Cloudflare alarm がこの要求を消化し、最大100件の terminal leaf job と最大100件の private input deletion をデッキごとにローリング24時間あたり1回処理する。残作業や失敗は保留され、次の日次枠で再試行する。外部 queue、cron、global periodic sweep は設けず、optional な `PublicationJobMaintenanceStore.automatic` port により custom store のソース互換性を保つ。
 
-完了から30日を経た job と未参照 private input は、恒久 tombstone と durable input-delete outbox を使って整理する。公開リリースと runtime は対象外である。導入時点ですでに完了している履歴は自動要求に登録されないため、後続 publication がないデッキやすぐ整理する場合は認証付きの上限付き `hub jobs cleanup` を使う。この手動経路は自動処理の日次枠を消費しない。クラウド実デプロイと live acceptance は未実施であり、保持契約と検証状況は[公開ジョブガイド](guides/publication-jobs.md)および[自動保持記録](results/publication-jobs-auto-retention.json)を参照してください。
+完了から30日を経た job と未参照 private input は、恒久 tombstone と durable input-delete outbox を使って整理する。公開リリースと runtime は対象外である。導入時点ですでに完了している履歴は自動要求に登録されないため、後続 publication がないデッキやすぐ整理する場合は認証付きの上限付き `slidock jobs cleanup` を使う。この手動経路は自動処理の日次枠を消費しない。クラウド実デプロイと live acceptance は未実施であり、保持契約と検証状況は[公開ジョブガイド](guides/publication-jobs.md)および[自動保持記録](results/publication-jobs-auto-retention.json)を参照してください。
 
 ## 検証記録と過去の技術資料
 
@@ -126,22 +126,28 @@ Cloudflare 環境（Workers、Durable Objects、R2）への過度な依存によ
 本設計に基づく実装の動作確認状況は、[最終回帰](results/final-regression.json) に記録されている。
 - Node.js: 203 件
 - Rust: 42 件
-- Workers / Stage: 27 件
-- 静的 Stage: 18 件（native assertions）
+- Workers / Slive: 27 件
+- 静的 Slive: 18 件（native assertions）
 
 > [!NOTE]
 > 上記の検証数値はローカル開発環境における測定結果であり、CI 環境での実行成功を証明するものではありません。
 
 ### 過去の技術資料（Git 履歴参照）
 設計の変遷や初期の実験記録は、リポジトリの Git 履歴（コミット `c16f72f`）から参照できる。公開ツリーに旧計画や個別レポートを重複掲載することは避け、以下の履歴リンクへ集約している。
-- [整理前の設計資料](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/docs)
-- [バンドル共有の実験結果](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/packages/hub/bundle-sharing/results)
-- [Stage 初期検証記録](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/apps/stage/results)
-- [旧比較ハーネス](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/packages/hub/bundle-sharing)
-- [過去版 Stage の比較用コピー](https://github.com/watabegg/slidev-stage-hub/tree/c16f72f/examples/legacy-native-baseline)
+- [整理前の設計資料](https://github.com/watabegg/slidock/tree/c16f72f/docs)
+- [バンドル共有の実験結果](https://github.com/watabegg/slidock/tree/c16f72f/packages/hub/bundle-sharing/results)
+- [Slive 初期検証記録](https://github.com/watabegg/slidock/tree/c16f72f/apps/stage/results)
+- [旧比較ハーネス](https://github.com/watabegg/slidock/tree/c16f72f/packages/hub/bundle-sharing)
+- [過去版 Slive の比較用コピー](https://github.com/watabegg/slidock/tree/c16f72f/examples/legacy-native-baseline)
 
-## 11. Stage の資料一覧と発表操作
+## 11. Slive の資料一覧と発表操作
 
-Stage はサムネイルと公開 frontmatter を使う資料一覧から開く。既存の Hub カタログクライアントで全ページを検証・取得し、接続時の資料レジストリに含まれる資料だけを選択可能にする。カタログ取得はホストが固定した通信先を使い、認証付き接続では既存プロキシを通す。一覧の取得に失敗した場合も資料 ID から開けるようにする。
+Slive はサムネイルと公開 frontmatter を使う資料一覧から開く。既存の Slidock カタログクライアントで全ページを検証・取得し、接続時の資料レジストリに含まれる資料だけを選択可能にする。カタログ取得はホストが固定した通信先を使い、認証付き接続では既存プロキシを通す。一覧の取得に失敗した場合も資料 ID から開けるようにする。
 
 発表中の誤操作を減らすため、スライド本文のクリックでは進めず、明示的な操作ボタンとキーボードを使う。アプリの外枠は OS に依存しない明るい配色とし、操作アイコンにはアクセシブルな名前と補足を付ける。ノートの保存契約は変更せず、ローカル資料の既存ノートがないページは編集不可とする。保存先は保存ボタンの補足に示し、内部エラーや通信状態を通常画面へ常時表示しない。
+
+## 12. Slidock / Slive への名称統一
+
+Web・配信基盤を Slidock、Native アプリを Slive、リポジトリを `watabegg/slidock` とする。主要ディレクトリと npm の名前空間を `packages/slidock`、`apps/slive`、`packages/slive-tools`、`apps/slidock-worker`、`apps/slidock-server`、`@slidock/*` に統一し、CLI の正式名を `slidock` / `slive` に変更する。旧 `hub` / `stage` は互換エイリアスとして残す。
+
+既存データの移行を伴わせないため、`HUB_*` 環境変数、HTTP パス・ヘッダー・JSON 契約、`mountHub` などの公開 API 識別子、既存設定ファイル名、`.slidev-stage` と受付票の保存先、Tauri identifier `local.slidev.lab`、クラウドリソース名は維持する。過去の検証記録内の名称とパスは当時の証跡として保存する。アイコンと favicon は別途選定する。

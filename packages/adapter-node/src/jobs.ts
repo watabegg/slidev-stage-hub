@@ -7,10 +7,10 @@ import type {
   PendingJobInputDelete,
   PublicationJobRecord,
   PublicationJobStore,
-} from '@slidev-stage-hub/server';
-import { JOB_CLEANUP_INTERVAL_MS } from '@slidev-stage-hub/server';
-import { isJobId, type JobSnapshot } from '@slidev-stage-hub/protocol';
-import { isDeckId } from '@slidev-stage-hub/server/catalog';
+} from '@slidock/server';
+import { JOB_CLEANUP_INTERVAL_MS } from '@slidock/server';
+import { isJobId, type JobSnapshot } from '@slidock/protocol';
+import { isDeckId } from '@slidock/server/catalog';
 import { createMemoryPublicationStoreWithState } from './publication-store.js';
 
 type MemoryState = Parameters<typeof createMemoryPublicationStoreWithState>[0] & {

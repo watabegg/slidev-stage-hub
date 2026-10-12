@@ -3,7 +3,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { build } from 'esbuild';
-import { validatePlayerDocument } from '@slidev-stage-hub/protocol';
+import { validatePlayerDocument } from '@slidock/protocol';
 import { repositoryRoot } from './runtime-environment.mjs';
 
 for (const schemaVersion of [1, 2]) {
@@ -43,7 +43,7 @@ for (const platform of ['browser', 'neutral']) {
     const result = await build({
       absWorkingDir: repositoryRoot,
       stdin: {
-        contents: "export * from '@slidev-stage-hub/protocol';",
+        contents: "export * from '@slidock/protocol';",
         resolveDir: repositoryRoot,
         sourcefile: 'contract-consumer.js',
       },
@@ -72,7 +72,7 @@ for (const platform of ['browser', 'neutral']) {
 
 test('bridge export remains a standalone classic script', async () => {
   const bridge = await readFile(
-    fileURLToPath(import.meta.resolve('@slidev-stage-hub/protocol/bridge')),
+    fileURLToPath(import.meta.resolve('@slidock/protocol/bridge')),
     'utf8',
   );
   assert.doesNotMatch(bridge, /^\s*(?:import|export)\s/m);
@@ -83,7 +83,7 @@ test('bridge export remains a standalone classic script', async () => {
 
 test('protocol no longer exposes the Node-only parsing and manifest APIs', () => {
   for (const subpath of ['inspect-deck', 'native-player']) {
-    assert.throws(() => import.meta.resolve(`@slidev-stage-hub/protocol/${subpath}`), {
+    assert.throws(() => import.meta.resolve(`@slidock/protocol/${subpath}`), {
       code: 'ERR_PACKAGE_PATH_NOT_EXPORTED',
     });
   }

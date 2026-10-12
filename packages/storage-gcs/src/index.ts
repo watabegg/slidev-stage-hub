@@ -6,7 +6,7 @@ import type {
   ArtifactMetadata,
   ArtifactObject,
   ArtifactStore,
-} from '@slidev-stage-hub/server';
+} from '@slidock/server';
 
 export interface GcsArtifactStoreOptions {
   bucket: string;

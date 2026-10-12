@@ -16,7 +16,7 @@ import type {
   ArtifactMetadata,
   ArtifactObject,
   ArtifactStore,
-} from '@slidev-stage-hub/server';
+} from '@slidock/server';
 
 export interface S3ArtifactClient {
   send(command: DeleteObjectCommand): Promise<DeleteObjectCommandOutput>;

@@ -6,7 +6,7 @@ import {
   isJobViewToken,
   isTerminalJobStatus,
   type JobSnapshot,
-} from '@slidev-stage-hub/protocol';
+} from '@slidock/protocol';
 import { WorkerError } from '../errors.js';
 import { isDeckId } from '../catalog.js';
 import { isRecord } from '../manifest.js';

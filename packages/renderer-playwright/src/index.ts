@@ -1,11 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import { isAbsolute } from 'node:path';
 import { chromium, type Browser, type BrowserContext } from 'playwright-core';
-import {
-  ThumbnailError,
-  validatePng,
-  type ThumbnailErrorCode,
-} from '@slidev-stage-hub/server/thumbnail';
+import { ThumbnailError, validatePng, type ThumbnailErrorCode } from '@slidock/server/thumbnail';
 
 const DEFAULT_TIMEOUT_MS = 90_000;
 const MAX_TIMEOUT_MS = 90_000;

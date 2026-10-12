@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { NativeDeck, PlayerDocument } from '@slidev-stage-hub/protocol/contracts';
+import type { NativeDeck, PlayerDocument } from '@slidock/protocol/contracts';
 import { inspectDeckSource, type SlidevParseSync } from './inspect-deck.js';
 
 export type NativeManifestSourceDeck = {

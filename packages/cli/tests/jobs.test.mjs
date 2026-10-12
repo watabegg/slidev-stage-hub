@@ -125,7 +125,7 @@ async function writeHeadersFile(cwd, origin, headers) {
   return filePath;
 }
 
-test('hub init creates a profile without overwriting; doctor checks capabilities only', async () => {
+test('slidock init creates a profile without overwriting; doctor checks capabilities only', async () => {
   await withTempDir(async (cwd) => {
     const stateHome = path.join(cwd, 'state');
     let paths = [];
@@ -233,7 +233,7 @@ test('publish --no-wait stores a private receipt before submit and keeps the tok
         const envelope = jsonOutput(result);
         assert.deepEqual(envelope, {
           ok: true,
-          command: 'hub publish',
+          command: 'slidock publish',
           data: {
             origin,
             jobId: observed.body.jobId,
@@ -522,7 +522,7 @@ test('jobs cleanup defaults to one authenticated dry-run request and never creat
         assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
         assert.deepEqual(jsonOutput(result), {
           ok: true,
-          command: 'hub jobs cleanup',
+          command: 'slidock jobs cleanup',
           data: cleanupResponse({ more: true }),
         });
         assert.deepEqual(observed, {
@@ -535,7 +535,7 @@ test('jobs cleanup defaults to one authenticated dry-run request and never creat
         assert.match(result.stderr, /dry-run for course\/topic \(limit 100\)/u);
         assert.ok(
           result.stderr.includes(
-            `Next action: rerun hub jobs cleanup --id 'course/topic' --origin '${origin}' --headers-file '${path.resolve(cwd, 'auth/headers.json')}' --limit 100 --apply\nReason: to continue the bounded cleanup.\n`,
+            `Next action: rerun slidock jobs cleanup --id 'course/topic' --origin '${origin}' --headers-file '${path.resolve(cwd, 'auth/headers.json')}' --limit 100 --apply\nReason: to continue the bounded cleanup.\n`,
           ),
         );
         await assert.rejects(readdir(path.join(stateHome, 'slidev-stage-hub', 'receipts')), {
@@ -603,7 +603,7 @@ test('cleanup dry-run guidance preserves explicit remote settings and applies pe
         assert.match(result.stderr, /--apply will retry pending input deletion/u);
         assert.ok(
           result.stderr.includes(
-            `Next action: rerun hub jobs cleanup --id 'course/topic' --origin '${origin}' --remote-config 'remote profile.json' --headers-file '${headersPath}' --limit 12 --apply\n`,
+            `Next action: rerun slidock jobs cleanup --id 'course/topic' --origin '${origin}' --remote-config 'remote profile.json' --headers-file '${headersPath}' --limit 12 --apply\n`,
           ),
         );
       },

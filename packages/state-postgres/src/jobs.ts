@@ -11,9 +11,9 @@ import type {
   PendingJobInputDelete,
   PublicationJobRecord,
   PublicationJobStore,
-} from '@slidev-stage-hub/server';
-import { isJobId } from '@slidev-stage-hub/protocol';
-import { isDeckId } from '@slidev-stage-hub/server/catalog';
+} from '@slidock/server';
+import { isJobId } from '@slidock/protocol';
+import { isDeckId } from '@slidock/server/catalog';
 import type {
   JobError,
   JobPhase,
@@ -22,9 +22,9 @@ import type {
   JobSnapshot,
   JobStatus,
   StageSnapshot,
-} from '@slidev-stage-hub/protocol';
-import type { ReleaseManifest } from '@slidev-stage-hub/server';
-import { JOB_CLEANUP_INTERVAL_MS } from '@slidev-stage-hub/server';
+} from '@slidock/protocol';
+import type { ReleaseManifest } from '@slidock/server';
+import { JOB_CLEANUP_INTERVAL_MS } from '@slidock/server';
 import type { Pool, PoolClient } from 'pg';
 
 export const POSTGRES_PUBLICATION_JOBS_SCHEMA = `

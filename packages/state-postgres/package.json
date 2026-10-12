@@ -1,5 +1,5 @@
 {
-  "name": "@slidev-stage-hub/state-postgres",
+  "name": "@slidock/state-postgres",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,8 +15,8 @@
     "test": "pnpm build && node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@slidev-stage-hub/protocol": "workspace:*",
-    "@slidev-stage-hub/server": "workspace:*",
+    "@slidock/protocol": "workspace:*",
+    "@slidock/server": "workspace:*",
     "@types/pg": "8.23.1",
     "pg": "8.23.1"
   },

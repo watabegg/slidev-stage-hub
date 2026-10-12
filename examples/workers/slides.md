@@ -1,10 +1,10 @@
 ---
-title: Workers と Stage
+title: Workers と Slive
 ---
 
-# Workers と Stage
+# Workers と Slive
 
-公開したリビジョンを Web と Stage で再生します。
+公開したリビジョンを Web と Slive で再生します。
 
 ---
 

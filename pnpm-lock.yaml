@@ -116,18 +116,18 @@ importers:
 
   .:
     devDependencies:
-      '@slidev-stage-hub/adapter-node':
+      '@slidock/adapter-node':
         specifier: workspace:*
         version: link:packages/adapter-node
-      '@slidev-stage-hub/hub':
+      '@slidock/slidock':
         specifier: workspace:*
-        version: link:packages/hub
-      '@slidev-stage-hub/protocol':
+        version: link:packages/slidock
+      '@slidock/protocol':
         specifier: workspace:*
         version: link:packages/protocol
-      '@slidev-stage-hub/server-app':
+      '@slidock/server-app':
         specifier: workspace:*
-        version: link:apps/hub-server
+        version: link:apps/slidock-server
       '@slidev/cli':
         specifier: 53.0.0
         version: 53.0.0(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@types/markdown-it@14.2.0)(@types/node@24.10.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(playwright-chromium@1.63.0)(postcss@8.5.28)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)
@@ -171,24 +171,24 @@ importers:
         specifier: 3.3.12
         version: 3.3.12(typescript@6.0.3)
 
-  apps/hub-server:
+  apps/slidock-server:
     dependencies:
-      '@slidev-stage-hub/adapter-node':
+      '@slidock/adapter-node':
         specifier: workspace:*
         version: link:../../packages/adapter-node
-      '@slidev-stage-hub/renderer-playwright':
+      '@slidock/renderer-playwright':
         specifier: workspace:*
         version: link:../../packages/renderer-playwright
-      '@slidev-stage-hub/server':
+      '@slidock/server':
         specifier: workspace:*
         version: link:../../packages/server
-      '@slidev-stage-hub/state-postgres':
+      '@slidock/state-postgres':
         specifier: workspace:*
         version: link:../../packages/state-postgres
-      '@slidev-stage-hub/storage-gcs':
+      '@slidock/storage-gcs':
         specifier: workspace:*
         version: link:../../packages/storage-gcs
-      '@slidev-stage-hub/storage-s3':
+      '@slidock/storage-s3':
         specifier: workspace:*
         version: link:../../packages/storage-s3
       pg:
@@ -199,33 +199,33 @@ importers:
         specifier: 8.23.1
         version: 8.23.1
 
-  apps/hub-worker:
+  apps/slidock-worker:
     dependencies:
-      '@slidev-stage-hub/adapter-cloudflare':
+      '@slidock/adapter-cloudflare':
         specifier: workspace:*
         version: link:../../packages/adapter-cloudflare
-      '@slidev-stage-hub/hub':
+      '@slidock/slidock':
         specifier: workspace:*
-        version: link:../../packages/hub
-      '@slidev-stage-hub/protocol':
+        version: link:../../packages/slidock
+      '@slidock/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@slidev-stage-hub/server':
+      '@slidock/server':
         specifier: workspace:*
         version: link:../../packages/server
-      '@slidev-stage-hub/slidev-adapter':
+      '@slidock/slidev-adapter':
         specifier: workspace:*
         version: link:../../packages/slidev-adapter
     devDependencies:
-      '@slidev-stage-hub/adapter-node':
+      '@slidock/adapter-node':
         specifier: workspace:*
         version: link:../../packages/adapter-node
-      '@slidev-stage-hub/server-app':
+      '@slidock/server-app':
         specifier: workspace:*
-        version: link:../hub-server
-      '@slidev-stage-hub/stage-tools':
+        version: link:../slidock-server
+      '@slidock/slive-tools':
         specifier: workspace:*
-        version: link:../../packages/stage-tools
+        version: link:../../packages/slive-tools
       '@slidev/cli':
         specifier: 53.0.0
         version: 53.0.0(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@types/markdown-it@14.2.0)(@types/node@24.10.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(playwright-chromium@1.63.0)(postcss@8.5.28)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)
@@ -251,21 +251,21 @@ importers:
         specifier: 4.149.0
         version: 4.149.0(@cloudflare/workers-types@5.20261010.1)(@types/node@24.10.0)
 
-  apps/stage:
+  apps/slive:
     dependencies:
-      '@slidev-stage-hub/protocol':
+      '@slidock/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@slidev-stage-hub/slidev-adapter':
+      '@slidock/slidev-adapter':
         specifier: workspace:*
         version: link:../../packages/slidev-adapter
-      '@slidev-stage-hub/stage-tools':
+      '@slidock/slive-tools':
         specifier: workspace:*
-        version: link:../../packages/stage-tools
+        version: link:../../packages/slive-tools
     devDependencies:
-      '@slidev-stage-hub/hub':
+      '@slidock/slidock':
         specifier: workspace:*
-        version: link:../../packages/hub
+        version: link:../../packages/slidock
 
   examples/slidev52:
     devDependencies:
@@ -278,7 +278,7 @@ importers:
 
   packages/adapter-cloudflare:
     dependencies:
-      '@slidev-stage-hub/server':
+      '@slidock/server':
         specifier: workspace:*
         version: link:../server
     devDependencies:
@@ -294,10 +294,10 @@ importers:
       '@hono/node-server':
         specifier: 2.1.4
         version: 2.1.4(hono@4.13.13)
-      '@slidev-stage-hub/protocol':
+      '@slidock/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@slidev-stage-hub/server':
+      '@slidock/server':
         specifier: workspace:*
         version: link:../server
     devDependencies:
@@ -310,15 +310,15 @@ importers:
 
   packages/cli:
     dependencies:
-      '@slidev-stage-hub/hub':
+      '@slidock/slidock':
         specifier: workspace:*
-        version: link:../hub
-      '@slidev-stage-hub/protocol':
+        version: link:../slidock
+      '@slidock/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@slidev-stage-hub/stage-tools':
+      '@slidock/slive-tools':
         specifier: workspace:*
-        version: link:../stage-tools
+        version: link:../slive-tools
     devDependencies:
       '@types/node':
         specifier: 24.10.0
@@ -327,12 +327,12 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
-  packages/hub:
+  packages/slidock:
     dependencies:
-      '@slidev-stage-hub/protocol':
+      '@slidock/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@slidev-stage-hub/slidev-adapter':
+      '@slidock/slidev-adapter':
         specifier: workspace:*
         version: link:../slidev-adapter
       '@slidev/cli':
@@ -359,7 +359,7 @@ importers:
 
   packages/renderer-playwright:
     dependencies:
-      '@slidev-stage-hub/server':
+      '@slidock/server':
         specifier: workspace:*
         version: link:../server
       playwright-core:
@@ -378,10 +378,10 @@ importers:
 
   packages/server:
     dependencies:
-      '@slidev-stage-hub/protocol':
+      '@slidock/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@slidev-stage-hub/slidev-adapter':
+      '@slidock/slidev-adapter':
         specifier: workspace:*
         version: link:../slidev-adapter
       '@slidev/parser':
@@ -406,16 +406,16 @@ importers:
 
   packages/slidev-adapter:
     dependencies:
-      '@slidev-stage-hub/protocol':
+      '@slidock/protocol':
         specifier: workspace:*
         version: link:../protocol
 
-  packages/stage-tools:
+  packages/slive-tools:
     dependencies:
-      '@slidev-stage-hub/protocol':
+      '@slidock/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@slidev-stage-hub/slidev-adapter':
+      '@slidock/slidev-adapter':
         specifier: workspace:*
         version: link:../slidev-adapter
       '@slidev/cli':
@@ -427,10 +427,10 @@ importers:
 
   packages/state-postgres:
     dependencies:
-      '@slidev-stage-hub/protocol':
+      '@slidock/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@slidev-stage-hub/server':
+      '@slidock/server':
         specifier: workspace:*
         version: link:../server
       '@types/pg':
@@ -449,7 +449,7 @@ importers:
       '@google-cloud/storage':
         specifier: 8.4.0
         version: 8.4.0(supports-color@10.2.2)
-      '@slidev-stage-hub/server':
+      '@slidock/server':
         specifier: workspace:*
         version: link:../server
     devDependencies:
@@ -462,7 +462,7 @@ importers:
       '@aws-sdk/client-s3':
         specifier: 3.1149.0
         version: 3.1149.0
-      '@slidev-stage-hub/server':
+      '@slidock/server':
         specifier: workspace:*
         version: link:../server
     devDependencies:

@@ -2,7 +2,7 @@
 theme: slidev-theme-watabegg
 title: watabegg 1.2.1 example
 subtitle: Published theme, independent workspace
-author: Slidev Stage / Hub
+author: Slidev Slive / Slidock
 themeConfig:
   watabegg:
     color: blue

@@ -1,5 +1,5 @@
 {
-  "name": "@slidev-stage-hub/renderer-playwright",
+  "name": "@slidock/renderer-playwright",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -18,7 +18,7 @@
     "test": "pnpm build && node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@slidev-stage-hub/server": "workspace:*",
+    "@slidock/server": "workspace:*",
     "playwright-core": "1.63.0"
   },
   "devDependencies": {

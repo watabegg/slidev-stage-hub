@@ -1,4 +1,4 @@
-import type { PublicationStore } from '@slidev-stage-hub/server';
+import type { PublicationStore } from '@slidock/server';
 
 type MemoryPublicationDeckState = { generation: bigint; current: unknown | null };
 type MemoryPublicationState = { decks: Map<string, MemoryPublicationDeckState> };

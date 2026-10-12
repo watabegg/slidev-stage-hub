@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repository = fileURLToPath(new URL('../', import.meta.url));
-export const packageNames = ['protocol', 'slidev-adapter', 'hub', 'stage-tools', 'cli'];
+export const packageNames = ['protocol', 'slidev-adapter', 'slidock', 'slive-tools', 'cli'];
 
 export function runProcess(command, args, { cwd = repository, env = process.env } = {}) {
   return new Promise((accept, reject) => {
@@ -29,7 +29,7 @@ export async function packPackages(destination, names = packageNames) {
   for (const name of names) {
     const directory = join(repository, 'packages', name);
     const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'));
-    const filename = `slidev-stage-hub-${name}-${manifest.version}.tgz`;
+    const filename = `slidock-${name}-${manifest.version}.tgz`;
     const result = await runProcess('pnpm', ['pack', '--out', join(output, 'tarballs', filename)], {
       cwd: directory,
     });
@@ -40,7 +40,7 @@ export async function packPackages(destination, names = packageNames) {
     join(output, 'package.json'),
     JSON.stringify(
       {
-        name: 'stage-hub-private-install',
+        name: 'slidock-private-install',
         private: true,
         type: 'module',
         packageManager: 'pnpm@12.3.4',

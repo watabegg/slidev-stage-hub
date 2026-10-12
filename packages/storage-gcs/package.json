@@ -1,5 +1,5 @@
 {
-  "name": "@slidev-stage-hub/storage-gcs",
+  "name": "@slidock/storage-gcs",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@google-cloud/storage": "8.4.0",
-    "@slidev-stage-hub/server": "workspace:*"
+    "@slidock/server": "workspace:*"
   },
   "devDependencies": {
     "typescript": "6.0.3"

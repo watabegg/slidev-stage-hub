@@ -1,5 +1,5 @@
 {
-  "name": "@slidev-stage-hub/fixture-slidev52",
+  "name": "@slidock/fixture-slidev52",
   "private": true,
   "type": "module",
   "devDependencies": {

@@ -3,14 +3,14 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { resolveRuntime } from '@slidev-stage-hub/slidev-adapter/runtime';
+import { resolveRuntime } from '@slidock/slidev-adapter/runtime';
 import {
   patchSlidevHtmlEntry,
   patchSlidevImageFrontmatter,
   patchStaticRuntimeModule,
   rewriteSlidevImports,
   stripPrivateSlideData,
-} from '@slidev-stage-hub/slidev-adapter/static-runtime';
+} from '@slidock/slidev-adapter/static-runtime';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const dependencyRoots = [repositoryRoot, resolve(repositoryRoot, 'examples/slidev52')];

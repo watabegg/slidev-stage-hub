@@ -1,5 +1,5 @@
 {
-  "name": "@slidev-stage-hub/slidev-adapter",
+  "name": "@slidock/slidev-adapter",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -31,7 +31,7 @@
     "test": "pnpm run build && node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@slidev-stage-hub/protocol": "workspace:*"
+    "@slidock/protocol": "workspace:*"
   },
   "files": [
     "dist"

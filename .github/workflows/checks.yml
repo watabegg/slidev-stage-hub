@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - run: cargo test --locked --manifest-path apps/stage/Cargo.toml -p slidev-native-core -p slidev-native-poc
+      - run: cargo test --locked --manifest-path apps/slive/Cargo.toml -p slive-core -p slive
   native:
     needs: rust-core
     runs-on: ubuntu-24.04
@@ -62,6 +62,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb dbus-x11
           pnpm exec playwright install --with-deps chromium
-      - run: pnpm build:hub
-      - name: Workers and static Stage native regression
-        run: xvfb-run -a dbus-run-session -- sh -c 'pnpm verify:workers-stage && pnpm verify:stage'
+      - run: pnpm build:slidock
+      - name: Workers and static Slive native regression
+        run: xvfb-run -a dbus-run-session -- sh -c 'pnpm verify:workers-slive && pnpm verify:slive'

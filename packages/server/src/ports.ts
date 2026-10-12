@@ -1,4 +1,4 @@
-import type { JobPhase, JobStatus } from '@slidev-stage-hub/protocol';
+import type { JobPhase, JobStatus } from '@slidock/protocol';
 import type { PublicationJobStore } from './jobs/ports.js';
 /** Provider-independent storage metadata; ETags are opaque HTTP entity tags. */
 export interface ArtifactMetadata {

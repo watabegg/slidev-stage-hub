@@ -1,4 +1,4 @@
-import { createCatalogClient, createHttpCatalogSource } from '@slidev-stage-hub/hub/client';
+import { createCatalogClient, createHttpCatalogSource } from '@slidock/slidock/client';
 import './style.css';
 
 const root = document.querySelector('#app')!;

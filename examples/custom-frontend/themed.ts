@@ -1,5 +1,5 @@
-import { mountHub } from '@slidev-stage-hub/hub/frontend';
-import '@slidev-stage-hub/hub/frontend/style.css';
+import { mountHub } from '@slidock/slidock/frontend';
+import '@slidock/slidock/frontend/style.css';
 import './theme.css';
 
 await mountHub('#app', {

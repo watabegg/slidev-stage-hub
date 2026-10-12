@@ -45,7 +45,7 @@ try {
   await writeFile(join(evidence, 'install.log'), installed.stdout + installed.stderr);
   assert.equal(installed.code, 0, installed.stderr);
   for (const name of packageNames) {
-    const actual = await realpath(join(install, 'node_modules/@slidev-stage-hub', name));
+    const actual = await realpath(join(install, 'node_modules/@slidock', name));
     assert.ok(
       !relative(repository, actual)
         .split(sep)
@@ -55,10 +55,12 @@ try {
     assert.ok(actual.startsWith(install + sep), `Package not installed from tarball: ${actual}`);
   }
   checks.push('five private tarballs installed outside workspace without repository symlinks');
+  await cli('slidock', ['--help']);
+  await cli('slive', ['--version']);
   await cli('hub', ['--help']);
   await cli('stage', ['--version']);
-  await cli('hub', ['publish'], 2);
-  await cli('stage', ['prepare', '--unknown-option'], 2);
+  await cli('slidock', ['publish'], 2);
+  await cli('slive', ['prepare', '--unknown-option'], 2);
   const jobsFixture = createServer((request, response) => {
     response.setHeader('content-type', 'application/json');
     if (request.url === '/api/capabilities') {
@@ -81,9 +83,9 @@ try {
   try {
     const jobsOrigin = 'http://127.0.0.1:' + jobsFixture.address().port;
     const remote = join(project, 'packed.remote.json');
-    await cli('hub', ['init', '--origin', jobsOrigin, '--remote-config', remote]);
-    await cli('hub', ['doctor', '--remote-config', remote]);
-    await cli('hub', ['jobs', 'list', '--id', 'packed', '--remote-config', remote]);
+    await cli('slidock', ['init', '--origin', jobsOrigin, '--remote-config', remote]);
+    await cli('slidock', ['doctor', '--remote-config', remote]);
+    await cli('slidock', ['jobs', 'list', '--id', 'packed', '--remote-config', remote]);
     checks.push('packed remote profile, doctor and publication job client run outside workspace');
   } finally {
     await new Promise((resolve) => {
@@ -106,19 +108,19 @@ try {
       ...(chromiumExecutable ? { chromiumExecutable } : {}),
     }),
   );
-  await cli('hub', ['check', '--config', join(project, 'hub.config.json')]);
-  await cli('hub', ['build', '--config', join(project, 'hub.config.json')]);
+  await cli('slidock', ['check', '--config', join(project, 'hub.config.json')]);
+  await cli('slidock', ['build', '--config', join(project, 'hub.config.json')]);
   const site = join(project, 'site');
   const catalog = JSON.parse(await readFile(join(site, 'catalog.json'), 'utf8'));
   assert.equal(catalog.decks.length, 1);
-  await cli('hub', [
+  await cli('slidock', [
     'thumbnail',
     '--site',
     site,
     ...(chromiumExecutable ? ['--chromium-executable', chromiumExecutable] : []),
   ]);
   const config = join(project, '.slidev-stage/local-config.json');
-  await cli('stage', [
+  await cli('slive', [
     'prepare',
     '--site',
     site,
@@ -127,25 +129,28 @@ try {
     '--output-config',
     config,
   ]);
-  await cli('stage', ['doctor', '--output-config', config]);
+  await cli('slive', ['doctor', '--output-config', config]);
   const runtime = JSON.parse(await readFile(config, 'utf8'));
   assert.equal(runtime.schemaVersion, 1);
   assert.ok(runtime.siteRoot.includes(`${sep}versions${sep}`));
   server = spawn(
-    join(install, 'node_modules/.bin/hub'),
+    join(install, 'node_modules/.bin/slidock'),
     ['serve', '--site', site, '--port', '0', '--json'],
     { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] },
   );
   const ready = await new Promise((accept, reject) => {
     let buffer = '';
-    const timer = setTimeout(() => reject(new Error('Packed hub serve readiness timeout')), 15000);
+    const timer = setTimeout(
+      () => reject(new Error('Packed slidock serve readiness timeout')),
+      15000,
+    );
     server.once('error', (error) => {
       clearTimeout(timer);
       reject(error);
     });
     server.once('exit', (code) => {
       clearTimeout(timer);
-      reject(new Error(`Packed hub serve exited (${code})`));
+      reject(new Error(`Packed slidock serve exited (${code})`));
     });
     server.stderr.resume();
     server.stdout.on('data', (data) => {
@@ -163,9 +168,9 @@ try {
   const origin = ready.data.origin ?? ready.data.url;
   assert.equal(typeof origin, 'string');
   assert.equal((await fetch(origin)).status, 200);
-  checks.push('packed hub serve returns site over HTTP');
-  await cli('stage', ['connect', origin, '--output-config', join(project, 'remote.json')]);
-  await cli('stage', ['doctor', '--output-config', join(project, 'remote.json')]);
+  checks.push('packed slidock serve returns site over HTTP');
+  await cli('slive', ['connect', origin, '--output-config', join(project, 'remote.json')]);
+  await cli('slive', ['doctor', '--output-config', join(project, 'remote.json')]);
   const headless = await runProcess(
     process.execPath,
     [
@@ -173,7 +178,7 @@ try {
       '--eval',
       `
     delete globalThis.window; delete globalThis.document; delete globalThis.fetch;
-    const { getCatalog, createPublicationJobClient } = await import('@slidev-stage-hub/hub/client');
+    const { getCatalog, createPublicationJobClient } = await import('@slidock/slidock/client');
     if (typeof createPublicationJobClient !== 'function') throw new Error('Missing publication client export');
     const value = await getCatalog({ load: async () => ({ schemaVersion: 1, decks: [], categories: [] }) });
     if (value.decks.length !== 0) throw new Error('Unexpected catalog');
@@ -186,12 +191,12 @@ try {
   const customEntry = join(install, 'custom.ts');
   await writeFile(
     customEntry,
-    `import { mountHub } from '@slidev-stage-hub/hub/frontend';
-import '@slidev-stage-hub/hub/frontend/style.css';
+    `import { mountHub } from '@slidock/slidock/frontend';
+import '@slidock/slidock/frontend/style.css';
 await mountHub('#app', { navigation: { homeLabel: 'Packed custom frontend' } });
 `,
   );
-  await cli('hub', [
+  await cli('slidock', [
     'build',
     '--config',
     join(project, 'hub.config.json'),

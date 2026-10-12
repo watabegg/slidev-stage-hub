@@ -18,6 +18,6 @@
     "pnpm-lock.yaml",
     "**/*.toml",
     "**/Cargo.lock",
-    "apps/hub-worker/worker-configuration.d.ts"
+    "apps/slidock-worker/worker-configuration.d.ts"
   ]
 }

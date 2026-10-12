@@ -3,8 +3,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-chromium';
-import { buildHub } from '@slidev-stage-hub/hub/node';
-import { createServer } from '@slidev-stage-hub/hub/serve';
+import { buildHub } from '@slidock/slidock/node';
+import { createServer } from '@slidock/slidock/serve';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = resolve(root, 'artifacts/step6');
@@ -48,8 +48,8 @@ const harness = join(output, 'harness.ts');
 await writeFile(
   harness,
   `import ${JSON.stringify(join(root, 'examples/custom-frontend/themed.ts'))};
-import { mountHub } from '@slidev-stage-hub/hub/frontend';
-import { createHttpCatalogSource } from '@slidev-stage-hub/hub/client';
+import { mountHub } from '@slidock/slidock/frontend';
+import { createHttpCatalogSource } from '@slidock/slidock/client';
 import { createApp } from 'vue';
 import Probe from ${JSON.stringify(probe)};
 const probeRoot = document.createElement('div'); document.body.append(probeRoot);

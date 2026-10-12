@@ -1,4 +1,4 @@
-import { isJobId, type JobCleanupResponse } from '@slidev-stage-hub/protocol';
+import { isJobId, type JobCleanupResponse } from '@slidock/protocol';
 import { isDeckId } from '../catalog.js';
 import type { HubServerOptions } from '../ports.js';
 import { JOB_LEASE_MS } from './ports.js';

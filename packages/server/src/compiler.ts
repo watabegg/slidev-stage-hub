@@ -8,7 +8,7 @@ import type { BindingMetadata } from '@vue/compiler-sfc';
 import { createGenerator } from '@unocss/core';
 import { presetWind3 } from '@unocss/preset-wind3';
 import { createMarkdownExit } from 'markdown-exit';
-import { inspectNativeClicks, type SlideContent } from '@slidev-stage-hub/slidev-adapter/clicks';
+import { inspectNativeClicks, type SlideContent } from '@slidock/slidev-adapter/clicks';
 
 const SLIDE_CONTEXT_BINDINGS = {
   $slidev: 'setup-maybe-ref',

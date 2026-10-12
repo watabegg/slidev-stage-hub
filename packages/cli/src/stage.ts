@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
-import { validatePlayerDocument } from '@slidev-stage-hub/protocol/contracts';
-import { normalizeOrigin, readAuthHeadersFile } from '@slidev-stage-hub/stage-tools/node';
-import { connectStage, prepareStage, type StageToolsError } from '@slidev-stage-hub/stage-tools';
+import { validatePlayerDocument } from '@slidock/protocol/contracts';
+import { normalizeOrigin, readAuthHeadersFile } from '@slidock/slive-tools/node';
+import { connectStage, prepareStage, type StageToolsError } from '@slidock/slive-tools';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { type ParseArgsOptionsConfig } from 'node:util';
 import { CliFailure, failInput, failRuntime, type DoctorCheck } from './errors.js';
@@ -151,7 +151,7 @@ async function requireDirectory(path: string, label: string): Promise<void> {
 
 async function runStageDoctor(parsed: ParsedCommand, cwd: string, json: boolean): Promise<void> {
   if (parsed.positionals.length !== 0)
-    failInput('stage doctor does not accept positional arguments');
+    failInput('slive doctor does not accept positional arguments');
   const { settings, settingsDir } = await loadStageSettings(cwd, parsed.values);
   const outputConfig = stagePath(
     optionString(parsed.values, 'output-config'),
@@ -330,7 +330,7 @@ async function runStageDoctor(parsed: ParsedCommand, cwd: string, json: boolean)
   }
 
   const ready = checks.every((check) => check.ok);
-  emitDoctorResult('stage doctor', ready, checks, json);
+  emitDoctorResult('slive doctor', ready, checks, json);
   if (!ready) process.exitCode = 1;
 }
 
@@ -350,7 +350,7 @@ async function runStagePrepareOrConnect(
   )!;
   if (command === 'prepare') {
     if (parsed.positionals.length !== 0)
-      failInput('stage prepare does not accept positional arguments');
+      failInput('slive prepare does not accept positional arguments');
     const site = stagePath(
       optionString(parsed.values, 'site'),
       settings.site,
@@ -399,10 +399,10 @@ async function runStagePrepareOrConnect(
         ...(receiptPath === undefined ? {} : { receiptPath }),
         ...(legacySourceRoot === undefined ? {} : { legacySourceRoot }),
         ...(dependencyRoot === undefined ? {} : { dependencyRoot }),
-        onProgress: ({ phase }) => process.stderr.write(`stage prepare: ${phase}\n`),
+        onProgress: ({ phase }) => process.stderr.write(`slive prepare: ${phase}\n`),
       });
       emitSuccess(
-        'stage prepare',
+        'slive prepare',
         {
           configPath: result.configPath,
           siteRoot: result.siteRoot,
@@ -423,13 +423,13 @@ async function runStagePrepareOrConnect(
   }
 
   if (parsed.positionals.length > 1)
-    failInput('stage connect accepts one origin positional argument');
+    failInput('slive connect accepts one origin positional argument');
   const originFlag = optionString(parsed.values, 'origin');
   const positionalOrigin = parsed.positionals[0];
   if (originFlag !== undefined && positionalOrigin !== undefined)
     failInput('provide the connect origin either positionally or with --origin, not both');
   const rawOrigin = originFlag ?? positionalOrigin ?? (settings.origin as string | undefined);
-  if (rawOrigin === undefined) failInput('stage connect requires an origin or --origin');
+  if (rawOrigin === undefined) failInput('slive connect requires an origin or --origin');
   let origin: string;
   try {
     origin = normalizeOrigin(rawOrigin);
@@ -458,7 +458,7 @@ async function runStagePrepareOrConnect(
     });
     const unsupportedDeckIds = result.unsupportedDecks.map((deck) => deck.id);
     emitSuccess(
-      'stage connect',
+      'slive connect',
       { configPath: result.configPath, deckCount: result.config.decks.length, unsupportedDeckIds },
       json,
       `Connected ${result.config.decks.length} decks at ${result.configPath}`,
@@ -478,7 +478,7 @@ function isStageError(error: unknown): error is StageToolsError {
 
 function stageHelp(): string {
   return [
-    'Usage: stage <prepare|connect|doctor> [options] [origin]',
+    'Usage: slive <prepare|connect|doctor> [options] [origin]',
     '',
     'Commands:',
     '  prepare     Copy a Hub site into a local Stage runtime',
@@ -508,11 +508,11 @@ export async function runStage(
   const parsed = parseCommand('stage', command, args, stageOptions(command));
   const json = optionBoolean(parsed.values, 'json') ?? false;
   if (optionBoolean(parsed.values, 'help')) {
-    emitSuccess(`stage ${command}`, { help: stageHelp() }, json, stageHelp());
+    emitSuccess(`slive ${command}`, { help: stageHelp() }, json, stageHelp());
     return;
   }
   if (optionBoolean(parsed.values, 'version')) {
-    emitSuccess(`stage ${command}`, { version: CLI_VERSION }, json, CLI_VERSION);
+    emitSuccess(`slive ${command}`, { version: CLI_VERSION }, json, CLI_VERSION);
     return;
   }
   if (!['prepare', 'connect', 'doctor'].includes(command))

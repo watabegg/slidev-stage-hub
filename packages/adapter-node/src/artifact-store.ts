@@ -7,7 +7,7 @@ import type {
   ArtifactMetadata,
   ArtifactObject,
   ArtifactStore,
-} from '@slidev-stage-hub/server';
+} from '@slidock/server';
 
 const magic = Buffer.from('SHART\u0001', 'binary');
 

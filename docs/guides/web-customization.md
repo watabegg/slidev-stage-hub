@@ -1,14 +1,14 @@
 # Webクライアントとフロントエンドのカスタマイズ
 
-本ガイドでは、HubにおけるWebクライアント機能およびフロントエンド画面の設計仕様と、独自の画面構成へカスタマイズする手順を説明します。
+本ガイドでは、SlidockにおけるWebクライアント機能およびフロントエンド画面の設計仕様と、独自の画面構成へカスタマイズする手順を説明します。
 
-Hubでは、データ通信と画面描画の責務を分離するため、データ取得を担うクライアント（`packages/hub/src/client`）と、Vueによる描画を担当するフロントエンド（`src/frontend`）を独立させています。クライアント側にはVue、DOM操作、スタイル定義、インポート時の通信処理を含めない設計としており、標準のホーム画面はこれまでの外観および公式Slidevテーマを維持したまま動作します。
+Slidockでは、データ通信と画面描画の責務を分離するため、データ取得を担うクライアント（`packages/slidock/src/client`）と、Vueによる描画を担当するフロントエンド（`src/frontend`）を独立させています。クライアント側にはVue、DOM操作、スタイル定義、インポート時の通信処理を含めない設計としており、標準のホーム画面はこれまでの外観および公式Slidevテーマを維持したまま動作します。
 
 ---
 
-## カタログクライアント（`@slidev-stage-hub/hub/client`）
+## カタログクライアント（`@slidock/slidock/client`）
 
-スライドカタログの取得処理には、プライベートパッケージ `@slidev-stage-hub/hub` の公開サブパスエクスポート `@slidev-stage-hub/hub/client` を使用します。JavaScriptコードと型定義は `dist/client` に配置されています。
+スライドカタログの取得処理には、プライベートパッケージ `@slidock/slidock` の公開サブパスエクスポート `@slidock/slidock/client` を使用します。JavaScriptコードと型定義は `dist/client` に配置されています。
 
 ### データソースとカタログ取得
 
@@ -27,7 +27,7 @@ import {
   createHttpCatalogSource,
   createCatalogClient,
   getCatalog,
-} from '@slidev-stage-hub/hub/client';
+} from '@slidock/slidock/client';
 
 // データソースの生成（URLやfetchは省略可能）
 const source = createHttpCatalogSource({ url: '/catalog.json' });
@@ -44,7 +44,7 @@ const directCatalog = await getCatalog(source);
 
 クライアントはプロトコル検証関数 `validateCatalog` を備えており、`getCatalog` の呼び出しごとにスキーマ仕様（v1）との整合性を検証します。キャッシュ処理は行われません。
 
-公開入口 `@slidev-stage-hub/hub/client` の `createWorkersCatalogSource` は実装済みであり、Workers の `/catalog.json` から全ページを取得して共通 Catalog へ集約します。`CatalogSource` の `load` は protocol v1 の Catalog を返し、`getCatalog` がその内容を検証します。ページネーションの異常や上限超過が発生した場合は、一部のデータのみを暗黙に返すのではなくエラーとして扱います。詳細な仕様については [workers.md](workers.md) を参照してください。
+公開入口 `@slidock/slidock/client` の `createWorkersCatalogSource` は実装済みであり、Workers の `/catalog.json` から全ページを取得して共通 Catalog へ集約します。`CatalogSource` の `load` は protocol v1 の Catalog を返し、`getCatalog` がその内容を検証します。ページネーションの異常や上限超過が発生した場合は、一部のデータのみを暗黙に返すのではなくエラーとして扱います。詳細な仕様については [workers.md](workers.md) を参照してください。
 
 ### エラー処理と中断制御
 
@@ -62,12 +62,12 @@ const directCatalog = await getCatalog(source);
 
 ---
 
-## フロントエンドマウント（`@slidev-stage-hub/hub/frontend`）
+## フロントエンドマウント（`@slidock/slidock/frontend`）
 
-画面描画には、同パッケージの公開サブパスエクスポート `@slidev-stage-hub/hub/frontend` が提供する `mountHub` 関数を使用します。
+画面描画には、同パッケージの公開サブパスエクスポート `@slidock/slidock/frontend` が提供する `mountHub` 関数を使用します。
 
 ```typescript
-import { mountHub } from '@slidev-stage-hub/hub/frontend';
+import { mountHub } from '@slidock/slidock/frontend';
 
 const instance = await mountHub('#app', {
   source: customSource, // 未指定時は /catalog.json を使用
@@ -85,7 +85,7 @@ instance.unmount();
 
 ### フロントエンドの特性と制約
 
-- **ビルド要件**: 本パッケージはTypeScriptおよびVueのソースコードを直接エクスポートしています。個別にフロントエンドのバンドラーを構成する場合はViteおよびVueコンパイラが必要ですが、Hub標準のビルド構成を利用する場合は自動的にコンパイルされます。
+- **ビルド要件**: 本パッケージはTypeScriptおよびVueのソースコードを直接エクスポートしています。個別にフロントエンドのバンドラーを構成する場合はViteおよびVueコンパイラが必要ですが、Slidock標準のビルド構成を利用する場合は自動的にコンパイルされます。
 - **副作用の排除**: パッケージのインポート時に、画面への自動マウントやデータ取得、スタイルシートの自動読み込みといった副作用は発生しません。
 - **エラー処理**: 対象となるDOM要素が存在しない場合やマウントに失敗した場合は、エラーコード `MOUNT` を持つ `FrontendMountError` が送出されます。カタログ取得時のエラーはそのまま上位へ伝播します。
 - **安全な画面描画**: スライドのフロントマター（メタデータ）に含まれるHTMLが意図せず実行されることを防ぐため、レンダラーはVueのテキスト補間を用いて安全に描画します。
@@ -98,7 +98,7 @@ instance.unmount();
 スタイルの適用は任意であり、必要な場合はスタイルシートを明示的にインポートします。
 
 ```typescript
-import '@slidev-stage-hub/hub/frontend/style.css';
+import '@slidock/slidock/frontend/style.css';
 import './my-theme.css'; // 上書き用CSSは基本スタイルの後に読み込む
 ```
 
@@ -125,7 +125,7 @@ import './my-theme.css'; // 上書き用CSSは基本スタイルの後に読み�
 
 ## ビルド設定と独自エントリーポイント
 
-Hubのビルド処理は、Node APIまたは設定ファイル（`hub.config.json`）から構成できます。
+Slidockのビルド処理は、Node APIまたは設定ファイル（`hub.config.json`）から構成できます。
 
 ### 設定インターフェース
 
@@ -144,7 +144,7 @@ Hubのビルド処理は、Node APIまたは設定ファイル（`hub.config.jso
 Node APIから実行する場合は `buildHub` を使用します。
 
 ```typescript
-import { buildHub } from '@slidev-stage-hub/hub';
+import { buildHub } from '@slidock/slidock';
 
 await buildHub({
   baseDir: process.cwd(),
@@ -177,18 +177,18 @@ await buildHub({
 ### エントリーポイントの実装責任
 
 - **デフォルト構成**: `frontendEntry` を指定しない場合、標準の `src/frontend/home.ts`（明示的なCSS読み込みと `mountHub` を実行する構成）が使用されます。
-- **カスタム構成**: 独自のエントリーファイルを指定する場合、マウント処理、スタイルシートの適用、エラー表示UIの実装は開発者側の責任となります。Vueを使用せず、`@slidev-stage-hub/hub/client` と `document.createElement` を組み合わせてフレームワークに依存しない構成を作ることも可能です。
+- **カスタム構成**: 独自のエントリーファイルを指定する場合、マウント処理、スタイルシートの適用、エラー表示UIの実装は開発者側の責任となります。Vueを使用せず、`@slidock/slidock/client` と `document.createElement` を組み合わせてフレームワークに依存しない構成を作ることも可能です。
 
 ---
 
 ## 公開ジョブクライアントと読み取り専用画面
 
-`@slidev-stage-hub/hub/client` は `createPublicationJobClient` を公開し、ジョブの submit、status、list、retry、polling を行います。標準の進捗画面は `@slidev-stage-hub/hub/frontend` の `mountJobStatus` でマウントでき、スタイルは `@slidev-stage-hub/hub/frontend/job-status.css` を明示的に読み込みます。画面は読み取り専用です。
+`@slidock/slidock/client` は `createPublicationJobClient` を公開し、ジョブの submit、status、list、retry、polling を行います。標準の進捗画面は `@slidock/slidock/frontend` の `mountJobStatus` でマウントでき、スタイルは `@slidock/slidock/frontend/job-status.css` を明示的に読み込みます。画面は読み取り専用です。
 
 ```typescript
-import { createPublicationJobClient } from '@slidev-stage-hub/hub/client';
-import { mountJobStatus } from '@slidev-stage-hub/hub/frontend';
-import '@slidev-stage-hub/hub/frontend/job-status.css';
+import { createPublicationJobClient } from '@slidock/slidock/client';
+import { mountJobStatus } from '@slidock/slidock/frontend';
+import '@slidock/slidock/frontend/job-status.css';
 
 const client = createPublicationJobClient({ baseUrl: window.location.origin });
 const unmount = mountJobStatus('#job-status', {
@@ -209,10 +209,10 @@ CLI が出力する確認リンクには view token が URL fragment に含ま�
 pnpm build:packages
 
 # 設定ファイルを指定したサイト構築
-pnpm hub build --config examples/custom-frontend/hub.config.json
+pnpm slidock build --config examples/custom-frontend/hub.config.json
 
 # 構築したサイトのローカル配信
-pnpm hub serve --site artifacts/custom-frontend/site
+pnpm slidock serve --site artifacts/custom-frontend/site
 ```
 
 ### 構成パターンの例
@@ -222,7 +222,7 @@ pnpm hub serve --site artifacts/custom-frontend/site
 
 ```bash
 # CLIオプションで設定ファイルのエントリーポイントを上書き
-pnpm hub build --config examples/custom-frontend/hub.config.json --frontend-entry examples/custom-frontend/themed.ts
+pnpm slidock build --config examples/custom-frontend/hub.config.json --frontend-entry examples/custom-frontend/themed.ts
 ```
 
 デフォルトの構成を利用する場合は、`frontendEntry` を指定せずにそのままビルドできます。

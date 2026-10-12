@@ -1,8 +1,8 @@
 import { chmod, lstat, mkdir, open, readFile, stat } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { readAuthHeadersFile, normalizeOrigin } from '@slidev-stage-hub/stage-tools/node';
-import { isPublicationJobsCapabilities } from '@slidev-stage-hub/protocol/contracts';
-import type { PublicationJobsCapabilities } from '@slidev-stage-hub/protocol/contracts';
+import { readAuthHeadersFile, normalizeOrigin } from '@slidock/slive-tools/node';
+import { isPublicationJobsCapabilities } from '@slidock/protocol/contracts';
+import type { PublicationJobsCapabilities } from '@slidock/protocol/contracts';
 import { failInput, failRuntime } from './errors.js';
 import { isRecord, optionString, type ParsedCommand } from './args.js';
 
@@ -122,7 +122,7 @@ export async function loadHubRemoteSettings(
   }
   if (options.requireProfile && !exists)
     failInput(
-      'Hub remote config does not exist; run hub init --origin URL',
+      'Hub remote config does not exist; run slidock init --origin URL',
       'REMOTE_CONFIG_REQUIRED',
     );
   if (explicitConfig !== undefined && !exists)

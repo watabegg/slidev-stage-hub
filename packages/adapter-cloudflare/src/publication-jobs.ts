@@ -7,7 +7,7 @@ import type {
   PublicationJobMaintenanceStore,
   PublicationJobRecord,
   PublicationJobStore,
-} from '@slidev-stage-hub/server';
+} from '@slidock/server';
 
 /** RPC methods implemented by the existing DeckVersions class. */
 export interface DeckVersionsCoordinator extends Rpc.DurableObjectBranded {

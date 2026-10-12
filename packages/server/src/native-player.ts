@@ -1,4 +1,4 @@
-import type { NativeDeckPlayback, PlayerDocumentV2 } from '@slidev-stage-hub/protocol/contracts';
+import type { NativeDeckPlayback, PlayerDocumentV2 } from '@slidock/protocol/contracts';
 import { WorkerError } from './errors.js';
 import { isRecord, type ReleaseManifest } from './manifest.js';
 import { loadCurrentManifests, readIndexPage } from './catalog.js';

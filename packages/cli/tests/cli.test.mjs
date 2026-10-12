@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const hubBin = path.join(packageRoot, 'dist/bin/hub.js');
-const stageBin = path.join(packageRoot, 'dist/bin/stage.js');
+const hubBin = path.join(packageRoot, 'dist/bin/slidock.js');
+const stageBin = path.join(packageRoot, 'dist/bin/slive.js');
 
 async function withTempDir(run) {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'slidev-stage-hub-cli-'));
@@ -49,8 +49,8 @@ function jsonOutput(result) {
 test('both bins provide help and version in the JSON envelope', async () => {
   await withTempDir(async (cwd) => {
     for (const [bin, args, label] of [
-      [hubBin, ['--help', '--json'], 'hub'],
-      [stageBin, ['--json', '--version'], 'stage'],
+      [hubBin, ['--help', '--json'], 'slidock'],
+      [stageBin, ['--json', '--version'], 'slive'],
     ]) {
       const result = run(bin, args, cwd);
       assert.equal(result.status, 0, result.stderr);
@@ -84,7 +84,7 @@ test('invalid arguments return input exit code without creating build outputs', 
     assert.equal(result.status, 2);
     const envelope = jsonOutput(result);
     assert.equal(envelope.ok, false);
-    assert.equal(envelope.command, 'hub build');
+    assert.equal(envelope.command, 'slidock build');
     assert.equal(envelope.error.code, 'INVALID_ARGUMENTS');
     assert.equal(`${result.stdout}${result.stderr}`.includes('PRIVATE_VALUE'), false);
     await assert.rejects(readFile(path.join(cwd, 'dist')));
@@ -94,10 +94,10 @@ test('invalid arguments return input exit code without creating build outputs', 
 test('unknown top-level commands and misplaced positionals fail in JSON mode', async () => {
   await withTempDir(async (cwd) => {
     for (const [bin, args, command] of [
-      [hubBin, ['--json', 'typo'], 'hub typo'],
-      [stageBin, ['--json', 'typo'], 'stage typo'],
-      [hubBin, ['serve', 'extra', '--json'], 'hub serve'],
-      [stageBin, ['prepare', 'extra', '--json'], 'stage prepare'],
+      [hubBin, ['--json', 'typo'], 'slidock typo'],
+      [stageBin, ['--json', 'typo'], 'slive typo'],
+      [hubBin, ['serve', 'extra', '--json'], 'slidock serve'],
+      [stageBin, ['prepare', 'extra', '--json'], 'slive prepare'],
     ]) {
       const result = run(bin, args, cwd);
       assert.equal(result.status, 2);
@@ -108,7 +108,7 @@ test('unknown top-level commands and misplaced positionals fail in JSON mode', a
   });
 });
 
-test('hub check resolves config paths from its file and flag paths from caller cwd', async () => {
+test('slidock check resolves config paths from its file and flag paths from caller cwd', async () => {
   await withTempDir(async (root) => {
     const caller = path.join(root, 'caller');
     const configDir = path.join(root, 'config');
@@ -194,13 +194,13 @@ test('hub config rejects unknown fields before build side effects', async () => 
   });
 });
 
-test('stage doctor reports a missing runtime config and does not create it', async () => {
+test('slive doctor reports a missing runtime config and does not create it', async () => {
   await withTempDir(async (cwd) => {
     const result = run(stageBin, ['doctor', '--json'], cwd);
     assert.equal(result.status, 1);
     const envelope = jsonOutput(result);
     assert.equal(envelope.ok, false);
-    assert.equal(envelope.command, 'stage doctor');
+    assert.equal(envelope.command, 'slive doctor');
     assert.equal(envelope.error.code, 'NOT_READY');
     assert.ok(envelope.error.checks.some((check) => check.name === 'runtime-config' && !check.ok));
     await assert.rejects(readFile(path.join(cwd, '.slidev-stage', 'local-config.json')));
@@ -208,7 +208,7 @@ test('stage doctor reports a missing runtime config and does not create it', asy
   });
 });
 
-test('stage doctor validates an existing remote runtime and private auth file read-only', async () => {
+test('slive doctor validates an existing remote runtime and private auth file read-only', async () => {
   await withTempDir(async (cwd) => {
     const origin = 'https://slides.example.test';
     const authFile = path.join(cwd, 'headers.json');
@@ -257,7 +257,7 @@ test('stage settings reject generated runtime keys before creating an output con
   });
 });
 
-test('hub serve prints a ready JSON envelope after binding and closes on SIGTERM', async () => {
+test('slidock serve prints a ready JSON envelope after binding and closes on SIGTERM', async () => {
   await withTempDir(async (cwd) => {
     const site = path.join(cwd, 'site');
     await mkdir(site);
@@ -294,7 +294,7 @@ test('hub serve prints a ready JSON envelope after binding and closes on SIGTERM
     });
     const envelope = JSON.parse(stdout.trim());
     assert.equal(envelope.ok, true);
-    assert.equal(envelope.command, 'hub serve');
+    assert.equal(envelope.command, 'slidock serve');
     assert.equal(envelope.data.site, site);
     assert.match(envelope.data.origin, /^http:\/\//);
     const response = await fetch(`${envelope.data.origin}/`);
@@ -307,7 +307,7 @@ test('hub serve prints a ready JSON envelope after binding and closes on SIGTERM
   });
 });
 
-test('stage connect forwards private auth and reports no header or manifest detail', async () => {
+test('slive connect forwards private auth and reports no header or manifest detail', async () => {
   await withTempDir(async (cwd) => {
     const secret = 'Bearer CLI_AUTH_CANARY';
     const manifestDetail = 'PRIVATE_MANIFEST_REASON_CANARY';
@@ -420,7 +420,7 @@ test('Stage settings resolve runtime paths from the settings file and allow call
   });
 });
 
-test('hub check resolves frontendEntry flags from caller and config paths from config directory', async () => {
+test('slidock check resolves frontendEntry flags from caller and config paths from config directory', async () => {
   await withTempDir(async (cwd) => {
     const configDir = path.join(cwd, 'config');
     await mkdir(path.join(configDir, 'slides'), { recursive: true });

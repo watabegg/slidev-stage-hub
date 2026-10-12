@@ -15,13 +15,13 @@ try {
     join(destination, 'verify.mjs'),
     `
 import assert from 'node:assert/strict';
-import { createHubServer, runPublicationJob } from '@slidev-stage-hub/server';
-import { createFileArtifactStore, createMemoryPublicationJobStore, startHubServer } from '@slidev-stage-hub/adapter-node';
-import { createS3ArtifactStore } from '@slidev-stage-hub/storage-s3';
-import { createGcsArtifactStore } from '@slidev-stage-hub/storage-gcs';
-import { createPostgresPublicationStore } from '@slidev-stage-hub/state-postgres';
-import { createPlaywrightThumbnailRenderer } from '@slidev-stage-hub/renderer-playwright';
-import { createCloudflareOptions } from '@slidev-stage-hub/adapter-cloudflare';
+import { createHubServer, runPublicationJob } from '@slidock/server';
+import { createFileArtifactStore, createMemoryPublicationJobStore, startHubServer } from '@slidock/adapter-node';
+import { createS3ArtifactStore } from '@slidock/storage-s3';
+import { createGcsArtifactStore } from '@slidock/storage-gcs';
+import { createPostgresPublicationStore } from '@slidock/state-postgres';
+import { createPlaywrightThumbnailRenderer } from '@slidock/renderer-playwright';
+import { createCloudflareOptions } from '@slidock/adapter-cloudflare';
 for (const factory of [createS3ArtifactStore,createGcsArtifactStore,createPostgresPublicationStore,createCloudflareOptions,createPlaywrightThumbnailRenderer]) assert.equal(typeof factory,'function');
 const jobs=createMemoryPublicationJobStore();
 const options={artifacts:createFileArtifactStore({root:'./objects'}),publications:jobs.publications,jobs,staticAssets:{fetch:async()=>new Response('static')},profile:{digest:'packed-profile'},allowLocalMutations:true};

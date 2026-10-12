@@ -3,7 +3,7 @@ import type {
   CatalogDeck,
   JsonValue,
   PublicFrontmatter,
-} from '@slidev-stage-hub/protocol/contracts';
+} from '@slidock/protocol/contracts';
 import { WorkerError, type ErrorPhase } from './errors.js';
 import { isReleaseManifest, type ReleaseManifest } from './manifest.js';
 import type { ArtifactStore, HubServerOptions } from './ports.js';

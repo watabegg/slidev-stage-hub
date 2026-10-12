@@ -168,9 +168,9 @@
               <ul>
                 <li>
                   CLIのリモート接続プロファイル管理（<code>hub.remote.json</code>）、初期化コマンド（<code
-                    >hub init</code
-                  >）、設定診断（<code>hub doctor</code>）、およびジョブ管理サブコマンド（<code
-                    >hub jobs status/watch/list/retry</code
+                    >slidock init</code
+                  >）、設定診断（<code>slidock doctor</code>）、およびジョブ管理サブコマンド（<code
+                    >slidock jobs status/watch/list/retry</code
                   >）の新設。
                 </li>
                 <li>
@@ -283,7 +283,7 @@
             サムネイル画像の生成は公開処理と自動連鎖しておらず、独立したエンドポイント
             <code>POST /api/thumbnail/:id?revision=...</code>
             として提供されている。サムネイル描画機能は環境変数やバインディングが存在する場合にのみ動作し、Cloudflare
-            Workersの設定ファイル（<code>apps/hub-worker/wrangler.jsonc</code>）には現時点で
+            Workersの設定ファイル（<code>apps/slidock-worker/wrangler.jsonc</code>）には現時点で
             <code>BROWSER</code> バインディングが設定されていない。
             ローカル開発環境での実機検証では、スライド公開API（<code>POST /api/decks/:id</code
             >）はHTTP 200を返すが、続くサムネイル生成API（<code>POST /api/thumbnail/:id</code
@@ -317,7 +317,7 @@
             <figcaption>Node local fixture · / · 2026-10-10T06:49:15Z · 2d96e53</figcaption>
           </figure>
           <p>
-            現行のWeb画面（<code>packages/hub/src/frontend/Home.vue</code>）は公開済みデックの一覧を表示するカタログ機能のみを提供しており、進行中のジョブを確認する画面は存在しない。
+            現行のWeb画面（<code>packages/slidock/src/frontend/Home.vue</code>）は公開済みデックの一覧を表示するカタログ機能のみを提供しており、進行中のジョブを確認する画面は存在しない。
             合成環境（Node.js ローカルメモリおよびファイルシステム、コミット
             <code>2d96e53</code>、取得日時
             <code>2026-10-10T06:49:15Z</code
@@ -373,18 +373,18 @@
               <li><code>packages/server/src/catalog.ts</code></li>
               <li><code>packages/adapter-cloudflare/src/index.ts</code></li>
               <li><code>packages/adapter-cloudflare/src/thumbnail.ts</code></li>
-              <li><code>apps/hub-worker/src/versions.ts</code></li>
-              <li><code>apps/hub-worker/src/worker.ts</code></li>
-              <li><code>apps/hub-worker/wrangler.jsonc</code></li>
-              <li><code>apps/hub-worker/runtime/entry.ts</code></li>
-              <li><code>apps/hub-worker/runtime/catalog.ts</code></li>
+              <li><code>apps/slidock-worker/src/versions.ts</code></li>
+              <li><code>apps/slidock-worker/src/worker.ts</code></li>
+              <li><code>apps/slidock-worker/wrangler.jsonc</code></li>
+              <li><code>apps/slidock-worker/runtime/entry.ts</code></li>
+              <li><code>apps/slidock-worker/runtime/catalog.ts</code></li>
               <li><code>packages/state-postgres/src/index.ts</code></li>
-              <li><code>apps/hub-server/src/config.ts</code></li>
-              <li><code>apps/hub-server/src/start.ts</code></li>
-              <li><code>packages/hub/src/client/index.ts</code></li>
-              <li><code>packages/hub/src/frontend/Home.vue</code></li>
-              <li><code>packages/hub/src/frontend/index.ts</code></li>
-              <li><code>packages/hub/src/frontend/style.css</code></li>
+              <li><code>apps/slidock-server/src/config.ts</code></li>
+              <li><code>apps/slidock-server/src/start.ts</code></li>
+              <li><code>packages/slidock/src/client/index.ts</code></li>
+              <li><code>packages/slidock/src/frontend/Home.vue</code></li>
+              <li><code>packages/slidock/src/frontend/index.ts</code></li>
+              <li><code>packages/slidock/src/frontend/style.css</code></li>
             </ul>
           </details>
         </section>
@@ -920,7 +920,7 @@ https://hub.example.com/_hub/jobs?deckId=demo&amp;jobId=550e8400-e29b-41d4-a716-
             <li>
               <strong>再試行操作</strong>:
               Web画面上にジョブ再実行用のボタンは配置しない。再試行が必要な場合は、CLIで実行可能なコマンドレシピ（例:
-              <code>hub jobs retry --id demo/overview --job job-example --stage thumbnail</code
+              <code>slidock jobs retry --id demo/overview --job job-example --stage thumbnail</code
               >）をテキストとして提示する。
             </li>
             <li>
@@ -1324,7 +1324,7 @@ https://hub.example.com/_hub/jobs?deckId=demo&amp;jobId=550e8400-e29b-41d4-a716-
             </li>
             <li>
               <strong>ヘッドレスクライアント</strong>: パッケージ
-              <code>packages/hub/src/client/jobs.ts</code>
+              <code>packages/slidock/src/client/jobs.ts</code>
               は、Vue等のUI層に依存しない純粋なTypeScript実装として
               <code>createPublicationJobClient</code> を提供する。
               <ul>
@@ -1840,7 +1840,7 @@ stateDiagram-v2
                   </td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>packages/hub/src/client/jobs.ts</code></td>
+                  <td style="text-align:left"><code>packages/slidock/src/client/jobs.ts</code></td>
                   <td style="text-align:left">新規</td>
                   <td style="text-align:left">
                     ヘッドレスな
@@ -1849,7 +1849,7 @@ stateDiagram-v2
                   </td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>packages/hub/src/client/index.ts</code></td>
+                  <td style="text-align:left"><code>packages/slidock/src/client/index.ts</code></td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
                     クライアント SDK エントリポイントからジョブクライアントを再エクスポート。
@@ -1857,7 +1857,7 @@ stateDiagram-v2
                 </tr>
                 <tr>
                   <td style="text-align:left">
-                    <code>packages/hub/tests/jobs-client.test.mjs</code>
+                    <code>packages/slidock/tests/jobs-client.test.mjs</code>
                   </td>
                   <td style="text-align:left">新規</td>
                   <td style="text-align:left">
@@ -1938,7 +1938,7 @@ stateDiagram-v2
                   </td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>apps/hub-worker/src/versions.ts</code></td>
+                  <td style="text-align:left"><code>apps/slidock-worker/src/versions.ts</code></td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
                     Cloudflare Durable Objects のスキーマバージョンを 2
@@ -1946,7 +1946,7 @@ stateDiagram-v2
                   </td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>apps/hub-worker/src/worker.ts</code></td>
+                  <td style="text-align:left"><code>apps/slidock-worker/src/worker.ts</code></td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
                     Worker
@@ -1955,14 +1955,14 @@ stateDiagram-v2
                   </td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>apps/hub-worker/src/types.ts</code></td>
+                  <td style="text-align:left"><code>apps/slidock-worker/src/types.ts</code></td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
                     Cloudflare 環境向け環境変数およびバインディング定義の更新。
                   </td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>apps/hub-worker/wrangler.jsonc</code></td>
+                  <td style="text-align:left"><code>apps/slidock-worker/wrangler.jsonc</code></td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
                     Durable Objects の設定確認（クラス名の変更や新規マイグレーションは行わない）。
@@ -2046,14 +2046,14 @@ stateDiagram-v2
                   </td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>apps/hub-server/src/config.ts</code></td>
+                  <td style="text-align:left"><code>apps/slidock-server/src/config.ts</code></td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
                     サムネイルレンダラー構成（<code>HUB_THUMBNAIL_RENDERER</code>）および公開オリジン環境変数の追加。
                   </td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>apps/hub-server/src/start.ts</code></td>
+                  <td style="text-align:left"><code>apps/slidock-server/src/start.ts</code></td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
                     HTTP API
@@ -2061,7 +2061,7 @@ stateDiagram-v2
                   </td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>apps/hub-server/src/worker.ts</code></td>
+                  <td style="text-align:left"><code>apps/slidock-server/src/worker.ts</code></td>
                   <td style="text-align:left">新規</td>
                   <td style="text-align:left">
                     PostgreSQL
@@ -2069,14 +2069,16 @@ stateDiagram-v2
                   </td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>apps/hub-server/package.json</code></td>
+                  <td style="text-align:left"><code>apps/slidock-server/package.json</code></td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
                     ワーカー起動用スクリプト（<code>pnpm worker</code>）の追加。
                   </td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>apps/hub-server/deploy/compose.yaml</code></td>
+                  <td style="text-align:left">
+                    <code>apps/slidock-server/deploy/compose.yaml</code>
+                  </td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
                     ローカル開発用 Docker Compose において API
@@ -2085,7 +2087,7 @@ stateDiagram-v2
                 </tr>
                 <tr>
                   <td style="text-align:left">
-                    <code>apps/hub-server/deploy/aws-ecs-task-definition.template.json</code>
+                    <code>apps/slidock-server/deploy/aws-ecs-task-definition.template.json</code>
                   </td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
@@ -2095,7 +2097,7 @@ stateDiagram-v2
                 </tr>
                 <tr>
                   <td style="text-align:left">
-                    <code>apps/hub-server/deploy/gcp-cloud-run-service.template.yaml</code>
+                    <code>apps/slidock-server/deploy/gcp-cloud-run-service.template.yaml</code>
                   </td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
@@ -2148,7 +2150,7 @@ stateDiagram-v2
                   <td style="text-align:left"><code>packages/cli/src/jobs.ts</code></td>
                   <td style="text-align:left">新規</td>
                   <td style="text-align:left">
-                    <code>hub jobs status</code>, <code>watch</code>, <code>list</code>,
+                    <code>slidock jobs status</code>, <code>watch</code>, <code>list</code>,
                     <code>retry</code> サブコマンドの実装。
                   </td>
                 </tr>
@@ -2188,7 +2190,7 @@ stateDiagram-v2
                 </tr>
                 <tr>
                   <td style="text-align:left">
-                    <code>packages/hub/src/frontend/JobStatus.vue</code>
+                    <code>packages/slidock/src/frontend/JobStatus.vue</code>
                   </td>
                   <td style="text-align:left">新規</td>
                   <td style="text-align:left">
@@ -2197,7 +2199,7 @@ stateDiagram-v2
                 </tr>
                 <tr>
                   <td style="text-align:left">
-                    <code>packages/hub/src/frontend/job-status.ts</code>
+                    <code>packages/slidock/src/frontend/job-status.ts</code>
                   </td>
                   <td style="text-align:left">新規</td>
                   <td style="text-align:left">
@@ -2207,18 +2209,20 @@ stateDiagram-v2
                 </tr>
                 <tr>
                   <td style="text-align:left">
-                    <code>packages/hub/src/frontend/job-status.css</code>
+                    <code>packages/slidock/src/frontend/job-status.css</code>
                   </td>
                   <td style="text-align:left">新規</td>
                   <td style="text-align:left">進捗画面用のオプトインスタイル定義。</td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>packages/hub/src/frontend/index.ts</code></td>
+                  <td style="text-align:left">
+                    <code>packages/slidock/src/frontend/index.ts</code>
+                  </td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">フロントエンド向けモジュールのエクスポート定義。</td>
                 </tr>
                 <tr>
-                  <td style="text-align:left"><code>apps/hub-worker/runtime/entry.ts</code></td>
+                  <td style="text-align:left"><code>apps/slidock-worker/runtime/entry.ts</code></td>
                   <td style="text-align:left">変更</td>
                   <td style="text-align:left">
                     <code>/_hub/jobs</code>
@@ -2227,7 +2231,7 @@ stateDiagram-v2
                 </tr>
                 <tr>
                   <td style="text-align:left">
-                    <code>apps/hub-worker/runtime/job-status.ts</code>
+                    <code>apps/slidock-worker/runtime/job-status.ts</code>
                   </td>
                   <td style="text-align:left">新規</td>
                   <td style="text-align:left">
@@ -2236,7 +2240,7 @@ stateDiagram-v2
                 </tr>
                 <tr>
                   <td style="text-align:left">
-                    <code>apps/hub-worker/scripts/verify-publication-jobs.mjs</code>
+                    <code>apps/slidock-worker/scripts/verify-publication-jobs.mjs</code>
                   </td>
                   <td style="text-align:left">新規</td>
                   <td style="text-align:left">
@@ -2319,15 +2323,16 @@ stateDiagram-v2
                     <code>packages/protocol/tests/jobs.test.mjs</code>: 型ガードの整合性テスト。
                   </li>
                   <li>
-                    <code>packages/hub/src/client/jobs.ts</code>: fetch
+                    <code>packages/slidock/src/client/jobs.ts</code>: fetch
                     をラップし、ポーリングや中断制御を行う
                     <code>createPublicationJobClient</code> を配置。
                   </li>
                   <li>
-                    <code>packages/hub/src/client/index.ts</code>: クライアント関数のエクスポート。
+                    <code>packages/slidock/src/client/index.ts</code>:
+                    クライアント関数のエクスポート。
                   </li>
                   <li>
-                    <code>packages/hub/tests/jobs-client.test.mjs</code>: クライアント SDK
+                    <code>packages/slidock/tests/jobs-client.test.mjs</code>: クライアント SDK
                     の単体テスト。
                   </li>
                 </ul>
@@ -2377,7 +2382,7 @@ flowchart LR
               </li>
               <li>
                 <strong>品質ゲート G1</strong>:
-                <pre><code class="language-bash">pnpm build:packages &amp;&amp; node --test packages/protocol/tests/jobs.test.mjs packages/hub/tests/jobs-client.test.mjs &amp;&amp; pnpm check:boundaries
+                <pre><code class="language-bash">pnpm build:packages &amp;&amp; node --test packages/protocol/tests/jobs.test.mjs packages/slidock/tests/jobs-client.test.mjs &amp;&amp; pnpm check:boundaries
 </code></pre>
               </li>
             </ul>
@@ -2464,7 +2469,7 @@ flowchart LR
               </li>
               <li>
                 <strong>品質ゲート G2</strong>:
-                <pre><code class="language-bash">pnpm --filter @slidev-stage-hub/server build &amp;&amp; pnpm --filter @slidev-stage-hub/server test
+                <pre><code class="language-bash">pnpm --filter @slidock/server build &amp;&amp; pnpm --filter @slidock/server test
 </code></pre>
               </li>
             </ul>
@@ -2486,19 +2491,21 @@ flowchart LR
                   </li>
                   <li>
                     <code>packages/adapter-cloudflare/src/jobs.ts</code>,
-                    <code>apps/hub-worker/src/versions.ts</code>, <code>worker.ts</code>: Durable
-                    Objects 向けストアおよびアラームハンドラの実装。
+                    <code>apps/slidock-worker/src/versions.ts</code>, <code>worker.ts</code>:
+                    Durable Objects 向けストアおよびアラームハンドラの実装。
                   </li>
                   <li>
                     <code>packages/adapter-node/src/jobs.ts</code>,
                     <code>publication-store.ts</code>: メモリ版ストアの実装。
                   </li>
                   <li>
-                    <code>apps/hub-server/src/start.ts</code>, <code>worker.ts</code>,
+                    <code>apps/slidock-server/src/start.ts</code>, <code>worker.ts</code>,
                     <code>config.ts</code>, <code>package.json</code>:
                     ワーカープロセス起動スクリプトの追加。
                   </li>
-                  <li><code>apps/hub-server/deploy/compose.yaml</code>: ローカル実行環境定義。</li>
+                  <li>
+                    <code>apps/slidock-server/deploy/compose.yaml</code>: ローカル実行環境定義。
+                  </li>
                 </ul>
               </li>
               <li>
@@ -2513,7 +2520,8 @@ flowchart LR
                     更新とアラーム予約を実装する。
                   </li>
                   <li>
-                    <code>apps/hub-server</code> に独立した <code>worker.ts</code> を追加し、SIGTERM
+                    <code>apps/slidock-server</code> に独立した
+                    <code>worker.ts</code> を追加し、SIGTERM
                     受信時に新規クレームを停止して接続を安全に閉じる終了処理を実装する。
                   </li>
                 </ol>
@@ -2543,7 +2551,7 @@ flowchart LR
               </li>
               <li>
                 <strong>品質ゲート G3</strong>:
-                <pre><code class="language-bash">HUB_TEST_DATABASE_URL=&lt;local_db_url&gt; pnpm --filter @slidev-stage-hub/state-postgres test &amp;&amp; pnpm --filter @slidev-stage-hub/adapter-cloudflare test &amp;&amp; pnpm --filter @slidev-stage-hub/adapter-node test
+                <pre><code class="language-bash">HUB_TEST_DATABASE_URL=&lt;local_db_url&gt; pnpm --filter @slidock/state-postgres test &amp;&amp; pnpm --filter @slidock/adapter-cloudflare test &amp;&amp; pnpm --filter @slidock/adapter-node test
 </code></pre>
               </li>
             </ul>
@@ -2571,7 +2579,7 @@ flowchart LR
                     <code>playwright-core</code> を用いた Node.js 向けレンダラーパッケージの新設。
                   </li>
                   <li>
-                    <code>apps/hub-server/src/config.ts</code>: レンダラー設定オプションの追加。
+                    <code>apps/slidock-server/src/config.ts</code>: レンダラー設定オプションの追加。
                   </li>
                 </ul>
               </li>
@@ -2633,7 +2641,7 @@ flowchart LR
               </li>
               <li>
                 <strong>品質ゲート G4</strong>:
-                <pre><code class="language-bash">pnpm --filter @slidev-stage-hub/renderer-playwright test &amp;&amp; pnpm --filter @slidev-stage-hub/adapter-cloudflare test
+                <pre><code class="language-bash">pnpm --filter @slidock/renderer-playwright test &amp;&amp; pnpm --filter @slidock/adapter-cloudflare test
 </code></pre>
               </li>
             </ul>
@@ -2660,7 +2668,7 @@ flowchart LR
                   </li>
                   <li>
                     <code>packages/cli/src/jobs.ts</code>:
-                    <code>hub jobs</code> サブコマンド群の実装。
+                    <code>slidock jobs</code> サブコマンド群の実装。
                   </li>
                   <li>
                     <code>packages/cli/src/output.ts</code>, <code>errors.ts</code>,
@@ -2683,12 +2691,12 @@ flowchart LR
                       >headersFile</code
                     >
                     のパスは設定ファイル配置ディレクトリを基準とし、スライドソースやアセットのパスはカレントワーキングディレクトリ（cwd）を基準として解決する。既存のオフライン
-                    <code>hub build</code> 設定には変更を加えない。
+                    <code>slidock build</code> 設定には変更を加えない。
                   </li>
                   <li>
-                    <code>hub init --origin URL</code>
+                    <code>slidock init --origin URL</code>
                     コマンドを実装し、新規プロファイルのみを作成する（既存ファイルの上書きは禁止）。<code
-                      >hub doctor</code
+                      >slidock doctor</code
                     >
                     コマンドを実装し、プロファイル構文、認証ヘッダーファイル、および
                     <code>GET /api/capabilities</code>
@@ -2696,8 +2704,8 @@ flowchart LR
                   </li>
                   <li>
                     <code
-                      >hub publish --id ID --source slides.md [--thumbnail auto|none] [--no-wait]
-                      [--timeout 300] [--require-jobs] [--job UUID] [--json]</code
+                      >slidock publish --id ID --source slides.md [--thumbnail auto|none]
+                      [--no-wait] [--timeout 300] [--require-jobs] [--job UUID] [--json]</code
                     >
                     を実装する（既存の <code>--origin</code>, <code>--assets</code>,
                     <code>--headers-file</code> も維持）。<code>POST /api/jobs</code> 発行直前に、OS
@@ -2709,17 +2717,17 @@ flowchart LR
                     による再送時はレシートとリクエストハッシュの一致を検証する。
                   </li>
                   <li>
-                    <code>hub jobs status --id ID --job UUID</code>,
-                    <code>hub jobs watch --id ID --job UUID</code>,
-                    <code>hub jobs list --id ID</code>,
-                    <code>hub jobs retry --id ID --job UUID --stage thumbnail|all</code>
+                    <code>slidock jobs status --id ID --job UUID</code>,
+                    <code>slidock jobs watch --id ID --job UUID</code>,
+                    <code>slidock jobs list --id ID</code>,
+                    <code>slidock jobs retry --id ID --job UUID --stage thumbnail|all</code>
                     を実装する。<code>list</code> には公開用認証情報を必須とし、<code>status</code>
                     や
                     <code>watch</code>
                     は公開用認証情報またはローカルレシートの閲覧トークンで照会可能とする。
                   </li>
                   <li>
-                    <code>hub publish</code> で 202
+                    <code>slidock publish</code> で 202
                     レスポンスを受け取った後、直ちに標準エラー出力にジョブ ID と確認用 URL
                     を出力し、デフォルト 300
                     秒の待機ループに入る。人間向け表示（stderr）と機械可読な
@@ -2762,19 +2770,19 @@ flowchart LR
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>hub init</code></td>
+                        <td><code>slidock init</code></td>
                         <td><code>--origin &lt;URL&gt;</code></td>
                         <td>なし</td>
                         <td>新規 <code>hub.remote.json</code> を生成（既存時はエラー）。</td>
                       </tr>
                       <tr>
-                        <td><code>hub doctor</code></td>
+                        <td><code>slidock doctor</code></td>
                         <td><code>[--remote-config &lt;path&gt;]</code></td>
                         <td>任意ヘッダー</td>
                         <td>設定と機能検証（読取専用）。正常終了 0。</td>
                       </tr>
                       <tr>
-                        <td><code>hub publish</code></td>
+                        <td><code>slidock publish</code></td>
                         <td>
                           <code
                             >--id &lt;ID&gt; --source &lt;path&gt; [--thumbnail auto|none]
@@ -2789,25 +2797,25 @@ flowchart LR
                         </td>
                       </tr>
                       <tr>
-                        <td><code>hub jobs status</code></td>
+                        <td><code>slidock jobs status</code></td>
                         <td><code>--id &lt;ID&gt; --job &lt;UUID&gt; [--json]</code></td>
                         <td>公開認証または閲覧トークン</td>
                         <td>現在の状態を単一取得して表示。</td>
                       </tr>
                       <tr>
-                        <td><code>hub jobs watch</code></td>
+                        <td><code>slidock jobs watch</code></td>
                         <td><code>--id &lt;ID&gt; --job &lt;UUID&gt; [--timeout 300]</code></td>
                         <td>公開認証または閲覧トークン</td>
                         <td>終端状態まで進捗を追跡監視。Ctrl+C 時は 130。</td>
                       </tr>
                       <tr>
-                        <td><code>hub jobs list</code></td>
+                        <td><code>slidock jobs list</code></td>
                         <td><code>--id &lt;ID&gt; [--limit &lt;N&gt;] [--json]</code></td>
                         <td>公開認証情報必須</td>
                         <td>デッキのジョブ一覧を取得（最大 100 件）。</td>
                       </tr>
                       <tr>
-                        <td><code>hub jobs retry</code></td>
+                        <td><code>slidock jobs retry</code></td>
                         <td>
                           <code
                             >--id &lt;ID&gt; --job &lt;UUID&gt; --stage &lt;thumbnail|all&gt;</code
@@ -2834,7 +2842,9 @@ flowchart LR
                   </li>
                   <li>部分成功時に終了コード 1 を返しつつ、公開リビジョン情報が失われないこと。</li>
                   <li>
-                    <code>hub init</code> が既存ファイルを上書きせず、<code>hub doctor</code>
+                    <code>slidock init</code> が既存ファイルを上書きせず、<code
+                      >slidock doctor</code
+                    >
                     が読み取り専用で構成を検証できること。
                   </li>
                 </ul>
@@ -2845,7 +2855,7 @@ flowchart LR
               </li>
               <li>
                 <strong>品質ゲート G5</strong>:
-                <pre><code class="language-bash">pnpm --filter @slidev-stage-hub/cli test &amp;&amp; pnpm verify:packed-cli
+                <pre><code class="language-bash">pnpm --filter @slidock/cli test &amp;&amp; pnpm verify:packed-cli
 </code></pre>
               </li>
             </ul>
@@ -2861,22 +2871,22 @@ flowchart LR
                 <strong>対象ファイルと理由</strong>:
                 <ul>
                   <li>
-                    <code>packages/hub/src/frontend/JobStatus.vue</code>: Vue ベースの進捗表示 UI
-                    コンポーネント。
+                    <code>packages/slidock/src/frontend/JobStatus.vue</code>: Vue ベースの進捗表示
+                    UI コンポーネント。
                   </li>
                   <li>
-                    <code>packages/hub/src/frontend/job-status.ts</code>: 独立して DOM
+                    <code>packages/slidock/src/frontend/job-status.ts</code>: 独立して DOM
                     へマウント可能な <code>mountJobStatus</code> 実装。
                   </li>
                   <li>
-                    <code>packages/hub/src/frontend/job-status.css</code>:
+                    <code>packages/slidock/src/frontend/job-status.css</code>:
                     オプトインのスタイルシート。
                   </li>
                   <li>
-                    <code>packages/hub/src/frontend/index.ts</code>: モジュールのエクスポート。
+                    <code>packages/slidock/src/frontend/index.ts</code>: モジュールのエクスポート。
                   </li>
                   <li>
-                    <code>apps/hub-worker/runtime/entry.ts</code>, <code>job-status.ts</code>:
+                    <code>apps/slidock-worker/runtime/entry.ts</code>, <code>job-status.ts</code>:
                     ルーティングと静的配信ハンドラ。
                   </li>
                 </ul>
@@ -2936,7 +2946,7 @@ flowchart LR
               </li>
               <li>
                 <strong>品質ゲート G6</strong>:
-                <pre><code class="language-bash">pnpm --filter @slidev-stage-hub/hub typecheck &amp;&amp; pnpm --filter @slidev-stage-hub/workers typecheck &amp;&amp; pnpm verify:publication-jobs
+                <pre><code class="language-bash">pnpm --filter @slidock/slidock typecheck &amp;&amp; pnpm --filter @slidock/workers typecheck &amp;&amp; pnpm verify:publication-jobs
 </code></pre>
               </li>
             </ul>
@@ -2952,11 +2962,11 @@ flowchart LR
                 <strong>対象ファイルと理由</strong>:
                 <ul>
                   <li>
-                    <code>apps/hub-worker/scripts/verify-publication-jobs.mjs</code>: E2E
+                    <code>apps/slidock-worker/scripts/verify-publication-jobs.mjs</code>: E2E
                     結合検証スクリプト。
                   </li>
                   <li>
-                    <code>apps/hub-server/deploy/compose.yaml</code>,
+                    <code>apps/slidock-server/deploy/compose.yaml</code>,
                     <code>aws-ecs-task-definition.template.json</code>,
                     <code>gcp-cloud-run-service.template.yaml</code>: デプロイ用設定定義。
                   </li>
@@ -3046,10 +3056,12 @@ flowchart LR
               <tbody>
                 <tr>
                   <td>test-a</td>
-                  <td>CLI から <code>hub publish --no-wait</code> でジョブを登録した直後の状態</td>
+                  <td>
+                    CLI から <code>slidock publish --no-wait</code> でジョブを登録した直後の状態
+                  </td>
                   <td>
                     CLI プロセスが待機を終了し、後から
-                    <code>hub jobs watch</code> で進捗監視を再開する
+                    <code>slidock jobs watch</code> で進捗監視を再開する
                   </td>
                   <td>
                     サーバー側で公開処理がバックグラウンドのまま継続し、再開した CLI
@@ -3553,7 +3565,7 @@ flowchart TD
               <input type="checkbox" disabled />
               <strong>Task 1: プロトコル規約とクライアントライブラリの実装</strong> —
               <code>packages/protocol/src/contracts/jobs.ts</code> および
-              <code>packages/hub/src/client/jobs.ts</code> を作成し、プレーン TypeScript
+              <code>packages/slidock/src/client/jobs.ts</code> を作成し、プレーン TypeScript
               型ガード、進捗監視非同期イテレータを実装する。［ゲート: G1］
             </li>
             <li class="task">
@@ -3579,21 +3591,21 @@ flowchart TD
             <li class="task">
               <input type="checkbox" disabled />
               <strong>Task 5: CLI コマンドの拡張と進捗監視機能の追加</strong> —
-              <code>packages/cli/</code> において <code>hub publish</code> の非同期対応、<code
-                >hub jobs</code
+              <code>packages/cli/</code> において <code>slidock publish</code> の非同期対応、<code
+                >slidock jobs</code
               >
               サブコマンド群、および設定プロファイル管理を実装する。［ゲート: G5］
             </li>
             <li class="task">
               <input type="checkbox" disabled /> <strong>Task 6: Web 進捗確認画面の実装</strong> —
-              <code>packages/hub/src/frontend/JobStatus.vue</code>
+              <code>packages/slidock/src/frontend/JobStatus.vue</code>
               およびマウント用ラッパーを作成し、安全なトークン保持と切断耐性を持つ UI
               を構築する。［ゲート: G6］
             </li>
             <li class="task">
               <input type="checkbox" disabled />
               <strong>Task 7: 統合検証ハーネスの構築と運用ドキュメントの整備</strong> —
-              <code>apps/hub-worker/scripts/verify-publication-jobs.mjs</code>
+              <code>apps/slidock-worker/scripts/verify-publication-jobs.mjs</code>
               を作成して全体導通を自動化し、各種設定・運用ガイドを更新する。［ゲート: G7］
             </li>
           </ul>
@@ -3749,8 +3761,9 @@ flowchart TD
                   <td>
                     <code
                       >pnpm build:packages &amp;&amp; node --test
-                      packages/protocol/tests/jobs.test.mjs packages/hub/tests/jobs-client.test.mjs
-                      &amp;&amp; pnpm check:boundaries</code
+                      packages/protocol/tests/jobs.test.mjs
+                      packages/slidock/tests/jobs-client.test.mjs &amp;&amp; pnpm
+                      check:boundaries</code
                     >
                   </td>
                   <td>終了コード 0、全単体テスト合格、パッケージ境界違反 0 件</td>
@@ -3762,8 +3775,8 @@ flowchart TD
                   <td>G1 に合格していること</td>
                   <td>
                     <code
-                      >pnpm --filter @slidev-stage-hub/server build &amp;&amp; pnpm --filter
-                      @slidev-stage-hub/server test</code
+                      >pnpm --filter @slidock/server build &amp;&amp; pnpm --filter @slidock/server
+                      test</code
                     >
                   </td>
                   <td>終了コード 0、サーバー単体テスト全件合格、世代順序・エラー制御の確認</td>
@@ -3775,10 +3788,9 @@ flowchart TD
                   <td>G2 に合格していること</td>
                   <td>
                     <code
-                      >HUB_TEST_DATABASE_URL=&lt;local&gt; pnpm --filter
-                      @slidev-stage-hub/state-postgres test &amp;&amp; pnpm --filter
-                      @slidev-stage-hub/adapter-cloudflare test &amp;&amp; pnpm --filter
-                      @slidev-stage-hub/adapter-node test</code
+                      >HUB_TEST_DATABASE_URL=&lt;local&gt; pnpm --filter @slidock/state-postgres
+                      test &amp;&amp; pnpm --filter @slidock/adapter-cloudflare test &amp;&amp; pnpm
+                      --filter @slidock/adapter-node test</code
                     >
                   </td>
                   <td>
@@ -3793,8 +3805,8 @@ flowchart TD
                   <td>G2 に合格していること</td>
                   <td>
                     <code
-                      >pnpm --filter @slidev-stage-hub/renderer-playwright test &amp;&amp; pnpm
-                      --filter @slidev-stage-hub/adapter-cloudflare test</code
+                      >pnpm --filter @slidock/renderer-playwright test &amp;&amp; pnpm --filter
+                      @slidock/adapter-cloudflare test</code
                     >
                   </td>
                   <td>
@@ -3808,10 +3820,7 @@ flowchart TD
                   <td>Step 5: CLI コマンド</td>
                   <td>G1、G3、G4 に合格していること</td>
                   <td>
-                    <code
-                      >pnpm --filter @slidev-stage-hub/cli test &amp;&amp; pnpm
-                      verify:packed-cli</code
-                    >
+                    <code>pnpm --filter @slidock/cli test &amp;&amp; pnpm verify:packed-cli</code>
                   </td>
                   <td>終了コード 0、CLI 単体テスト合格、パッケージ化済みバイナリ互換性検証合格</td>
                   <td>Step 7</td>
@@ -3822,9 +3831,8 @@ flowchart TD
                   <td>G1 に合格し、U1（モック表示承認）が完了していること</td>
                   <td>
                     <code
-                      >pnpm --filter @slidev-stage-hub/hub typecheck &amp;&amp; pnpm --filter
-                      @slidev-stage-hub/workers typecheck &amp;&amp; pnpm
-                      verify:publication-jobs</code
+                      >pnpm --filter @slidock/slidock typecheck &amp;&amp; pnpm --filter
+                      @slidock/workers typecheck &amp;&amp; pnpm verify:publication-jobs</code
                     >（Step 6 で作成したブラウザ向け検証ハーネスを順次実行し、Step 7
                     で統合拡張する）
                   </td>

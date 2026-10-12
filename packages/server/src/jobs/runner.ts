@@ -5,7 +5,7 @@ import {
   type JobResult,
   type JobProgress,
   type StageSnapshot,
-} from '@slidev-stage-hub/protocol';
+} from '@slidock/protocol';
 import { WorkerError } from '../errors.js';
 import type { HubServerOptions, PublicationJobEvent } from '../ports.js';
 import { preparePublication, type CompileFunction } from '../publish.js';

@@ -11,17 +11,17 @@ for (const key of Object.keys(env)) {
 const commands = [
   ['pnpm', ['typecheck']],
   ['pnpm', ['test']],
-  ['pnpm', ['build:hub']],
-  ['pnpm', ['verify:hub']],
+  ['pnpm', ['build:slidock']],
+  ['pnpm', ['verify:slidock']],
   ['pnpm', ['verify:web-customization']],
-  ['pnpm', ['stage:prepare']],
-  ['pnpm', ['build:stage-ui']],
-  ['node', ['apps/stage/scripts/verify-remote.mjs']],
+  ['pnpm', ['slive:prepare']],
+  ['pnpm', ['build:slive-ui']],
+  ['node', ['apps/slive/scripts/verify-remote.mjs']],
   ['pnpm', ['build:example:watabegg']],
   ['pnpm', ['verify:example:watabegg']],
   ['pnpm', ['verify:workers']],
-  ['pnpm', ['--filter', '@slidev-stage-hub/workers', 'verify:fixtures']],
-  ['pnpm', ['--filter', '@slidev-stage-hub/workers', 'verify:auth']],
+  ['pnpm', ['--filter', '@slidock/workers', 'verify:fixtures']],
+  ['pnpm', ['--filter', '@slidock/workers', 'verify:auth']],
 ];
 for (const [command, args] of commands) {
   console.log(`\n> ${command} ${args.join(' ')}`);

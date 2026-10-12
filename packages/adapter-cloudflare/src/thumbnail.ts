@@ -1,10 +1,6 @@
 import type { BrowserRunBinding, ScreenshotOptions } from './types.js';
-import {
-  ThumbnailError,
-  validatePng,
-  type ThumbnailErrorCode,
-} from '@slidev-stage-hub/server/thumbnail';
-export { ThumbnailError, validatePng } from '@slidev-stage-hub/server/thumbnail';
+import { ThumbnailError, validatePng, type ThumbnailErrorCode } from '@slidock/server/thumbnail';
+export { ThumbnailError, validatePng } from '@slidock/server/thumbnail';
 
 const MAX_PNG_BYTES = 4 * 1024 * 1024;
 const SLIDE_SELECTOR = '.slidev-page[data-slidev-no="1"]';
