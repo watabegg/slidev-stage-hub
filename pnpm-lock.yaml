@@ -116,27 +116,39 @@ importers:
 
   .:
     devDependencies:
-      '@slidock/adapter-node':
-        specifier: workspace:*
-        version: link:packages/adapter-node
-      '@slidock/slidock':
-        specifier: workspace:*
-        version: link:packages/slidock
-      '@slidock/protocol':
-        specifier: workspace:*
-        version: link:packages/protocol
-      '@slidock/server-app':
-        specifier: workspace:*
-        version: link:apps/slidock-server
       '@slidev/cli':
         specifier: 53.0.0
         version: 53.0.0(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@types/markdown-it@14.2.0)(@types/node@24.10.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(playwright-chromium@1.63.0)(postcss@8.5.28)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)
       '@slidev/client':
         specifier: 53.0.0
         version: 53.0.0(@modelcontextprotocol/server@2.3.1)(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+      '@slidev/theme-apple-basic':
+        specifier: 0.25.1
+        version: 0.25.1
+      '@slidev/theme-bricks':
+        specifier: 0.25.0
+        version: 0.25.0
       '@slidev/theme-default':
         specifier: 0.25.0
         version: 0.25.0
+      '@slidev/theme-seriph':
+        specifier: 0.25.0
+        version: 0.25.0
+      '@slidev/theme-shibainu':
+        specifier: 0.25.0
+        version: 0.25.0
+      '@slidock/adapter-node':
+        specifier: workspace:*
+        version: link:packages/adapter-node
+      '@slidock/protocol':
+        specifier: workspace:*
+        version: link:packages/protocol
+      '@slidock/server-app':
+        specifier: workspace:*
+        version: link:apps/slidock-server
+      '@slidock/slidock':
+        specifier: workspace:*
+        version: link:packages/slidock
       '@types/node':
         specifier: 24.10.0
         version: 24.10.0
@@ -204,9 +216,6 @@ importers:
       '@slidock/adapter-cloudflare':
         specifier: workspace:*
         version: link:../../packages/adapter-cloudflare
-      '@slidock/slidock':
-        specifier: workspace:*
-        version: link:../../packages/slidock
       '@slidock/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -216,7 +225,16 @@ importers:
       '@slidock/slidev-adapter':
         specifier: workspace:*
         version: link:../../packages/slidev-adapter
+      '@slidock/slidock':
+        specifier: workspace:*
+        version: link:../../packages/slidock
     devDependencies:
+      '@slidev/cli':
+        specifier: 53.0.0
+        version: 53.0.0(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@types/markdown-it@14.2.0)(@types/node@24.10.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(playwright-chromium@1.63.0)(postcss@8.5.28)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)
+      '@slidev/theme-default':
+        specifier: 0.25.0
+        version: 0.25.0
       '@slidock/adapter-node':
         specifier: workspace:*
         version: link:../../packages/adapter-node
@@ -226,12 +244,6 @@ importers:
       '@slidock/slive-tools':
         specifier: workspace:*
         version: link:../../packages/slive-tools
-      '@slidev/cli':
-        specifier: 53.0.0
-        version: 53.0.0(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@types/markdown-it@14.2.0)(@types/node@24.10.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(playwright-chromium@1.63.0)(postcss@8.5.28)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)
-      '@slidev/theme-default':
-        specifier: 0.25.0
-        version: 0.25.0
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
@@ -310,12 +322,12 @@ importers:
 
   packages/cli:
     dependencies:
-      '@slidock/slidock':
-        specifier: workspace:*
-        version: link:../slidock
       '@slidock/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@slidock/slidock':
+        specifier: workspace:*
+        version: link:../slidock
       '@slidock/slive-tools':
         specifier: workspace:*
         version: link:../slive-tools
@@ -326,27 +338,6 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
-
-  packages/slidock:
-    dependencies:
-      '@slidock/protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@slidock/slidev-adapter':
-        specifier: workspace:*
-        version: link:../slidev-adapter
-      '@slidev/cli':
-        specifier: 53.0.0
-        version: 53.0.0(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@types/markdown-it@14.2.0)(@types/node@24.10.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(playwright-chromium@1.63.0)(postcss@8.5.28)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)
-      '@slidev/theme-default':
-        specifier: 0.25.0
-        version: 0.25.0
-      playwright-chromium:
-        specifier: 1.63.0
-        version: 1.63.0
-      vue:
-        specifier: 3.5.43
-        version: 3.5.43(typescript@6.0.3)
 
   packages/protocol:
     devDependencies:
@@ -378,15 +369,15 @@ importers:
 
   packages/server:
     dependencies:
+      '@slidev/parser':
+        specifier: 53.0.0
+        version: 53.0.0(@modelcontextprotocol/server@2.3.1)(@nuxt/kit@3.21.11)(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)(typescript@6.0.3)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
       '@slidock/protocol':
         specifier: workspace:*
         version: link:../protocol
       '@slidock/slidev-adapter':
         specifier: workspace:*
         version: link:../slidev-adapter
-      '@slidev/parser':
-        specifier: 53.0.0
-        version: 53.0.0(@modelcontextprotocol/server@2.3.1)(@nuxt/kit@3.21.11)(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)(typescript@6.0.3)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
       '@unocss/core':
         specifier: 66.10.5
         version: 66.10.5
@@ -410,20 +401,41 @@ importers:
         specifier: workspace:*
         version: link:../protocol
 
-  packages/slive-tools:
+  packages/slidock:
     dependencies:
+      '@slidev/cli':
+        specifier: 53.0.0
+        version: 53.0.0(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@types/markdown-it@14.2.0)(@types/node@24.10.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(playwright-chromium@1.63.0)(postcss@8.5.28)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)
+      '@slidev/theme-default':
+        specifier: 0.25.0
+        version: 0.25.0
       '@slidock/protocol':
         specifier: workspace:*
         version: link:../protocol
       '@slidock/slidev-adapter':
         specifier: workspace:*
         version: link:../slidev-adapter
+      playwright-chromium:
+        specifier: 1.63.0
+        version: 1.63.0
+      vue:
+        specifier: 3.5.43
+        version: 3.5.43(typescript@6.0.3)
+
+  packages/slive-tools:
+    dependencies:
       '@slidev/cli':
         specifier: 53.0.0
         version: 53.0.0(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@types/markdown-it@14.2.0)(@types/node@24.10.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(playwright-chromium@1.63.0)(postcss@8.5.28)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)
       '@slidev/client':
         specifier: 53.0.0
         version: 53.0.0(@modelcontextprotocol/server@2.3.1)(@nuxt/kit@3.21.11)(@oxc-project/types@0.153.0)(@vitejs/devtools-kit@0.4.12(@modelcontextprotocol/server@2.3.1)(cac@7.0.1)(srvx@1.0.5)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(@vue/compiler-sfc@3.5.43)(cac@7.0.1)(esbuild@0.28.2)(lightningcss@1.33.0)(markdown-it@14.3.2)(oxc-parser@0.150.0)(rolldown@1.2.13)(rollup@4.64.2)(srvx@1.0.5)(supports-color@10.2.2)(vite@8.3.3(@types/node@24.10.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+      '@slidock/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@slidock/slidev-adapter':
+        specifier: workspace:*
+        version: link:../slidev-adapter
 
   packages/state-postgres:
     dependencies:
@@ -2008,8 +2020,24 @@ packages:
   '@slidev/rough-notation@0.1.0':
     resolution: {integrity: sha512-a/CbVmjuoO3E4JbUr2HOTsXndbcrdLWOM+ajbSQIY3gmLFzhjeXHGksGcp1NZ08pJjLZyTCxfz1C7v/ltJqycA==}
 
+  '@slidev/theme-apple-basic@0.25.1':
+    resolution: {integrity: sha512-saA5yYui+jTT13tP+QJKnWeM8sK0IA1iln2E3sWAJsfKdQHUD3fw8+AlUHLUH6yc8NPq3ewtZcwWx49a/iF8Tg==}
+    engines: {node: '>=14.0.0', slidev: '>=v0.47.0'}
+
+  '@slidev/theme-bricks@0.25.0':
+    resolution: {integrity: sha512-7fcYcnH2/xD4G7QzB+nrxTc9MEzdgjsx7qFUN2u+qpeiKKfXqsi7kbo+zxUcCV/8mi6zOQrDC4IjFcQsERffmg==}
+    engines: {node: '>=14.0.0', slidev: '>=v0.47.0'}
+
   '@slidev/theme-default@0.25.0':
     resolution: {integrity: sha512-iWvthH1Ny+i6gTwRnEeeU+EiqsHC56UdEO45bqLSNmymRAOWkKUJ/M0o7iahLzHSXsiPu71B7C715WxqjXk2hw==}
+    engines: {node: '>=14.0.0', slidev: '>=v0.47.0'}
+
+  '@slidev/theme-seriph@0.25.0':
+    resolution: {integrity: sha512-PnFQbn4I70+/cVie5iAr0Im6sYvnwjkO7Yj5KonTyJZFFJFytckLTrD3ijft/J4cRnz7OmSzTyQKNX1FN/x0YQ==}
+    engines: {node: '>=14.0.0', slidev: '>=v0.47.0'}
+
+  '@slidev/theme-shibainu@0.25.0':
+    resolution: {integrity: sha512-ND4ZdF3L3EOB2UXCaBqhMfMFeyPG6lOXwz/DC29aaXkXSnuHYjNKMI79NJAISyLBnUgWGc4QjIJNntIAx4Uung==}
     engines: {node: '>=14.0.0', slidev: '>=v0.47.0'}
 
   '@slidev/types@0.47.5':
@@ -6881,7 +6909,31 @@ snapshots:
     dependencies:
       roughjs: 4.6.6
 
+  '@slidev/theme-apple-basic@0.25.1':
+    dependencies:
+      '@slidev/types': 0.47.5
+      codemirror-theme-vars: 0.1.2
+      prism-theme-vars: 0.2.5
+
+  '@slidev/theme-bricks@0.25.0':
+    dependencies:
+      '@slidev/types': 0.47.5
+      codemirror-theme-vars: 0.1.2
+      prism-theme-vars: 0.2.5
+
   '@slidev/theme-default@0.25.0':
+    dependencies:
+      '@slidev/types': 0.47.5
+      codemirror-theme-vars: 0.1.2
+      prism-theme-vars: 0.2.5
+
+  '@slidev/theme-seriph@0.25.0':
+    dependencies:
+      '@slidev/types': 0.47.5
+      codemirror-theme-vars: 0.1.2
+      prism-theme-vars: 0.2.5
+
+  '@slidev/theme-shibainu@0.25.0':
     dependencies:
       '@slidev/types': 0.47.5
       codemirror-theme-vars: 0.1.2

@@ -151,3 +151,14 @@ Slive はサムネイルと公開 frontmatter を使う資料一覧から開く�
 Web・配信基盤を Slidock、Native アプリを Slive、リポジトリを `watabegg/slidock` とする。主要ディレクトリと npm の名前空間を `packages/slidock`、`apps/slive`、`packages/slive-tools`、`apps/slidock-worker`、`apps/slidock-server`、`@slidock/*` に統一し、CLI の正式名を `slidock` / `slive` に変更する。旧 `hub` / `stage` は互換エイリアスとして残す。
 
 既存データの移行を伴わせないため、`HUB_*` 環境変数、HTTP パス・ヘッダー・JSON 契約、`mountHub` などの公開 API 識別子、既存設定ファイル名、`.slidev-stage` と受付票の保存先、Tauri identifier `local.slidev.lab`、クラウドリソース名は維持する。過去の検証記録内の名称とパスは当時の証跡として保存する。アイコンは Slidev の配色・角丸・影を引き継ぎ、Slidock は Mosaic、Slive は Signal を採用した。表示名は大文字開始の Slidock / Slive に統一し、CLI・パッケージ名は小文字を維持する。SVG を原本とし、Slive の OS 用アイコンは `pnpm build:icons` で生成する。意匠の参照元は [Slidev の公式ロゴ](https://github.com/slidevjs/slidev/blob/main/assets/logo.svg)。
+
+
+## 14. 標準ホームと公式テーマのデモ
+
+- **Vue アーキテクチャの活用**: Docusaurus のランタイムを追加せず、既存の Vue アーキテクチャ内で Docusaurus Classic のような再利用可能な標準サイト構造を実現しました。
+- **設定の関心事の分離**: スライド画面やデッキへのリンクを制御するナビゲーション設定（`navigation`）と、標準のホーム画面用ブランディング設定（`home`）を明確に分離しました。
+- **検証用とデモ用の分離**: 安定した回帰テストやネイティブ環境の動作確認には従来のテストフィクスチャを維持し、利用者向けの公開デモには公式テーマのサンプルを採用しました。
+
+## 15. Vue コンポーネントを標準の拡張 API にする
+
+ホームは `SlidockHome`、カードは `SlideCard`、カテゴリ選択は `CategoryNav` として公開し、props・型付き slot・`v-model` で構成する。カタログ取得は `useCatalog` に分離し、画面のアンマウントや取得先の変更時に通信を中断する。標準画面と独自画面で同じコンポーネントを使い、`mountHub` は既存利用者向けの互換アダプターとして維持する。

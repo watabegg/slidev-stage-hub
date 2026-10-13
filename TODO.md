@@ -22,3 +22,7 @@
 
 - [x] Web を Slidock、Native を Slive と命名し、リポジトリ・ディレクトリ・CLI の名称を統一
 - [x] Slidock / Slive のアイコンと favicon を決定・適用
+
+- [x] 標準ホームの表示設定・カテゴリ別表示とSlidev公式テーマのサンプルを整備
+
+- [x] ホーム・カード・カテゴリ選択のVueコンポーネントと `useCatalog` を公開

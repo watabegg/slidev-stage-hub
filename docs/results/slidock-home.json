@@ -1,0 +1,103 @@
+{
+  "date": "2026-10-13",
+  "scope": "Configurable Slidock home and verbatim official Slidev theme examples",
+  "qualityGates": {
+    "pnpm check": "passed",
+    "unitTestsPassed": 353,
+    "unitTestsSkipped": 9,
+    "finalLintAndFormat": "passed",
+    "officialThemesBuild": "passed",
+    "officialThemesBrowserChecks": [
+      "Five official samples appear under their own theme categories with real thumbnails and Slidock branding",
+      "Default: category filter, matching theme, first/last slide deep links and return home",
+      "Seriph: category filter, matching theme, first/last slide deep links and return home",
+      "Shibainu: category filter, matching theme, first/last slide deep links and return home",
+      "Bricks: category filter, matching theme, first/last slide deep links and return home",
+      "Apple Basic: category filter, matching theme, first/last slide deep links and return home",
+      "Mobile and tablet layouts fit the viewport",
+      "Keyboard skip link reaches the slide list",
+      "Empty catalog renders an empty state",
+      "No uncaught browser exceptions"
+    ],
+    "customizationBrowserChecks": [
+      "Entries preserve catalog and deck metadata",
+      "Default list, category filter, thumbnail, slide and return navigation work",
+      "Default mobile layout has no horizontal overflow",
+      "Broken catalog produces the default localized error",
+      "Empty catalog renders empty state",
+      "Framework-free custom entry and replacement stylesheet render",
+      "Custom deck navigation label and destination work",
+      "Custom Vue dependencies outside the entry directory avoid Slidev context injection",
+      "Home title, description, logo visibility, links, footer, category labels and CSS overrides work",
+      "Custom source, safe text, deck link override, unmount and typed mount/client errors work",
+      "Abort prevents late source completion from mounting",
+      "Deck navigation can be disabled",
+      "No unhandled browser exceptions"
+    ],
+    "customLogoAndEscapedHomeContent": true,
+    "fixtureBuildAndBrowserRegression": "passed",
+    "thumbnailCssBackgroundDelayAndFailureTest": "passed",
+    "defaultHeroHidden": "passed: official home and default mount have no hero; explicit hero:true works",
+    "heroRemovalRegression": "pnpm check, official theme build/browser verification, customization browser verification passed"
+  },
+  "source": {
+    "repository": "https://github.com/slidevjs/themes",
+    "commit": "6bb2889af4c66c1fbab4c1beb2e8d962a3b55648",
+    "samples": [
+      {
+        "id": "Default/example",
+        "profile": "default",
+        "package": "@slidev/theme-default",
+        "version": "0.25.0",
+        "entry": "slides/Default/example.md",
+        "upstreamPath": "packages/theme-default/example.md",
+        "sha256": "37c090a28d4948d4b9e7c37794f65d1b02f9ae0ecb1069e440361280dbe6d23e"
+      },
+      {
+        "id": "Seriph/example",
+        "profile": "seriph",
+        "package": "@slidev/theme-seriph",
+        "version": "0.25.0",
+        "entry": "slides/Seriph/example.md",
+        "upstreamPath": "packages/theme-seriph/example.md",
+        "sha256": "6680e9da277095fea052d9ba1a378cea14bc2738c52db2811455a54dfc711c00"
+      },
+      {
+        "id": "Shibainu/example",
+        "profile": "shibainu",
+        "package": "@slidev/theme-shibainu",
+        "version": "0.25.0",
+        "entry": "slides/Shibainu/example.md",
+        "upstreamPath": "packages/theme-shibainu/example.md",
+        "sha256": "6ae1b0e38996d47c176aaaa083fbe36844b1c6e395833fdad766504c31c2adb6"
+      },
+      {
+        "id": "Bricks/example",
+        "profile": "bricks",
+        "package": "@slidev/theme-bricks",
+        "version": "0.25.0",
+        "entry": "slides/Bricks/example.md",
+        "upstreamPath": "packages/theme-bricks/example.md",
+        "sha256": "ebd37c067652db618694c2810d03ac13bf39c88a1c35ee2546010c125731f6e7"
+      },
+      {
+        "id": "Apple Basic/example",
+        "profile": "apple-basic",
+        "package": "@slidev/theme-apple-basic",
+        "version": "0.25.1",
+        "entry": "slides/Apple Basic/example.md",
+        "upstreamPath": "packages/theme-apple-basic/example.md",
+        "sha256": "7eb29c6d10f717da464c08c6cfdd0aeca00070eaf9718d26f04338ff411cb735"
+      }
+    ]
+  },
+  "limitations": [
+    "Official samples retain upstream external URLs. The legacy source.unsplash.com image endpoint returned HTTP 503; those images remain unavailable.",
+    "Native runtime and cloud deployment were not rerun; native fixture build and browser regression passed."
+  ],
+  "evidence": [
+    "artifacts/home-refresh/",
+    "artifacts/step6/gate.json"
+  ],
+  "preview": "http://127.0.0.1:4174"
+}

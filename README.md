@@ -56,7 +56,9 @@ pnpm slive:cli --help
 
 ## サンプル実行
 
-既定のテーマには `@slidev/theme-default` を使用します。追加テーマ `slidev-theme-watabegg`（バージョン 1.2.1）を使用したサンプルは、以下のコマンドでビルドおよび起動できます。起動後はブラウザで `http://localhost:4175` にアクセスしてください。
+`pnpm build:slidock` / `pnpm dev:slidock` では、Slidev公式の Default・Seriph・Shibainu・Bricks・Apple Basic のサンプルをテーマ別に表示します。ホームのVueコンポーネントは [examples/official-themes/App.vue](examples/official-themes/App.vue)、サンプルの出典とライセンスは [examples/official-themes/README.md](examples/official-themes/README.md) を参照してください。
+
+Node API の既定のテーマには `@slidev/theme-default` を使用します。追加テーマ `slidev-theme-watabegg`（バージョン 1.2.1）を使用したサンプルは、以下のコマンドでビルドおよび起動できます。起動後はブラウザで `http://localhost:4175` にアクセスしてください。
 
 ```bash
 pnpm build:example:watabegg

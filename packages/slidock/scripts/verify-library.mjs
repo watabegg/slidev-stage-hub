@@ -62,7 +62,7 @@ try {
   );
   await page.getByRole('button', { name: 'bbb', exact: true }).click();
   check('Category filter bbb', (await page.locator('.deck-card').count()) === 2);
-  await page.getByRole('button', { name: /すべての資料/ }).click();
+  await page.getByRole('button', { name: /すべて/ }).click();
   await page.locator('.deck-card').first().click();
   await page.locator('.slidev-page[data-slidev-no="1"]').waitFor({ state: 'visible' });
   await page.locator('.slide-library-home').waitFor({ state: 'visible' });
@@ -74,7 +74,7 @@ try {
   );
   check(
     'Home link has an accessible label',
-    (await page.getByRole('link', { name: '資料ライブラリのホームへ戻る' }).count()) === 1,
+    (await page.getByRole('link', { name: 'ホームへ戻る' }).count()) === 1,
   );
   await page.screenshot({ path: resolve(out, 'slide-home-link.png') });
   await page.locator('.slide-library-home').click();

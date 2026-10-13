@@ -1,0 +1,10 @@
+{
+  "extends": "../../packages/slidock/tsconfig.json",
+  "include": [
+    "VueHome.vue",
+    "vue.ts",
+    "../official-themes/App.vue",
+    "../official-themes/home.ts",
+    "../../packages/slidock/src/frontend/env.d.ts"
+  ]
+}

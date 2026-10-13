@@ -345,8 +345,7 @@ async function loadAndWatch(): Promise<void> {
 <template>
   <main class="hub-job-status" aria-labelledby="job-title">
     <header class="library-header">
-      <a class="brand" href="/">SLIDE LIBRARY<span>資料ライブラリ</span></a>
-      <span class="library-caption">考えを、スライドから。</span>
+      <a class="brand" href="/">Slidock</a>
     </header>
 
     <div v-if="invalidLink" class="job-main invalid-link">

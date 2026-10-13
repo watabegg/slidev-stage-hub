@@ -94,18 +94,19 @@ try {
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(defaultUrl);
   await page.locator('.deck-card').waitFor();
-  assert.equal(await page.locator('.deck-card h2').textContent(), 'Web customization fixture');
+  assert.equal(await page.locator('.home-hero').count(), 0);
+  assert.equal(await page.locator('.deck-card h3').textContent(), 'Web customization fixture');
   const styles = await page.evaluate(() => ({
     background: getComputedStyle(document.documentElement).backgroundColor,
     color: getComputedStyle(document.documentElement).color,
-    width: getComputedStyle(document.querySelector('.library')).maxWidth,
-    padding: getComputedStyle(document.querySelector('.library')).paddingLeft,
+    width: getComputedStyle(document.querySelector('.library-layout')).maxWidth,
+    padding: getComputedStyle(document.querySelector('.library-layout')).paddingLeft,
   }));
   assert.deepEqual(styles, {
-    background: 'rgb(248, 250, 252)',
-    color: 'rgb(29, 48, 68)',
-    width: '1480px',
-    padding: '56px',
+    background: 'rgb(255, 255, 255)',
+    color: 'rgb(36, 37, 38)',
+    width: '1200px',
+    padding: '24px',
   });
   await page.locator('.deck-card img').evaluate((img) => img.decode());
   await page.screenshot({ path: join(output, 'default-desktop.png'), fullPage: true });
@@ -113,7 +114,7 @@ try {
   assert.equal(await page.locator('.deck-card').count(), 1);
   await page.locator('.deck-card').click();
   await page.locator('.slidev-page[data-slidev-no="1"]').waitFor({ state: 'visible' });
-  await page.getByRole('link', { name: '資料ライブラリのホームへ戻る' }).click();
+  await page.getByRole('link', { name: 'ホームへ戻る' }).click();
   await page.locator('.deck-card').waitFor();
   check('Default list, category filter, thumbnail, slide and return navigation work');
   await page.setViewportSize({ width: 390, height: 844 });
@@ -163,7 +164,20 @@ try {
     await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor),
     'rgb(255, 248, 238)',
   );
-  check('Reusable mount accepts branding and CSS variable overrides');
+  assert.equal(await page.locator('h1').textContent(), 'MY SLIDES');
+  assert.equal(await page.locator('.home-hero p').textContent(), 'チーム内の発表資料');
+  assert.equal(await page.locator('.brand img').count(), 0);
+  assert.equal(
+    await page.locator('.navbar-links a').getAttribute('href'),
+    'https://github.com/example/slides',
+  );
+  assert.equal(await page.locator('.library-footer').textContent(), 'Example team');
+  await page.getByRole('button', { name: '登壇', exact: true }).click();
+  assert.equal(await page.locator('.deck-card').count(), 1);
+  assert.equal(await page.locator('.section-heading h2').textContent(), '登壇');
+  check(
+    'Home title, description, logo visibility, links, footer, category labels and CSS overrides work',
+  );
   await page.screenshot({ path: join(output, 'custom-theme.png') });
   await page.route('**/missing-catalog', (route) =>
     route.fulfill({ status: 404, body: 'Missing' }),
@@ -179,11 +193,29 @@ try {
     const mounted = await mountHub(root, {
       source: { load: async () => catalog },
       navigation: { deckHref: () => '/custom-deck' },
+      home: {
+        title: '<img src=x onerror=window.injected=true>',
+        hero: true,
+        description: '<script>window.injected=true</script>',
+        logo: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E',
+        links: [{ label: '<b>Guide</b>', href: '/guide' }],
+        footer: '<b>Footer</b>',
+      },
     });
     const safe =
-      root.querySelector('h2').textContent === catalog.decks[0].title &&
+      root.querySelector('.deck-info h3').textContent === catalog.decks[0].title &&
       !root.querySelector('.deck-info img, script') &&
       !window.injected;
+    const homeSafe =
+      root.querySelector('h1').textContent === '<img src=x onerror=window.injected=true>' &&
+      root.querySelector('.home-hero p').textContent === '<script>window.injected=true</script>' &&
+      root.querySelector('.navbar-links a').textContent === '<b>Guide</b>' &&
+      root.querySelector('.library-footer').textContent === '<b>Footer</b>' &&
+      !root.querySelector('.home-hero img, .home-hero script, .navbar-links b, .library-footer b');
+    const customLogo = root
+      .querySelector('.brand img')
+      .getAttribute('src')
+      .startsWith('data:image/svg+xml,');
     const href = root.querySelector('.deck-card').getAttribute('href');
     mounted.unmount();
     mounted.unmount();
@@ -221,9 +253,11 @@ try {
     await new Promise((accept) => setTimeout(accept, 30));
     const cancelled = root.childElementCount === 0;
     root.textContent = `Abort: ${codes.at(-1)}`;
-    return { safe, href, unmounted, codes, cancelled };
+    return { safe, homeSafe, customLogo, href, unmounted, codes, cancelled };
   }, fixture);
   assert.equal(mountResults.safe, true);
+  assert.equal(mountResults.homeSafe, true);
+  assert.equal(mountResults.customLogo, true);
   assert.equal(mountResults.href, '/custom-deck');
   assert.equal(mountResults.unmounted, true);
   assert.deepEqual(mountResults.codes, ['MOUNT', 'INVALID_CATALOG', 'HTTP', 'ABORTED']);

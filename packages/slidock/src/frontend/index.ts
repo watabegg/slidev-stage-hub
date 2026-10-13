@@ -4,6 +4,13 @@ import { CatalogClientError, getCatalog } from '@slidock/slidock/client';
 import type { CatalogDeck, CatalogSource } from '@slidock/slidock/client';
 import type { CatalogRequestOptions } from '@slidock/slidock/client';
 import Home from './Home.vue';
+import type { HubHomeOptions } from './home-options.js';
+export type { HubHomeOptions, HubHomeLink } from './home-options.js';
+
+export { default as SlidockHome } from './SlidockHome.vue';
+export { default as SlideCard } from './SlideCard.vue';
+export { default as CategoryNav } from './CategoryNav.vue';
+export { useCatalog } from './use-catalog.js';
 
 export { mountNavigation } from './navigation.js';
 export type { MountNavigationOptions } from './navigation.js';
@@ -18,6 +25,7 @@ export interface HubNavigationOptions {
 
 export interface MountHubOptions extends CatalogRequestOptions {
   source?: CatalogSource;
+  home?: HubHomeOptions;
   navigation?: HubNavigationOptions;
 }
 
@@ -68,6 +76,7 @@ export async function mountHub(
   try {
     app = createApp(Home, {
       catalog,
+      home: options.home,
       homeHref: options.navigation?.homeHref,
       homeLabel: options.navigation?.homeLabel,
       deckHref: options.navigation?.deckHref,

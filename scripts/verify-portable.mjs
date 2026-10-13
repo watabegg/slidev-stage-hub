@@ -14,6 +14,8 @@ const commands = [
   ['pnpm', ['build:slidock']],
   ['pnpm', ['verify:slidock']],
   ['pnpm', ['verify:web-customization']],
+  ['pnpm', ['build:slidock:fixtures']],
+  ['pnpm', ['verify:slidock:fixtures']],
   ['pnpm', ['slive:prepare']],
   ['pnpm', ['build:slive-ui']],
   ['node', ['apps/slive/scripts/verify-remote.mjs']],

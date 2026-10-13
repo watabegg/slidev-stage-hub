@@ -132,6 +132,41 @@ async function waitForRenderedSlide(page, id) {
     timeout: 30_000,
   });
 
+  // CSS backgrounds do not appear in document.images, but are part of the slide.
+  await page.evaluate(async (selector) => {
+    const slide = document.querySelector(selector);
+    const urls = new Set();
+    for (const element of [slide, ...slide.querySelectorAll('*')]) {
+      for (const pseudo of [null, '::before', '::after']) {
+        const background = getComputedStyle(element, pseudo).backgroundImage;
+        for (const match of background.matchAll(/url\((?:"([^"]*)"|'([^']*)'|([^)]*))\)/g)) {
+          urls.add(match[1] ?? match[2] ?? match[3]);
+        }
+      }
+    }
+    await Promise.all(
+      [...urls].map(
+        (url) =>
+          new Promise((accept, reject) => {
+            const image = new Image();
+            const timeout = setTimeout(
+              () => reject(new Error(`Background image timed out: ${url}`)),
+              30_000,
+            );
+            image.onload = () => {
+              clearTimeout(timeout);
+              image.decode().then(accept, reject);
+            };
+            image.onerror = () => {
+              clearTimeout(timeout);
+              reject(new Error(`Background image failed: ${url}`));
+            };
+            image.src = url;
+          }),
+      ),
+    );
+  }, SLIDE_SELECTOR);
+
   const state = await page.evaluate((selector) => {
     const slide = document.querySelector(selector);
     return {

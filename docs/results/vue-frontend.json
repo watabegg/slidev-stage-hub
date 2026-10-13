@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-13",
+  "scope": "Public Vue components and useCatalog composable; official home migrated to a Vue SFC",
+  "qualityGates": {
+    "pnpm check": "passed",
+    "tests": {
+      "pass": 353,
+      "fail": 0,
+      "skipped": 9
+    },
+    "consumerVueTypecheck": "passed as part of pnpm check",
+    "vueBrowser": {
+      "checks": [
+        "A consumer Vue SFC imports public components/composable, customizes a card slot and navigates to a slide and back",
+        "All home/card slots render real Vue content, events work, and category v-model synchronizes in both directions",
+        "Reactive catalog updates replace cards with the caller-provided empty slot",
+        "useCatalog exposes loading/error/reload, watches source refs, rejects stale results, and aborts requests on unmount"
+      ],
+      "lifecycle": {
+        "loading": true,
+        "latestWins": true,
+        "failed": true,
+        "recovered": true,
+        "retried": true,
+        "unmounted": true
+      },
+      "browserErrors": []
+    },
+    "legacyCustomizationBrowserChecks": 13,
+    "officialThemesBuild": "passed",
+    "officialThemesBrowserChecks": 10,
+    "defaultLogoWhenPropOmitted": "passed"
+  },
+  "preview": "http://127.0.0.1:4174",
+  "evidence": [
+    "artifacts/vue-api/",
+    "artifacts/home-refresh/browser/",
+    "artifacts/step6/gate.json"
+  ],
+  "limitations": [
+    "Official samples retain the upstream source.unsplash.com URL; its external image remains unavailable.",
+    "Native runtime and cloud deployment were not rerun for this Vue API change."
+  ]
+}

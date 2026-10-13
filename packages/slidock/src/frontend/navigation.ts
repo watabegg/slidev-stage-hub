@@ -25,7 +25,7 @@ export function mountNavigation(options: MountNavigationOptions = {}): () => voi
     link.className = 'slide-library-home';
     link.href = options.homeHref ?? '/';
     link.textContent = options.homeLabel ?? '← ホームへ戻る';
-    link.setAttribute('aria-label', options.homeLabel ?? '資料ライブラリのホームへ戻る');
+    link.setAttribute('aria-label', options.homeLabel ?? 'ホームへ戻る');
     document.body.append(link);
   }
 

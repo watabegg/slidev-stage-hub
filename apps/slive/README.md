@@ -35,7 +35,7 @@ python3 apps/slive/scripts/prepare-sdk.py
 ルートディレクトリから以下のコマンドを実行します。
 
 ```bash
-pnpm build:slidock
+pnpm build:slidock:fixtures
 pnpm slive:prepare
 pnpm slive
 ```

@@ -62,6 +62,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb dbus-x11
           pnpm exec playwright install --with-deps chromium
-      - run: pnpm build:slidock
+      - run: pnpm build:slidock:fixtures
       - name: Workers and static Slive native regression
         run: xvfb-run -a dbus-run-session -- sh -c 'pnpm verify:workers-slive && pnpm verify:slive'
