@@ -39,7 +39,8 @@
     },
     "./frontend": "./src/frontend/index.ts",
     "./frontend/style.css": "./src/frontend/style.css",
-    "./frontend/job-status.css": "./src/frontend/job-status.css"
+    "./frontend/job-status.css": "./src/frontend/job-status.css",
+    "./icon.svg": "./src/frontend/assets/slidock.svg"
   },
   "version": "0.1.0",
   "files": [

@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue';
 import type { Catalog, CatalogDeck, JsonValue } from '@slidock/slidock/client';
 
+const brandIcon = new URL('./assets/slidock.svg', import.meta.url).href;
+
 const props = defineProps<{
   catalog: Catalog;
   homeHref?: string;
@@ -25,8 +27,15 @@ const text = (value: JsonValue | undefined): string =>
 <template>
   <div class="library">
     <header class="library-header">
-      <a class="brand" :href="homeHref ?? '/'"
-        >{{ homeLabel ?? 'Slidock' }}<span>資料ライブラリ</span></a
+      <a class="brand" :href="homeHref ?? '/'">
+        <img
+          v-if="homeLabel === undefined || homeLabel === 'Slidock'"
+          :src="brandIcon"
+          width="48"
+          height="48"
+          alt=""
+        />
+        <div>{{ homeLabel ?? 'Slidock' }}<span>資料ライブラリ</span></div> </a
       ><span class="library-caption">考えを、スライドから。</span>
     </header>
     <div class="library-layout">

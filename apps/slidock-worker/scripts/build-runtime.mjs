@@ -204,6 +204,12 @@ html = html.replace(
 );
 html = html.replace(/<link\b[^>]*\bas="image"[^>]*>/gi, '');
 html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>Slidock</title>');
+const favicon = await readFile(fileURLToPath(import.meta.resolve('@slidock/slidock/icon.svg')));
+html = html.replace(/<link\b[^>]*\brel=["'](?:shortcut\s+)?icon["'][^>]*>/gi, '');
+html = html.replace(
+  '<head>',
+  `<head><link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,${favicon.toString('base64')}">`,
+);
 if (!html.includes('/@lab/entry')) throw new Error('Slidev HTML entry signature changed');
 const nativeBridge = await readFile(
   fileURLToPath(import.meta.resolve('@slidock/protocol/bridge')),

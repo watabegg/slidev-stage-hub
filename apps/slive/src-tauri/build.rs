@@ -4,6 +4,7 @@ fn main() {
         // Keep cargo build/run usable without a separate frontend command.
         for path in [
             "../src",
+            "icons",
             "../tsconfig.json",
             "../scripts/build-ui.mjs",
             "../../../package.json",

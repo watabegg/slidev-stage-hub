@@ -21,4 +21,4 @@
 - [x] 公開ジョブの完了を契機に、30日経過した履歴・再試行用入力を非同期で自動整理する（デッキごと24時間に1回、残作業・失敗は翌日へ継続。[検証記録](docs/results/publication-jobs-auto-retention.json)）
 
 - [x] Web を Slidock、Native を Slive と命名し、リポジトリ・ディレクトリ・CLI の名称を統一
-- [ ] Slidock / Slive のアイコンと favicon を決定
+- [x] Slidock / Slive のアイコンと favicon を決定・適用

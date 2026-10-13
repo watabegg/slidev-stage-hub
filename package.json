@@ -46,7 +46,8 @@
     "pack:server": "pnpm build:packages && node scripts/pack-server.mjs",
     "verify:packed-server": "pnpm build:packages && node scripts/verify-packed-server.mjs",
     "verify:runtime-upgrade": "pnpm build:packages && node apps/slidock-worker/scripts/verify-runtime-upgrade.mjs",
-    "verify:publication-jobs": "pnpm build:workers && node apps/slidock-worker/scripts/verify-publication-jobs.mjs"
+    "verify:publication-jobs": "pnpm build:workers && node apps/slidock-worker/scripts/verify-publication-jobs.mjs",
+    "build:icons": "node scripts/build-brand-icons.mjs"
   },
   "devDependencies": {
     "@slidev/cli": "53.0.0",

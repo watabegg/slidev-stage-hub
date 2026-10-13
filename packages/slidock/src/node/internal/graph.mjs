@@ -259,7 +259,13 @@ else {`
     },
   };
   await mkdir(outDir, { recursive: true });
-  const html = patchSlidevHtmlEntry(base.options.utils.indexHtml);
+  let html = patchSlidevHtmlEntry(base.options.utils.indexHtml);
+  const favicon = await readFile(fileURLToPath(import.meta.resolve('@slidock/slidock/icon.svg')));
+  html = html.replace(/<link\b[^>]*\brel=["'](?:shortcut\s+)?icon["'][^>]*>/gi, '');
+  html = html.replace(
+    '<head>',
+    `<head><link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,${favicon.toString('base64')}">`,
+  );
   const nativeBridge = await readFile(
     fileURLToPath(import.meta.resolve('@slidock/protocol/bridge')),
     'utf8',

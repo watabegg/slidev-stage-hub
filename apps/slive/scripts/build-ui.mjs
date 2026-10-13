@@ -41,7 +41,7 @@ export function buildNativeUi() {
       target: 'es2022',
     });
   }
-  for (const name of ['index.html', 'style.css'])
+  for (const name of ['index.html', 'style.css', 'slive.svg'])
     copyFileSync(resolve(stageRoot, 'src', name), resolve(stageRoot, 'dist', name));
   copyFileSync(
     fileURLToPath(import.meta.resolve('@slidock/protocol/bridge')),

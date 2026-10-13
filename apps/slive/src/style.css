@@ -440,3 +440,7 @@ body.audience #viewer {
     width: 140px;
   }
 }
+
+.app-brand-icon {
+  flex: 0 0 auto;
+}

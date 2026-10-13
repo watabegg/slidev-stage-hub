@@ -42,6 +42,9 @@ button:focus-visible {
   border-bottom: 1px solid #dce5ee;
 }
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 20px;
   letter-spacing: 0.12em;
   font-weight: 800;

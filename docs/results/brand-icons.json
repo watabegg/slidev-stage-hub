@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-13",
+  "scope": "Approved Slidock / Slive icons and capitalized display names",
+  "checks": {
+    "pnpm check": "passed",
+    "unitTestsPassed": 352,
+    "unitTestsSkipped": 9,
+    "webBuild": "passed",
+    "webBrowser": {
+      "title": "Slidock",
+      "headerImageLoaded": true,
+      "faviconMatchesSource": true,
+      "nestedRoute": "http://127.0.0.1:4174/aaa/aaa1/1",
+      "offlineFaviconMatchesSource": true
+    },
+    "webRegression": "passed",
+    "workerRuntimeBuild": "passed",
+    "workerFaviconMatchesSource": true,
+    "nativeDesktopBuild": "passed",
+    "nativeAssertionsPassed": 24,
+    "nativeSourcesRestored": true,
+    "approvedSvgGeometryUnchanged": true,
+    "packagedSlidockSvgPresent": true,
+    "icoAndIcnsDecoded": true,
+    "finalLintAndFormat": "passed"
+  },
+  "limitations": [
+    "Windows / macOS icons were generated and decoded; OS display was not tested."
+  ],
+  "evidence": "artifacts/brand/"
+}

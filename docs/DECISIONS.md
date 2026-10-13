@@ -150,4 +150,4 @@ Slive はサムネイルと公開 frontmatter を使う資料一覧から開く�
 
 Web・配信基盤を Slidock、Native アプリを Slive、リポジトリを `watabegg/slidock` とする。主要ディレクトリと npm の名前空間を `packages/slidock`、`apps/slive`、`packages/slive-tools`、`apps/slidock-worker`、`apps/slidock-server`、`@slidock/*` に統一し、CLI の正式名を `slidock` / `slive` に変更する。旧 `hub` / `stage` は互換エイリアスとして残す。
 
-既存データの移行を伴わせないため、`HUB_*` 環境変数、HTTP パス・ヘッダー・JSON 契約、`mountHub` などの公開 API 識別子、既存設定ファイル名、`.slidev-stage` と受付票の保存先、Tauri identifier `local.slidev.lab`、クラウドリソース名は維持する。過去の検証記録内の名称とパスは当時の証跡として保存する。アイコンと favicon は別途選定する。
+既存データの移行を伴わせないため、`HUB_*` 環境変数、HTTP パス・ヘッダー・JSON 契約、`mountHub` などの公開 API 識別子、既存設定ファイル名、`.slidev-stage` と受付票の保存先、Tauri identifier `local.slidev.lab`、クラウドリソース名は維持する。過去の検証記録内の名称とパスは当時の証跡として保存する。アイコンは Slidev の配色・角丸・影を引き継ぎ、Slidock は Mosaic、Slive は Signal を採用した。表示名は大文字開始の Slidock / Slive に統一し、CLI・パッケージ名は小文字を維持する。SVG を原本とし、Slive の OS 用アイコンは `pnpm build:icons` で生成する。意匠の参照元は [Slidev の公式ロゴ](https://github.com/slidevjs/slidev/blob/main/assets/logo.svg)。

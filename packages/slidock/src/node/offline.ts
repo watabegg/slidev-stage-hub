@@ -1,5 +1,6 @@
 import { vendorFonts } from './internal/vendor-fonts.mjs';
 import { fingerprintOfflineSite } from './internal/fingerprint-offline.mjs';
+import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { mkdir, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -25,9 +26,6 @@ interface OfflineManifest extends Record<string, unknown> {
 }
 
 const DEFAULT_FAVICON = 'https://cdn.jsdelivr.net/gh/slidevjs/slidev/assets/favicon.png';
-const LOCAL_FAVICON =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#2089eb"/><path d="M46 18H23v14h18v14H18" fill="none" stroke="white" stroke-width="7"/></svg>\n';
-
 function isInside(root: string, path: string): boolean {
   const rel = relative(root, path);
   return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel));
@@ -80,7 +78,10 @@ export async function prepareOfflineSite(
       changedFaviconFiles++;
     }
   }
-  await writeFile(join(siteRoot, 'favicon.svg'), LOCAL_FAVICON);
+  await writeFile(
+    join(siteRoot, 'favicon.svg'),
+    await readFile(fileURLToPath(import.meta.resolve('@slidock/slidock/icon.svg'))),
+  );
 
   const manifestPath = join(siteRoot, 'manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as OfflineManifest;
